@@ -1,0 +1,5 @@
+Feb 16, 2017:
+    Added bool MJL_isCol() in src/mem/cache/blk.hh
+    Added bool MJL_isRow() in src/mem/cache/blk.hh
+    Added MJL_CacheBlkDir MJL_blkDir in src/mem/cache/blk.hh
+    Added enum MJL_CacheBlkDir in src/mem/cache/blk.hh

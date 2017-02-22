@@ -1,0 +1,13 @@
+[paths]
+default = http://repo.gem5.org/gem5
+
+# The following lines were automatically added by gem5/SConstruct
+# to provide the gem5 style-checking hooks
+[extensions]
+hgstyle = /home/mdl/mjl5868/GEM5/Mem2D/New_Version/Original/gem5/util/hgstyle.py
+
+[hooks]
+pretxncommit.style = python:hgstyle.check_style
+pre-qrefresh.style = python:hgstyle.check_style
+# End of SConstruct additions
+
