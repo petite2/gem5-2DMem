@@ -1,3 +1,5 @@
+Feb 23, 2017:
+    Added MJL_BlkInv as an option in enum MJL_CacheBlkDir in src/mem/cache/blk.hh (Not used but may be useful later.)
 Feb 16, 2017:
     Added bool MJL_isCol() in src/mem/cache/blk.hh
     Added bool MJL_isRow() in src/mem/cache/blk.hh
