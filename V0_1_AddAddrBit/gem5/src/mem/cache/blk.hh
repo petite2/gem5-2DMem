@@ -77,6 +77,8 @@ enum CacheBlkStatusBits : unsigned {
  * Cache block direction assignments
  */
 enum MJL_CacheBlkDir : unsigned {
+    /** Invalid */
+    MJL_BlkInv =    0,
     /** Row, default */
     MJL_BlkRow =    1,
     /** Column */
