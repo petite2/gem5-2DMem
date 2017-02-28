@@ -1,0 +1,2 @@
+There are micromediaops in x86 arch
+Have seen simd things in one of the files that I don't remember 

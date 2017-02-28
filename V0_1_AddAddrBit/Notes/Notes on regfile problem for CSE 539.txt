@@ -1,0 +1,6 @@
+In cpu/o3/regfile.hh:
+	void setIntReg(PhysRegIndex reg_idx, uint64_t val)
+	void setFloatReg(PhysRegIndex reg_idx, FloatReg val)
+	void setFloatRegBits(PhysRegIndex reg_idx, FloatRegBits val)
+	void setCCReg(PhysRegIndex reg_idx, CCReg val)
+Seems to be the relevant functions
