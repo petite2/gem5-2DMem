@@ -1,2 +1,6 @@
 There are micromediaops in x86 arch
 Have seen simd things in one of the files that I don't remember 
+
+To run in SE mode, example:
+	$ ./build/ALPHA/gem5.opt ./configs/example/se.py -c ./tests/test-progs/hello/bin/alpha/linux/hello 
+The binary should be statically linked

@@ -15,4 +15,3 @@ int main() {
     std::cout << MJL_blkDir;
     return 0;
 }
-blablablabla
