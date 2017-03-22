@@ -1,3 +1,10 @@
+Mar 21, 2017:
+    TODO: responseCommand() is referenced in src/cpu/simple/timing.cc, similar to createWrite and createRead
+    TODO: createWrite has similar status than createRead, it is referenced in src/cpu/minor/lsq.cc, src/cpu/o3/lsq_unit_impl.hh, src/cpu/simple/timing.cc, src/cpu/trace/trace_cpu.cc. It is also referenced in src/mem/rubby/slicc_interface/AbstractController.cc, shouldn't be relevant.
+    TODO: createRead is referenced in src/cpu/checker/cpu.cc, src/cpu/minor/lsq.cc, src/cpu/o3/lsq_unit.hh (this one should be relevant), src/cpu/simple/timing.cc, src/cpu/trace/trace_cpu.cc, but these are all in cpu, so if the information can propagate through, a hack in cache should be possible. It is also referenced in src/mem/rubby/slicc_interface/AbstractController.cc, shouldn't be relevant.
+    TODO: makeReadCmd is referenced in src/cpu/simple/atomic.cc, changes may be needed, but since we shouldn't be using simple anyweay, probably ok?
+    Added test file for changes in packet.hh, not enough test cases yet
+    Added changes to packet.hh
 Feb 23, 2017:
     Added MJL_BlkInv as an option in enum MJL_CacheBlkDir in src/mem/cache/blk.hh (Not used but may be useful later.)
 Feb 16, 2017:

@@ -279,11 +279,12 @@ class CacheBlk
     {
         return MJL_blkDir == MJL_BlkRow;
     }
+    
     /**
      * Check if this block holds data in column direction
      * @return Truc if the block holds data in column direction
      */
-    bool MJL_isCol() const
+    bool MJL_isColumn() const
     {
         return MJL_blkDir == MJL_BlkCol;
     }

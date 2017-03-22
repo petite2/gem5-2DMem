@@ -129,6 +129,20 @@ class MemCmd
         NUM_MEM_CMDS
     };
 
+    /* MJL_Begin */
+    /**
+     * List of command direction attributes.
+     */
+    enum MJL_DirAttribute
+    {
+        // MJL_TODO: Check whether adding this would break things
+        MJL_IsInvalid,  //!< Data access direction is invalid
+        MJL_IsRow,      //!< Data access direction is row
+        MJL_IsColumn,   //!< Data access direction is column
+        MJL_NUM_COMMAND_DIRATTRIBUTES
+    };
+    /* MJL_End */
+
   private:
     /**
      * List of command attributes.
@@ -176,6 +190,9 @@ class MemCmd
   private:
 
     Command cmd;
+    /* MJL_Begin */
+    MJL_DirAttribute MJL_cmdDir;
+    /* MJL_End */
 
     bool
     testCmdAttrib(MemCmd::Attribute attrib) const
@@ -195,6 +212,10 @@ class MemCmd
     bool isInvalidate() const      { return testCmdAttrib(IsInvalidate); }
     bool isEviction() const        { return testCmdAttrib(IsEviction); }
     bool fromCache() const         { return testCmdAttrib(FromCache); }
+    /* MJL_Begin */
+    bool MJL_isRow() const         { return (MJL_cmdDir == MJL_IsRow); }
+    bool MJL_isColumn() const      { return (MJL_cmdDir == MJL_IsColumn); }
+    /* MJL_End */
 
     /**
      * A writeback is an eviction that carries data.
@@ -227,12 +248,31 @@ class MemCmd
     const std::string &toString() const { return commandInfo[cmd].str; }
     int toInt() const { return (int)cmd; }
 
-    MemCmd(Command _cmd) : cmd(_cmd) { }
-    MemCmd(int _cmd) : cmd((Command)_cmd) { }
-    MemCmd() : cmd(InvalidCmd) { }
+    /* MJL_Begin */
+    /**
+     * Set the command's data access direction
+     */
+    void MJL_setCmdDir(MJL_DirAttribute in_MJL_cmdDir) { MJL_cmdDir = in_MJL_cmdDir; }
 
-    bool operator==(MemCmd c2) const { return (cmd == c2.cmd); }
-    bool operator!=(MemCmd c2) const { return (cmd != c2.cmd); }
+    /** 
+     * Overload the operator=(Command _cmd) and (int _cmd) so that
+     * the MemCmd(Command _cmd) and MemCmd(int _cmd) methods doesn't 
+     * get called when cmd = MemCmd::xxx is used and resets the
+     * MJL_cmdDir to default.
+     */
+    // MJL_TODO: Check whether this breaks other things
+    MemCmd operator=(Command _cmd) { this->cmd = _cmd; return *this; }
+    MemCmd operator=(int _cmd) { this->cmd = (Command)_cmd; return *this; }
+    /* MJL_End */
+    MemCmd(Command _cmd) : cmd(_cmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }
+    MemCmd(int _cmd) : cmd((Command)_cmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }
+    MemCmd() : cmd(InvalidCmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }
+
+    /* MJL_Comment
+        MJL_TODO: Check if changing the operators breaks anything
+    */
+    bool operator==(MemCmd c2) const { return (cmd == c2.cmd)/* MJL_Begin */ && (MJL_cmdDir == c2.MJL_cmdDir)/* MJL_End */; }
+    bool operator!=(MemCmd c2) const { return (cmd != c2.cmd)/* MJL_Begin */ || (MJL_cmdDir != c2.MJL_cmdDir)/* MJL_End */; }
 };
 
 /**
@@ -499,6 +539,8 @@ class Packet : public Printable
     /// Return the index of this command.
     inline int cmdToIndex() const { return cmd.toInt(); }
 
+    bool MJL_cmdIsRow() const           { return cmd.MJL_isRow(); }
+    bool MJL_cmdIsColumn() const        { return cmd.MJL_isColumn(); }
     bool isRead() const              { return cmd.isRead(); }
     bool isWrite() const             { return cmd.isWrite(); }
     bool isUpgrade()  const          { return cmd.isUpgrade(); }
@@ -521,6 +563,11 @@ class Packet : public Printable
     bool hasData() const             { return cmd.hasData(); }
     bool hasRespData() const
     {
+        /* MJL_Comment
+            Although it uses the MemCmd(Command _cmd) constructor, this
+            should not affect the correctness of the program since resp_cmd
+            is a local variable, and hasData() doesn't use MJL_cmdDir.
+        */
         MemCmd resp_cmd = cmd.responseCommand();
         return resp_cmd.hasData();
     }
@@ -631,6 +678,7 @@ class Packet : public Printable
     setBadAddress()
     {
         assert(isResponse());
+        /* MJL_TODO: not sure whether this line would execute normally... */
         cmd = MemCmd::BadAddressError;
     }
 
@@ -650,12 +698,38 @@ class Packet : public Printable
 
     Addr getOffset(unsigned int blk_size) const
     {
-        return getAddr() & Addr(blk_size - 1);
+        /* MJL_Begin */
+        /* Deals with different access directions respectively
+        */
+        if ( MJL_cmdIsRow() ) {
+            return getAddr() & Addr(blk_size - 1);
+        } else if ( MJL_cmdIsColumn() ) {
+            // MJL_TODO: Placeholder for column offset calculation
+            return getAddr() & Addr(blk_size - 1);
+        } else {
+            return getAddr() & Addr(blk_size - 1);
+        }
+        /* MJL_End */
+        /* MJL_Comment
+        return getAddr() & Addr(blk_size - 1);*/
     }
 
     Addr getBlockAddr(unsigned int blk_size) const
     {
-        return getAddr() & ~(Addr(blk_size - 1));
+        /* MJL_Begin */
+        /* Deals with different access directions respectively
+        */
+        if ( MJL_cmdIsRow() ) {
+            return getAddr() & ~(Addr(blk_size - 1));
+        } else if ( MJL_cmdIsColumn() ) {
+            // MJL_TODO: Placeholder for column offset calculation
+            return getAddr() & ~(Addr(blk_size - 1));
+        } else {
+            return getAddr() & ~(Addr(blk_size - 1));
+        }
+        /* MJL_End */
+        /* MJL_Comment
+        return getAddr() & ~(Addr(blk_size - 1));*/
     }
 
     bool isSecure() const
@@ -679,6 +753,7 @@ class Packet : public Printable
     {
         assert(isLLSC());
         assert(isWrite());
+        /* MJL_TODO: not sure whether this line would execute normally... */
         cmd = MemCmd::WriteReq;
     }
 
@@ -691,6 +766,7 @@ class Packet : public Printable
     {
         assert(isLLSC());
         assert(isRead());
+        /* MJL_TODO: not sure whether this line would execute normally... */
         cmd = MemCmd::ReadReq;
     }
 
@@ -726,7 +802,20 @@ class Packet : public Printable
            senderState(NULL)
     {
         if (req->hasPaddr()) {
-            addr = req->getPaddr() & ~(_blkSize - 1);
+            /* MJL_Begin */
+            /* Deals with different access directions respectively
+            */
+            if ( MJL_cmdIsRow() ) {
+                addr = req->getPaddr() & ~(_blkSize - 1);
+            } else if ( MJL_cmdIsColumn() ) {
+                // MJL_TODO: Placeholder for column offset calculation
+                addr = req->getPaddr() & ~(_blkSize - 1);
+            } else {
+                addr = req->getPaddr() & ~(_blkSize - 1);
+            }
+            /* MJL_End */
+            /* MJL_Comment
+            addr = req->getPaddr() & ~(_blkSize - 1);*/
             flags.set(VALID_ADDR);
             _isSecure = req->isSecure();
         }
@@ -779,6 +868,7 @@ class Packet : public Printable
     static MemCmd
     makeReadCmd(const RequestPtr req)
     {
+        /* MJL_TODO: not sure whether these lines would execute normally... */
         if (req->isLLSC())
             return MemCmd::LoadLockedReq;
         else if (req->isPrefetch())
@@ -793,6 +883,7 @@ class Packet : public Printable
     static MemCmd
     makeWriteCmd(const RequestPtr req)
     {
+        /* MJL_TODO: not sure whether these lines would execute normally... */
         if (req->isLLSC())
             return MemCmd::StoreCondReq;
         else if (req->isSwap())
@@ -868,6 +959,7 @@ class Packet : public Printable
     void
     setFunctionalResponseStatus(bool success)
     {
+        /* MJL_TODO: not sure whether this line would execute normally... */
         if (!success) {
             if (isWrite()) {
                 cmd = MemCmd::FunctionalWriteError;
@@ -1129,6 +1221,7 @@ class Packet : public Printable
     bool
     mustCheckAbove() const
     {
+        /* MJL_TODO: not sure whether this line would execute normally... */
         return cmd == MemCmd::HardPFReq || isEviction();
     }
 
@@ -1139,6 +1232,7 @@ class Packet : public Printable
     bool
     isCleanEviction() const
     {
+        /* MJL_TODO: not sure whether this line would execute normally... */
         return cmd == MemCmd::CleanEvict || cmd == MemCmd::WritebackClean;
     }
 
