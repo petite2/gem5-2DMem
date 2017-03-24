@@ -1,0 +1,4 @@
+Warning: no access to tty (Bad file descriptor).
+Thus no job control in this shell.
+/home/mdl/mjl5868/local/lib:/home/mdl/mjl5868/nfs_local/lib
+/home/software/gcc/gcc-4.8.3/lib:/home/software/gcc/gcc-4.8.3/lib64:/home/mdl/mjl5868/local/lib:/home/mdl/mjl5868/nfs_local/lib

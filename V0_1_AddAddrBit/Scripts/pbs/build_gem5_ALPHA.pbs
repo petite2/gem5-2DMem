@@ -8,9 +8,10 @@
 #
 
 PROG=/home/mdl/mjl5868/bin/scons
-ARGS="-j 16 build/X86/gem5.fast"
+ARGS="-j 16 build/ALPHA/gem5.fast"
 #
 cd $PBS_O_WORKDIR
+cd /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5
 # run the program
 #
 $PROG $ARGS

@@ -1,0 +1,16 @@
+warn: Physical memory size specified is 4GB which is greater than 3GB.  Twice the number of memory controllers would be created.
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/src/python/m5/main.py", line 400, in main
+    exec filecode in scope
+  File "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/fs.py", line 341, in <module>
+    test_sys = build_test_system(np)
+  File "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/fs.py", line 96, in build_test_system
+    options.ruby, cmdline=cmdline)
+  File "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/common/FSConfig.py", line 664, in makeLinuxX86System
+    self.kernel = binary('x86_64-vmlinux-2.6.22.9')
+  File "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/common/SysPaths.py", line 49, in binary
+    return searchpath(binary.path, filename)
+  File "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/common/SysPaths.py", line 41, in searchpath
+    raise IOError, "Can't find file '%s' on path." % filename
+IOError: Can't find file 'x86_64-vmlinux-2.6.22.9' on path.

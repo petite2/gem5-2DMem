@@ -1,0 +1,22 @@
+#!/bin/sh
+#PBS -l nodes=1:ppn=1
+#PBS -l walltime=48:00:00
+#PBS -q titan@shai
+#PBS -N cpt_4c_ast
+#PBS -m ae
+#PBS -M mjl5868@cse.psu.edu
+#
+
+PROG=/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/ALPHA/gem5.fast
+ARGS="--redirect-stdout --stdout-file=/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/scratch/astar/cpt.log --redirect-stderr --stderr-file=/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/scratch/astar/cpt.log2 -d /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/m5out/astar --stats-file=cpt_stats.txt --dump-config=cpt_config.ini --json-config=cpt_config.json /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/fs.py --disk-image=/home/mdl/mjl5868/GEM5/TestDiskv2/disks/linux-alpha-parsec-spec2006.img --script=/home/mdl/mjl5868/Benchmark_rcS/4c_astar.rcS --num-cpus=4 --mem-size=4GB -I 500000000"
+#
+cd $PBS_O_WORKDIR
+# run the program
+#
+echo $LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/home/software/gcc/gcc-4.8.3/lib:/home/software/gcc/gcc-4.8.3/lib64:${LD_LIBRARY_PATH}
+echo $LD_LIBRARY_PATH
+$PROG $ARGS
+
+exit 0
+

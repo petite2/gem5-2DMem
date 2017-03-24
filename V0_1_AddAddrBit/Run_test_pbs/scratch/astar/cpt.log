@@ -1,0 +1,8 @@
+gem5 Simulator System.  http://gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 compiled Mar 22 2017 00:05:17
+gem5 started Mar 22 2017 01:05:53
+gem5 executing on shai.cse.psu.edu, pid 39538
+command line: /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast --redirect-stdout --stdout-file=/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/scratch/astar/cpt.log --redirect-stderr --stderr-file=/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/scratch/astar/cpt.log2 -d /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/m5out/astar --stats-file=cpt_stats.txt --dump-config=cpt_config.ini --json-config=cpt_config.json /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/fs.py --disk-image=/home/mdl/mjl5868/GEM5/TestDiskv2/disks/linux-alpha-parsec-spec2006.img --script=/home/mdl/mjl5868/Benchmark_rcS/4c_astar.rcS --num-cpus=4 --mem-size=4GB -I 500000000
+

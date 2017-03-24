@@ -1,0 +1,14 @@
+stty: standard input: Invalid argument
+stdin: is not a tty
+MI_example-cache.sm:178: Warning: Non-void return ignored, return type is 'bool'
+MI_example-cache.sm:180: Warning: Non-void return ignored, return type is 'bool'
+MI_example-cache.sm:335: Warning: Non-void return ignored, return type is 'Tick'
+MI_example-cache.sm:349: Warning: Non-void return ignored, return type is 'Scalar'
+MI_example-cache.sm:353: Warning: Non-void return ignored, return type is 'Scalar'
+MI_example-dir.sm:183: Warning: Non-void return ignored, return type is 'bool'
+MI_example-dir.sm:398: Warning: Non-void return ignored, return type is 'Tick'
+MI_example-dir.sm:402: Warning: Non-void return ignored, return type is 'Tick'
+MI_example-dir.sm:482: Warning: Non-void return ignored, return type is 'Tick'
+MI_example-dir.sm:277: Warning: Unused action: a_sendWriteBackAck, Send writeback ack to requestor
+MI_example-dma.sm:188: Warning: Non-void return ignored, return type is 'Tick'
+MI_example-dma.sm:192: Warning: Non-void return ignored, return type is 'Tick'
