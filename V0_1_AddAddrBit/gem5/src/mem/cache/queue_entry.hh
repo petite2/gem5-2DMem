@@ -75,6 +75,7 @@ class QueueEntry : public Packet::SenderState
     bool _isUncacheable;
 
   public:
+    typedef MemCmd::MJL_DirAttribute MJL_QEntryDir;
 
     /** True if the entry has been sent downstream. */
     bool inService;
@@ -85,6 +86,10 @@ class QueueEntry : public Packet::SenderState
     /** Block aligned address. */
     Addr blkAddr;
 
+    /* MJL_Begin */
+    MJL_QEntryDir MJL_qEntryDir;
+    /* MJL_End */ 
+
     /** Block size of the cache. */
     unsigned blkSize;
 
@@ -92,7 +97,10 @@ class QueueEntry : public Packet::SenderState
     bool isSecure;
 
     QueueEntry() : readyTime(0), _isUncacheable(false),
-                   inService(false), order(0), blkAddr(0), blkSize(0),
+                   inService(false), order(0), blkAddr(0), 
+                   /* MJL_Begin */
+                   MJL_qEntryDir(MJL_QEntryDir::MJL_IsRow), 
+                   /* MJL_End */blkSize(0),
                    isSecure(false)
     {}
 

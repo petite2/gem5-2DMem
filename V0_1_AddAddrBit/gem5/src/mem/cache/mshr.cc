@@ -207,6 +207,19 @@ MSHR::TargetList::checkFunctional(PacketPtr pkt)
 
     return false;
 }
+/* MJL_Begin */
+bool
+MSHR::TargetList::MJL_checkFunctional(PacketPtr pkt)
+{
+    for (auto& t : *this) {
+        if (pkt->MJL_checkFunctional(t.pkt)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+/* MJL_End */
 
 
 void
@@ -553,6 +566,22 @@ MSHR::checkFunctional(PacketPtr pkt)
                 deferredTargets.checkFunctional(pkt));
     }
 }
+/* MJL_Begin */
+bool
+MSHR::MJL_checkFunctional(PacketPtr pkt)
+{
+    // For printing, we treat the MSHR as a whole as single entity.
+    // For other requests, we iterate over the individual targets
+    // since that's where the actual data lies.
+    if (pkt->isPrint()) {
+        pkt->MJL_checkFunctional(this, blkAddr, MJL_qEntryDir, isSecure, blkSize, nullptr);
+        return false;
+    } else {
+        return (targets.MJL_checkFunctional(pkt) ||
+                deferredTargets.MJL_checkFunctional(pkt));
+    }
+}
+/* MJL_End */
 
 bool
 MSHR::sendPacket(Cache &cache)

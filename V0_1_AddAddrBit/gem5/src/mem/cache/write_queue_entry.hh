@@ -92,6 +92,9 @@ class WriteQueueEntry : public QueueEntry, public Printable
         TargetList() {}
         void add(PacketPtr pkt, Tick readyTime, Counter order);
         bool checkFunctional(PacketPtr pkt);
+        /* MJL_Begin */
+        bool MJL_checkFunctional(PacketPtr pkt);
+        /* MJL_End */
         void print(std::ostream &os, int verbosity,
                    const std::string &prefix) const;
     };
@@ -174,6 +177,9 @@ class WriteQueueEntry : public QueueEntry, public Printable
     }
 
     bool checkFunctional(PacketPtr pkt);
+    /* MJL_Begin */
+    bool MJL_checkFunctional(PacketPtr pkt);
+    /* MJL_End */
 
     /**
      * Prints the contents of this MSHR for debugging.

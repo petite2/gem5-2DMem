@@ -486,13 +486,28 @@ class BaseCache : public MemObject
 
 
     Addr blockAlign(Addr addr) const { return (addr & ~(Addr(blkSize - 1))); }
-
+    /* MJL_Begin */
+    Addr MJL_blockAlign(Addr addr, MemCmd::MJL_DirAttribute MJL_dir) const {
+        if (MJL_dir == MemCmd::MJL_IsRow) {
+            return (addr & ~(Addr(blkSize - 1)));
+        } else if (MJL_dir == MemCmd::MJL_IsColumn) { // Placeholder
+            return (addr & ~(Addr(blkSize - 1)));
+        } else {
+            return (addr & ~(Addr(blkSize - 1)));
+        }
+    }
+    /* MJL_End */
 
     const AddrRangeList &getAddrRanges() const { return addrRanges; }
 
     MSHR *allocateMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
     {
+        /* MJL_Comment
         MSHR *mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
+        */
+        /* MJL_Begin */
+        MSHR *mshr = mshrQueue.allocate(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), blkSize,
+        /* MJL_End */
                                         pkt, time, order++,
                                         allocOnFill(pkt->cmd));
 
@@ -513,8 +528,14 @@ class BaseCache : public MemObject
         // should only see writes or clean evicts here
         assert(pkt->isWrite() || pkt->cmd == MemCmd::CleanEvict);
 
+        /* MJL_Comment
         Addr blk_addr = blockAlign(pkt->getAddr());
+        */
+        /* MJL_Begin */
+        Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+        /* MJL_End */
 
+        /* MJL_TODO: Change writeBuffer.findMatch to have a parameter for direction */
         WriteQueueEntry *wq_entry =
             writeBuffer.findMatch(blk_addr, pkt->isSecure());
         if (wq_entry && !wq_entry->inService) {

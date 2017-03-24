@@ -253,6 +253,7 @@ class MemCmd
      * Set the command's data access direction
      */
     void MJL_setCmdDir(MJL_DirAttribute in_MJL_cmdDir) { MJL_cmdDir = in_MJL_cmdDir; }
+    MJL_DirAttribute MJL_getCmdDir() { return MJL_cmdDir; }
 
     /** 
      * Overload the operator=(Command _cmd) and (int _cmd) so that
@@ -539,8 +540,11 @@ class Packet : public Printable
     /// Return the index of this command.
     inline int cmdToIndex() const { return cmd.toInt(); }
 
+    /* MJL_Begin */
+    MemCmd::MJL_DirAttribute MJL_getCmdDir() { return cmd.MJL_getCmdDir(); }
     bool MJL_cmdIsRow() const           { return cmd.MJL_isRow(); }
     bool MJL_cmdIsColumn() const        { return cmd.MJL_isColumn(); }
+    /* MJL_End */
     bool isRead() const              { return cmd.isRead(); }
     bool isWrite() const             { return cmd.isWrite(); }
     bool isUpgrade()  const          { return cmd.isUpgrade(); }
@@ -1214,6 +1218,19 @@ class Packet : public Printable
                                other->getPtr<uint8_t>() : NULL);
     }
 
+    /* MJL_Begin */
+    bool
+    MJL_checkFunctional(PacketPtr other)
+    {
+        // all packets that are carrying a payload should have a valid
+        // data pointer
+        return MJL_checkFunctional(other, other->getAddr(), other->MJL_getCmdDir(), other->isSecure(),
+                               other->getSize(),
+                               other->hasData() ?
+                               other->getPtr<uint8_t>() : NULL);
+    }
+    /* MJL_End */
+
     /**
      * Does the request need to check for cached copies of the same block
      * in the memory hierarchy above.
@@ -1246,6 +1263,12 @@ class Packet : public Printable
     bool
     checkFunctional(Printable *obj, Addr base, bool is_secure, int size,
                     uint8_t *_data);
+
+    /* MJL_Begin */
+    bool
+    MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure, int size,
+                        uint8_t *_data);
+    /* MJL_End */
 
     /**
      * Push label for PrintReq (safe to call unconditionally).

@@ -74,16 +74,23 @@ enum CacheBlkStatusBits : unsigned {
 
 /* MJL_Begin */
 /**
- * Cache block direction assignments
+ * Cache block direction assignments. 
  */
-enum MJL_CacheBlkDir : unsigned {
-    /** Invalid */
-    MJL_BlkInv =    0,
-    /** Row, default */
-    MJL_BlkRow =    1,
-    /** Column */
-    MJL_BlkCol =    2,
-};
+typedef MemCmd::MJL_DirAttribute MJL_CacheBlkDir;
+/*
+    Invalid:    MJL_CacheBlkDir::MJL_IsInvalid
+    Row:        MJL_CacheBlkDir::MJL_IsRow
+    Column:     MJL_CacheBlkDir::MJL_IsColumn
+*/
+// enum MJL_CacheBlkDir : unsigned {
+//     /* MJL_TODO: Check if it works to set them to MemCmd */
+//     /** Invalid */
+//     MJL_BlkInv =    MemCmd::MJL_IsInvalid,
+//     /** Row, default */
+//     MJL_BlkRow =    MemCmd::MJL_IsRow,
+//     /** Column */
+//     MJL_BlkCol =    MemCmd::MJL_IsColumn,
+// };
 /* MJL_End */
 
 /**
@@ -190,7 +197,7 @@ class CacheBlk
         : task_id(ContextSwitchTaskId::Unknown),
           asid(-1), tag(0), data(0) ,size(0), status(0),
           /* MJL_Begin */ 
-          MJL_blkDir(MJL_BlkRow),
+          MJL_blkDir(MJL_CacheBlkDir::MJL_IsRow),
           /* MJL_End */
            whenReady(0),
           set(-1), way(-1), isTouched(false), refCount(0),
@@ -277,7 +284,7 @@ class CacheBlk
      */
     bool MJL_isRow() const
     {
-        return MJL_blkDir == MJL_BlkRow;
+        return MJL_blkDir == MJL_CacheBlkDir::MJL_IsRow;
     }
     
     /**
@@ -286,7 +293,7 @@ class CacheBlk
      */
     bool MJL_isColumn() const
     {
-        return MJL_blkDir == MJL_BlkCol;
+        return MJL_blkDir == MJL_CacheBlkDir::MJL_IsColumn;
     }
     /* MJL_End */
 

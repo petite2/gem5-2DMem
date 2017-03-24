@@ -170,6 +170,25 @@ class Queue : public Drainable
         return nullptr;
     }
 
+    /* MJL_Begin */
+    Entry* MJL_findMatch(Addr blk_addr, QueueEntry::MJL_QEntryDir MJL_queue_entry_dir, bool is_secure) const
+    {
+        for (const auto& entry : allocatedList) {
+            // we ignore any entries allocated for uncacheable
+            // accesses and simply ignore them when matching, in the
+            // cache we never check for matches when adding new
+            // uncacheable entries, and we do not want normal
+            // cacheable accesses being added to an WriteQueueEntry
+            // serving an uncacheable access
+            if (!entry->isUncacheable() && entry->blkAddr == blk_addr &&
+                entry->isSecure == is_secure && entry->MJL_qEntryDir == MJL_queue_entry_dir) {
+                return entry;
+            }
+        }
+        return nullptr;
+    }
+    /* MJL_End */
+
     bool checkFunctional(PacketPtr pkt, Addr blk_addr)
     {
         pkt->pushLabel(label);
@@ -182,6 +201,21 @@ class Queue : public Drainable
         pkt->popLabel();
         return false;
     }
+
+    /* MJL_Begin */
+    bool MJL_checkFunctional(PacketPtr pkt, Addr blk_addr)
+    {
+        pkt->pushLabel(label);
+        for (const auto& entry : allocatedList) {
+            if (entry->blkAddr == blk_addr && entry->MJL_checkFunctional(pkt)) {
+                pkt->popLabel();
+                return true;
+            }
+        }
+        pkt->popLabel();
+        return false;
+    }
+    /* MJL_End */
 
     /**
      * Find any pending requests that overlap the given request.
@@ -198,6 +232,18 @@ class Queue : public Drainable
         }
         return nullptr;
     }
+
+    /* MJL_Begin */
+    Entry* MJL_findPending(Addr blk_addr, QueueEntry::MJL_QEntryDir MJL_queue_entry_dir, bool is_secure) const
+    {
+        for (const auto& entry : readyList) {
+            if (entry->blkAddr == blk_addr && entry->isSecure == is_secure && entry->MJL_qEntryDir == MJL_queue_entry_dir) {
+                return entry;
+            }
+        }
+        return nullptr;
+    }
+    /* MJL_End */
 
     /**
      * Returns the WriteQueueEntry at the head of the readyList.
