@@ -537,7 +537,12 @@ class BaseCache : public MemObject
 
         /* MJL_TODO: Change writeBuffer.findMatch to have a parameter for direction */
         WriteQueueEntry *wq_entry =
+        /* MJL_Comment
             writeBuffer.findMatch(blk_addr, pkt->isSecure());
+        */
+        /* MJL_Begin */
+            writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), pkt->isSecure());
+        /* MJL_End */
         if (wq_entry && !wq_entry->inService) {
             DPRINTF(Cache, "Potential to merge writeback %s", pkt->print());
         }
