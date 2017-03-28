@@ -264,6 +264,7 @@ class MemCmd
     // MJL_TODO: Check whether this breaks other things
     MemCmd operator=(Command _cmd) { this->cmd = _cmd; return *this; }
     MemCmd operator=(int _cmd) { this->cmd = (Command)_cmd; return *this; }
+    // Implicit already covered this? MemCmd(MemCmd c2) : cmd(c2.cmd), MJL_cmdDir(c2.MJL_cmdDir) { }
     /* MJL_End */
     MemCmd(Command _cmd) : cmd(_cmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }
     MemCmd(int _cmd) : cmd((Command)_cmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }

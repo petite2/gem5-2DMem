@@ -329,6 +329,7 @@ bool
 Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure, int size,
                         uint8_t *_data)
 {
+    // MJL_TODO: Need to be changed to accomodate both directions
     Addr func_start = getAddr();
     Addr func_end   = getAddr() + getSize() - 1;
     Addr val_start  = addr;
