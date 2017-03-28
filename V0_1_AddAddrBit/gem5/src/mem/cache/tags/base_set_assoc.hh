@@ -240,6 +240,46 @@ public:
 
         return blk;
     }
+    /* MJL_Begin */
+    CacheBlk* MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                          int context_src) override
+    {
+        Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
+        int set = extractSet(addr);
+        BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
+
+        // Access all tags in parallel, hence one in each way.  The data side
+        // either accesses all blocks in parallel, or one block sequentially on
+        // a hit.  Sequential access with a miss doesn't access data.
+        tagAccesses += allocAssoc;
+        if (sequentialAccess) {
+            if (blk != nullptr) {
+                dataAccesses += 1;
+            }
+        } else {
+            dataAccesses += allocAssoc;
+        }
+
+        if (blk != nullptr) {
+            // If a cache hit
+            lat = accessLatency;
+            // Check if the block to be accessed is available. If not,
+            // apply the accessLatency on top of block->whenReady.
+            if (blk->whenReady > curTick() &&
+                cache->ticksToCycles(blk->whenReady - curTick()) >
+                accessLatency) {
+                lat = cache->ticksToCycles(blk->whenReady - curTick()) +
+                accessLatency;
+            }
+            blk->refCount += 1;
+        } else {
+            // If a cache miss
+            lat = lookupLatency;
+        }
+
+        return blk;
+    }
+    /* MJL_End */
 
     /**
      * Finds the given address in the cache, do not update replacement data.
@@ -250,6 +290,9 @@ public:
      * @return Pointer to the cache block if found.
      */
     CacheBlk* findBlock(Addr addr, bool is_secure) const override;
+    /* MJL_Begin */
+    CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override;
+    /* MJL_End */
 
     /**
      * Find an invalid block to evict for the address provided.
@@ -313,7 +356,13 @@ public:
          blk->isTouched = true;
 
          // Set tag for new block.  Caller is responsible for setting status.
+         /* MJL_Comment
          blk->tag = extractTag(addr);
+         */
+         /* MJL_Begin */
+         blk->tag = MJL_extractTag(addr, pkt->MJL_getCmdDir());
+         blk->MJL_blkDir = pkt->MJL_getCmdDir();
+         /* MJL_End */
 
          // deal with what we are bringing in
          assert(master_id < cache->system->maxMasters());
@@ -355,6 +404,18 @@ public:
     {
         return (addr >> tagShift);
     }
+    /* MJL_Begin */
+    Addr MJL_extractTag(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override
+    {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            return (addr >> tagShift);
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column 
+            return (addr >> tagShift);
+        } else {
+            return (addr >> tagShift);
+        }
+    }
+    /* MJL_End */
 
     /**
      * Calculate the set index from the address.
@@ -363,7 +424,13 @@ public:
      */
     int extractSet(Addr addr) const override
     {
+        /* MJL_Begin */
+        // MJL_TODO: Might change, but should be the same for both row and column
         return ((addr >> setShift) & setMask);
+        /* MJL_End */
+        /* MJL_Comment
+        return ((addr >> setShift) & setMask);
+        */
     }
 
     /**
@@ -375,6 +442,18 @@ public:
     {
         return (addr & ~(Addr)blkMask);
     }
+    /* MJL_Begin */
+    Addr MJL_blkAlign(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override
+    {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            return (addr & ~(Addr)blkMask);
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column 
+            return (addr & ~(Addr)blkMask);
+        } else {
+            return (addr & ~(Addr)blkMask);
+        }
+    }
+    /* MJL_End */
 
     /**
      * Regenerate the block address from the tag.
@@ -386,6 +465,18 @@ public:
     {
         return ((tag << tagShift) | ((Addr)set << setShift));
     }
+    /* MJL_Begin */
+    Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set) const override
+    {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            return ((tag << tagShift) | ((Addr)set << setShift));
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column
+            return ((tag << tagShift) | ((Addr)set << setShift));
+        } else {
+            return ((tag << tagShift) | ((Addr)set << setShift));
+        }
+    }
+    /* MJL_End */
 
     /**
      * Called at end of simulation to complete average block reference stats.

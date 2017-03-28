@@ -185,6 +185,9 @@ class BaseTags : public ClockedObject
      * Find a block using the memory address
      */
     virtual CacheBlk * findBlock(Addr addr, bool is_secure) const = 0;
+    /* MJL_Begin */
+    virtual CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const = 0;
+    /* MJL_End */
 
     /**
      * Calculate the block offset of an address.
@@ -195,6 +198,17 @@ class BaseTags : public ClockedObject
     {
         return (addr & (Addr)(blkSize-1));
     }
+    /* MJL_Begin */
+    int MJL_extractBlkOffset(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            return (addr & (Addr)(blkSize-1));
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            return (addr & (Addr)(blkSize-1));
+        } else {
+            return (addr & (Addr)(blkSize-1));
+        }
+    }
+    /* MJL_End */
 
     /**
      * Find the cache block given set and way
@@ -231,17 +245,28 @@ class BaseTags : public ClockedObject
 
     virtual CacheBlk* accessBlock(Addr addr, bool is_secure, Cycles &lat,
                                   int context_src) = 0;
+    /* MJL_Begin */
+    virtual CacheBlk* MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                                  int context_src) = 0;
+    /* MJL_End */
 
     virtual Addr extractTag(Addr addr) const = 0;
+    /* MJL_Begin */
+    virtual Addr MJL_extractTag(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const = 0;
+    /* MJL_End */
 
     virtual void insertBlock(PacketPtr pkt, CacheBlk *blk) = 0;
 
     virtual Addr regenerateBlkAddr(Addr tag, unsigned set) const = 0;
+    /* MJL_Begin */
+    virtual Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set) const = 0;
+    /* MJL_End */
+
 
     virtual CacheBlk* findVictim(Addr addr) = 0;
 
     virtual int extractSet(Addr addr) const = 0;
-
+    
     virtual void forEachBlk(CacheBlkVisitor &visitor) = 0;
 };
 

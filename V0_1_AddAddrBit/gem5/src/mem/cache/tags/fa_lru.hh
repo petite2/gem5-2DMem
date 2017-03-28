@@ -197,6 +197,10 @@ public:
      */
     CacheBlk* accessBlock(Addr addr, bool is_secure, Cycles &lat,
                           int context_src) override;
+    /* MJL_Begin */
+    CacheBlk* MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                                  int context_src) override;
+    /* MJL_End */
 
     /**
      * Find the block in the cache, do not update the replacement data.
@@ -206,6 +210,9 @@ public:
      * @return Pointer to the cache block.
      */
     CacheBlk* findBlock(Addr addr, bool is_secure) const override;
+    /* MJL_Begin */
+    CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override;
+    /* MJL_End */
 
     /**
      * Find a replacement block for the address provided.
@@ -284,6 +291,9 @@ public:
     {
         return blkAlign(addr);
     }
+    /* MJL_Begin */
+    Addr MJL_extractTag(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override;
+    /* MJL_End */
 
     /**
      * Return the set of an address. Only one set in a fully associative cache.
@@ -305,6 +315,9 @@ public:
     {
         return (tag);
     }
+    /* MJL_Begin */
+    Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set) const override;
+    /* MJL_End */
 
     /**
      * @todo Implement as in lru. Currently not used

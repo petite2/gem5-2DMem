@@ -72,26 +72,6 @@ enum CacheBlkStatusBits : unsigned {
     BlkSecure =         0x40,
 };
 
-/* MJL_Begin */
-/**
- * Cache block direction assignments. 
- */
-typedef MemCmd::MJL_DirAttribute MJL_CacheBlkDir;
-/*
-    Invalid:    MJL_CacheBlkDir::MJL_IsInvalid
-    Row:        MJL_CacheBlkDir::MJL_IsRow
-    Column:     MJL_CacheBlkDir::MJL_IsColumn
-*/
-// enum MJL_CacheBlkDir : unsigned {
-//     /* MJL_TODO: Check if it works to set them to MemCmd */
-//     /** Invalid */
-//     MJL_BlkInv =    MemCmd::MJL_IsInvalid,
-//     /** Row, default */
-//     MJL_BlkRow =    MemCmd::MJL_IsRow,
-//     /** Column */
-//     MJL_BlkCol =    MemCmd::MJL_IsColumn,
-// };
-/* MJL_End */
 
 /**
  * A Basic Cache block.
@@ -125,6 +105,25 @@ class CacheBlk
     State status;
 
     /* MJL_Begin */
+    /**
+     * Cache block direction assignments. 
+     */
+    typedef MemCmd::MJL_DirAttribute MJL_CacheBlkDir;
+    /*
+    Invalid:    MJL_CacheBlkDir::MJL_IsInvalid
+    Row:        MJL_CacheBlkDir::MJL_IsRow
+    Column:     MJL_CacheBlkDir::MJL_IsColumn
+    */
+    // enum MJL_CacheBlkDir : unsigned {
+    //     /* MJL_TODO: Check if it works to set them to MemCmd */
+    //     /** Invalid */
+    //     MJL_BlkInv =    MemCmd::MJL_IsInvalid,
+    //     /** Row, default */
+    //     MJL_BlkRow =    MemCmd::MJL_IsRow,
+    //     /** Column */
+    //     MJL_BlkCol =    MemCmd::MJL_IsColumn,
+    // };
+    
     /** block data direction */
     MJL_CacheBlkDir MJL_blkDir;
     /* MJL_End */

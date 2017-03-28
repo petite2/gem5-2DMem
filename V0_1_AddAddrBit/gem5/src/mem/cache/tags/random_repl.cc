@@ -50,6 +50,13 @@ RandomRepl::accessBlock(Addr addr, bool is_secure, Cycles &lat, int master_id)
 {
     return BaseSetAssoc::accessBlock(addr, is_secure, lat, master_id);
 }
+/* MJL_Begin */
+CacheBlk*
+RandomRepl::MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat, int master_id)
+{
+    return BaseSetAssoc::MJL_accessBlock(addr, MJL_cacheBlkDir, is_secure, lat, master_id);
+}
+/* MJL_End */
 
 CacheBlk*
 RandomRepl::findVictim(Addr addr)
@@ -73,7 +80,12 @@ RandomRepl::findVictim(Addr addr)
         assert(blk->way < allocAssoc);
 
         DPRINTF(CacheRepl, "set %x: selecting blk %x for replacement\n",
+        /* MJL_Begin */
+                blk->set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set));
+        /* MJL_End */
+        /* MJL_Comment
                 blk->set, regenerateBlkAddr(blk->tag, blk->set));
+        */
     }
 
     return blk;

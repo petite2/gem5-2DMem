@@ -255,6 +255,9 @@ MSHR::allocate(Addr blk_addr, unsigned blk_size, PacketPtr target,
 {
     blkAddr = blk_addr;
     blkSize = blk_size;
+    /* MJL_Begin */
+    MJL_qEntryDir = target->MJL_getCmdDir();
+    /* MJL_End */
     isSecure = target->isSecure();
     readyTime = when_ready;
     order = _order;

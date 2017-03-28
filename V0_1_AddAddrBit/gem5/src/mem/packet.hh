@@ -270,10 +270,10 @@ class MemCmd
     MemCmd() : cmd(InvalidCmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }
 
     /* MJL_Comment
-        MJL_TODO: Check if changing the operators breaks anything
+        Not changing operator to include comparison on MJL_cmdDir due to the use of the operators in the form of cmd == MemCmd::xxx
     */
-    bool operator==(MemCmd c2) const { return (cmd == c2.cmd)/* MJL_Begin */ && (MJL_cmdDir == c2.MJL_cmdDir)/* MJL_End */; }
-    bool operator!=(MemCmd c2) const { return (cmd != c2.cmd)/* MJL_Begin */ || (MJL_cmdDir != c2.MJL_cmdDir)/* MJL_End */; }
+    bool operator==(MemCmd c2) const { return (cmd == c2.cmd); }
+    bool operator!=(MemCmd c2) const { return (cmd != c2.cmd); }
 };
 
 /**

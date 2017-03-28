@@ -104,6 +104,10 @@ BaseSetAssoc::BaseSetAssoc(const Params *p)
             // Setting the tag to j is just to prevent long chains in the hash
             // table; won't matter because the block is invalid
             blk->tag = j;
+            /* MJL_Begin */
+            // MJL_TODO: May not be needed, can be set to invalid to check if the direction information has been passed properly
+            blk->MJL_blkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+            /* MJL_End */
             blk->whenReady = 0;
             blk->isTouched = false;
             blk->size = blkSize;
@@ -129,6 +133,16 @@ BaseSetAssoc::findBlock(Addr addr, bool is_secure) const
     BlkType *blk = sets[set].findBlk(tag, is_secure);
     return blk;
 }
+/* MJL_Begin */
+CacheBlk* 
+BaseSetAssoc::MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
+{
+    Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
+    unsigned set = extractSet(addr);
+    BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
+    return blk;
+}
+/* MJL_End */
 
 CacheBlk*
 BaseSetAssoc::findBlockBySetAndWay(int set, int way) const

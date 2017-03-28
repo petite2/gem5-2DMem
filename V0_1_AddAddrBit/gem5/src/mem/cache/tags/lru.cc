@@ -70,6 +70,23 @@ LRU::accessBlock(Addr addr, bool is_secure, Cycles &lat, int master_id)
 
     return blk;
 }
+/* MJL_Begin */
+CacheBlk*
+LRU::MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat, int master_id)
+{
+    CacheBlk *blk = BaseSetAssoc::MJL_accessBlock(addr, MJL_cacheBlkDir, is_secure, lat, master_id);
+
+    if (blk != nullptr) {
+        // move this block to head of the MRU list
+        sets[blk->set].moveToHead(blk);
+        DPRINTF(CacheRepl, "set %x: moving blk %x (%s) to MRU\n",
+                blk->set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
+                is_secure ? "s" : "ns");
+    }
+
+    return blk;
+}
+/* MJL_End */
 
 CacheBlk*
 LRU::findVictim(Addr addr)
@@ -88,7 +105,12 @@ LRU::findVictim(Addr addr)
 
     if (blk && blk->isValid()) {
         DPRINTF(CacheRepl, "set %x: selecting blk %x for replacement\n",
+        /* MJL_Begin */
+                set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, set));
+        /* MJL_End */
+        /* MJL_Comment
                 set, regenerateBlkAddr(blk->tag, set));
+        */
     }
 
     return blk;
