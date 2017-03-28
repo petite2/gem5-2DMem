@@ -199,7 +199,7 @@ public:
                           int context_src) override;
     /* MJL_Begin */
     CacheBlk* MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
-                                  int context_src) override;
+                                  int context_src) override {}
     /* MJL_End */
 
     /**
@@ -211,7 +211,7 @@ public:
      */
     CacheBlk* findBlock(Addr addr, bool is_secure) const override;
     /* MJL_Begin */
-    CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override;
+    CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override {}
     /* MJL_End */
 
     /**
@@ -292,7 +292,7 @@ public:
         return blkAlign(addr);
     }
     /* MJL_Begin */
-    Addr MJL_extractTag(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override;
+    Addr MJL_extractTag(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override {}
     /* MJL_End */
 
     /**
@@ -316,7 +316,7 @@ public:
         return (tag);
     }
     /* MJL_Begin */
-    Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set) const override;
+    Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set) const override {}
     /* MJL_End */
 
     /**
