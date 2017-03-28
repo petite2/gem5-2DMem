@@ -79,6 +79,19 @@ PacketQueue::hasAddr(Addr addr) const
     }
     return false;
 }
+/* MJL_Begin */
+bool
+PacketQueue::MJL_hasAddr(Addr addr, MemCmd::MJL_DirAttribute MJL_dirAttribute) const
+{
+    // caller is responsible for ensuring that all packets have the
+    // same alignment
+    for (const auto& p : transmitList) {
+        if (p.pkt->getAddr() == addr && p.pkt->MJL_getCmdDir() == MJL_dirAttribute)
+            return true;
+    }
+    return false;
+}
+/* MJL_End */
 
 bool
 PacketQueue::checkFunctional(PacketPtr pkt)
@@ -99,6 +112,27 @@ PacketQueue::checkFunctional(PacketPtr pkt)
 
     return found;
 }
+/* MJL_Begin */
+bool
+PacketQueue::MJL_checkFunctional(PacketPtr pkt)
+{
+    pkt->pushLabel(label);
+
+    auto i = transmitList.begin();
+    bool found = false;
+
+    while (!found && i != transmitList.end()) {
+        // If the buffered packet contains data, and it overlaps the
+        // current packet, then update data
+        found = pkt->MJL_checkFunctional(i->pkt);
+        ++i;
+    }
+
+    pkt->popLabel();
+
+    return found;
+}
+/* MJL_End */
 
 void
 PacketQueue::schedSendTiming(PacketPtr pkt, Tick when, bool force_order)
@@ -142,7 +176,8 @@ PacketQueue::schedSendTiming(PacketPtr pkt, Tick when, bool force_order)
     auto i = transmitList.end();
     --i;
     while (i != transmitList.begin() && when < i->tick &&
-           !(force_order && i->pkt->getAddr() == pkt->getAddr()))
+           !(force_order && i->pkt->getAddr() == pkt->getAddr()/* MJL_Begin */ && 
+           i->pkt->MJL_getCmdDir() == pkt->MJL_getCmdDir() // MJL_TODO: check if this breaks anything /* MJL_End */))
         --i;
 
     // emplace inserts the element before the position pointed to by

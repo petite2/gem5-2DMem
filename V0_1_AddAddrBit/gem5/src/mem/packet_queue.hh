@@ -165,10 +165,16 @@ class PacketQueue : public Drainable
      * Check if a packets address exists in the queue.
      */
     bool hasAddr(Addr addr) const;
+    /* MJL_Begin */
+    bool MJL_hasAddr(Addr addr, MemCmd::MJL_DirAttribute MJL_dirAttribute) const;
+    /* MJL_End */
 
     /** Check the list of buffered packets against the supplied
      * functional request. */
     bool checkFunctional(PacketPtr pkt);
+    /* MJL_Begin */
+    bool MJL_checkFunctional(PacketPtr pkt);
+    /* MJL_End */
 
     /**
      * Schedule a send event if we are not already waiting for a
