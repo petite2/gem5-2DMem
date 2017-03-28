@@ -87,6 +87,19 @@ Cache::Cache(const CacheParams *p)
     tags->setCache(this);
     if (prefetcher)
         prefetcher->setCache(this);
+
+    /* MJL_Begin 
+    // MJL_Test for names
+    // L1D$:    Cache:system.cpu.dcache	cpuPort:system.cpu.dcache.cpu_side	memPort:system.cpu.dcache.mem_side	tags:system.cpu.dcache.tags
+    // Data TLB:    Cache:system.cpu.dtb_walker_cache	cpuPort:system.cpu.dtb_walker_cache.cpu_side	memPort:system.cpu.dtb_walker_cache.mem_side	tags:system.cpu.dtb_walker_cache.tags
+    // L1I$:    Cache:system.cpu.icache	cpuPort:system.cpu.icache.cpu_side	memPort:system.cpu.icache.mem_side	tags:system.cpu.icache.tags
+    // Instruction TLB$:    Cache:system.cpu.itb_walker_cache	cpuPort:system.cpu.itb_walker_cache.cpu_side	memPort:system.cpu.itb_walker_cache.mem_side	tags:system.cpu.itb_walker_cache.tags
+    // L2D$:    Cache:system.l2	cpuPort:system.l2.cpu_side	memPort:system.l2.mem_side	tags:system.l2.tags
+    std::cout << "Cache:" << this->name() << "\t";
+    std::cout << "cpuPort:"  << cpuSidePort->name() << "\t";
+    std::cout << "memPort:"  << memSidePort->name() << "\t";
+    std::cout << "tags:"  << tags->name() << "\n";
+     MJL_End */
 }
 
 Cache::~Cache()
@@ -2539,6 +2552,30 @@ Cache::CpuSidePort::getAddrRanges() const
 bool
 Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
 {
+    /* MJL_Begin 
+    // MJL_Test for mode
+    std::cout << this->name() << "::recvTimingReq(PacketPtr pkt)\n";
+     // MJL_Test for PC and contextID
+    if (this->name().find("dcache") != std::string::npos) {
+        std::cout << "recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
+        if (pkt->req->hasPC()) {
+            std::cout << pkt->req->getPC();
+        } else {
+            std::cout << "NoPC";
+        }
+        std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
+        if (pkt->req->hasContextId()) {
+            std::cout << pkt->req->contextId();
+        } else {
+            std::cout << "NoContextId";
+        }
+        //std::cout << "\n";
+    }
+    // MJL_Test for MemCmd type and Dir
+    if (this->name().find("dcache") != std::string::npos) {
+        std::cout << ", MemCmd: " << pkt->cmd.toString() << ", CmdDir: " << pkt->MJL_getCmdDir() << "\n";
+    }
+     MJL_End */
     assert(!cache->system->bypassCaches());
 
     bool success = false;
@@ -2566,12 +2603,40 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
 Tick
 Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
 {
+    /* MJL_Begin 
+    // MJL_Test for mode
+    std::cout << this->name() << "::recvAtomic(PacketPtr pkt)\n";
+     MJL_End */
     return cache->recvAtomic(pkt);
 }
 
 void
 Cache::CpuSidePort::recvFunctional(PacketPtr pkt)
 {
+    /* MJL_Begin 
+    // MJL_Test for mode
+    std::cout << this->name() << "::recvFunctional(PacketPtr pkt)\n";
+    // MJL_Test for PC and contextID
+    if (this->name().find("dcache") != std::string::npos) {
+        std::cout << "recvFunctional: hasPC? " << pkt->req->hasPC() << ", PC = ";
+        if (pkt->req->hasPC()) {
+            std::cout << pkt->req->getPC();
+        } else {
+            std::cout << "NoPC";
+        }
+        std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
+        if (pkt->req->hasContextId()) {
+            std::cout << pkt->req->contextId();
+        } else {
+            std::cout << "NoContextId";
+        }
+        //std::cout << "\n";
+    }
+    // MJL_Test for MemCmd type and Dir
+    if (this->name().find("dcache") != std::string::npos) {
+        std::cout << ", MemCmd: " << pkt->cmd.toString()  << ", CmdDir: " << pkt->MJL_getCmdDir() << "\n";
+    }
+     MJL_End */
     // functional request
     cache->functionalAccess(pkt, true);
 }

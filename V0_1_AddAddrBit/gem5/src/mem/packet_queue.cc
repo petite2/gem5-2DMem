@@ -176,8 +176,11 @@ PacketQueue::schedSendTiming(PacketPtr pkt, Tick when, bool force_order)
     auto i = transmitList.end();
     --i;
     while (i != transmitList.begin() && when < i->tick &&
-           !(force_order && i->pkt->getAddr() == pkt->getAddr()/* MJL_Begin */ && 
-           i->pkt->MJL_getCmdDir() == pkt->MJL_getCmdDir() // MJL_TODO: check if this breaks anything /* MJL_End */))
+           !(force_order && i->pkt->getAddr() == pkt->getAddr()
+           /* MJL_Begin */
+           // MJL_TODO: check if this breaks anything 
+            && i->pkt->MJL_getCmdDir() == pkt->MJL_getCmdDir() 
+           /* MJL_End */))
         --i;
 
     // emplace inserts the element before the position pointed to by
