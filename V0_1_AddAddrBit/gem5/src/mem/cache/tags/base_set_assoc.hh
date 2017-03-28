@@ -443,7 +443,7 @@ public:
         return (addr & ~(Addr)blkMask);
     }
     /* MJL_Begin */
-    Addr MJL_blkAlign(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override
+    Addr MJL_blkAlign(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const
     {
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             return (addr & ~(Addr)blkMask);
