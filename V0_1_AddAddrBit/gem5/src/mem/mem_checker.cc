@@ -305,6 +305,7 @@ MemChecker::completeRead(MemChecker::Serial serial, Tick complete,
             "addr = %#llx, size = %d\n", serial, complete, addr, size);
 
     for (size_t i = 0; i < size; ++i) {
+        // MJL_TODO: Might need to change, but I believe that it is not instantiated as long as the memchecker option is not set
         ByteTracker *tracker = getByteTracker(addr + i);
 
         if (!tracker->completeRead(serial, complete, data[i])) {
@@ -343,6 +344,7 @@ void
 MemChecker::reset(Addr addr, size_t size)
 {
     for (size_t i = 0; i < size; ++i) {
+        // MJL_TODO: Might need to change, but I believe that it is not instantiated as long as the memchecker option is not set        
         byte_trackers.erase(addr + i);
     }
 }

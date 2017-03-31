@@ -264,6 +264,7 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID slave_port_id)
 
     if (snoopFilter && !system->bypassCaches()) {
         // Let the snoop filter know about the success of the send operation
+        // MJL_TODO: might need to be changed
         snoopFilter->finishRequest(!success, addr, pkt->isSecure());
     }
 

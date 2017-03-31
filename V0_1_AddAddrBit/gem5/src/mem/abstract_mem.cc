@@ -336,7 +336,7 @@ AbstractMemory::access(PacketPtr pkt)
                 pkt->getAddr());
       return;
     }
-
+    // MJL_TODO: doesn't look like that it needs to be changed
     assert(AddrRange(pkt->getAddr(),
                      pkt->getAddr() + (pkt->getSize() - 1)).isSubset(range));
 
@@ -345,6 +345,7 @@ AbstractMemory::access(PacketPtr pkt)
     if (pkt->cmd == MemCmd::SwapReq) {
         if (pkt->isAtomicOp()) {
             if (pmemAddr) {
+                // MJL_TODO: Can we just copy?
                 memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
                 (*(pkt->getAtomicOp()))(hostAddr);
             }
@@ -426,6 +427,7 @@ AbstractMemory::access(PacketPtr pkt)
 void
 AbstractMemory::functionalAccess(PacketPtr pkt)
 {
+    // MJL_TODO: Same as access()
     assert(AddrRange(pkt->getAddr(),
                      pkt->getAddr() + pkt->getSize() - 1).isSubset(range));
 

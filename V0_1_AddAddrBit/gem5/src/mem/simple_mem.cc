@@ -162,6 +162,7 @@ SimpleMemory::recvTimingReq(PacketPtr pkt)
         // hands out exclusive copies (shared is not asserted)
         auto i = packetQueue.end();
         --i;
+        // MJL_Comment: Doesn't coexist with dramsim2, even though normally should definitely compare direction as well
         while (i != packetQueue.begin() && when_to_send < i->tick &&
                i->pkt->getAddr() != pkt->getAddr())
             --i;

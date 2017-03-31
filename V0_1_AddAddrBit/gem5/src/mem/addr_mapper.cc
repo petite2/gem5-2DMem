@@ -44,6 +44,7 @@ AddrMapper::AddrMapper(const AddrMapperParams* p)
       masterPort(name() + "-master", *this),
       slavePort(name() + "-slave", *this)
 {
+    // MJL_TODO: these functions should be ok, but we can print to test if there is an AddrMapper
 }
 
 void

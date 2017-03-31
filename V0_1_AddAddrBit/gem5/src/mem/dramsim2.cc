@@ -194,6 +194,7 @@ DRAMSim2::recvTimingReq(PacketPtr pkt)
     // keep track of the transaction
     if (pkt->isRead()) {
         if (can_accept) {
+            // MJL_TODO: depending on the use case of outstandingReads and outstandingWrites, might need to change
             outstandingReads[pkt->getAddr()].push(pkt);
 
             // we count a transaction as outstanding until it has left the
@@ -226,6 +227,7 @@ DRAMSim2::recvTimingReq(PacketPtr pkt)
         // @todo what about the granularity here, implicit assumption that
         // a transaction matches the burst size of the memory (which we
         // cannot determine without parsing the ini file ourselves)
+        // MJL_TODO: should be changed so that the direction can be passed down.
         wrapper.enqueue(pkt->isWrite(), pkt->getAddr());
 
         return true;

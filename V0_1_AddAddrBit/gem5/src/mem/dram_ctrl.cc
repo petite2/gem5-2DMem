@@ -431,6 +431,7 @@ DRAMCtrl::addToReadQueue(PacketPtr pkt, unsigned int pktCount)
     // address of first DRAM packet is kept unaliged. Subsequent DRAM packets
     // are aligned to burst size boundaries. This is to ensure we accurately
     // check read packets against packets in write queue.
+    // MJL_Comment: No need to change, doesn't coexist with DRAMsim2, but is used for default
     Addr addr = pkt->getAddr();
     unsigned pktsServicedByWrQ = 0;
     BurstHelper* burst_helper = NULL;
@@ -515,6 +516,7 @@ DRAMCtrl::addToReadQueue(PacketPtr pkt, unsigned int pktCount)
 void
 DRAMCtrl::addToWriteQueue(PacketPtr pkt, unsigned int pktCount)
 {
+    // MJL_Comment: No need to change, doesn't coexist with DRAMsim2, but is used for default
     // only add to the write queue here. whenever the request is
     // eventually done, set the readyTime, and call schedule()
     assert(pkt->isWrite());

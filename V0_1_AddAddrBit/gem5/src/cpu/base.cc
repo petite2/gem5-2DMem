@@ -289,6 +289,7 @@ BaseCPU::mwait(ThreadID tid, PacketPtr pkt)
 
     if (!monitor.gotWakeup) {
         int block_size = cacheLineSize();
+        // MJL_TODO: Possibly need to change mask according to direction
         uint64_t mask = ~((uint64_t)(block_size - 1));
 
         assert(pkt->req->hasPaddr());
