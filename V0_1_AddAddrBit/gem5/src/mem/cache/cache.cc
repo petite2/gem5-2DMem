@@ -2552,7 +2552,7 @@ Cache::CpuSidePort::getAddrRanges() const
 bool
 Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
 {
-    /* MJL_Begin  
+    /* MJL_Begin */ 
     // MJL_Test for mode
     //std::cout << this->name() << "::recvTimingReq(PacketPtr pkt)\n";
      // MJL_Test for PC and contextID
@@ -2575,7 +2575,27 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     if (this->name().find("dcache") != std::string::npos) {
         std::cout << ", MemCmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", CmdDir: " << pkt->MJL_getCmdDir() << "\n";
     }
-     MJL_End */
+
+    if (this->name().find("icache") != std::string::npos) {
+        std::cout << this->name() << "::recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
+        if (pkt->req->hasPC()) {
+            std::cout << pkt->req->getPC();
+        } else {
+            std::cout << "NoPC";
+        }
+        std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
+        if (pkt->req->hasContextId()) {
+            std::cout << pkt->req->contextId();
+        } else {
+            std::cout << "NoContextId";
+        }
+        //std::cout << "\n";
+    }
+    // MJL_Test for MemCmd type, size and Dir
+    if (this->name().find("icache") != std::string::npos) {
+        std::cout << ", Vaddr: " << pkt->req->getVaddr() << ", Paddr: " << pkt->req->getPaddr() << "\n";
+    }
+    /* MJL_End */
     assert(!cache->system->bypassCaches());
 
     bool success = false;
