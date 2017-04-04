@@ -1,0 +1,16 @@
+warn: DRAM device capacity (8192 Mbytes) does not match the address range assigned (512 Mbytes)
+0: system.remote_gdb.listener: listening for remote gdb on port 7000
+warn: ClockedObject: More than one power state change request encountered within the same simulation tick
+warn: ignoring syscall access(237099930496, ...)
+warn: ignoring syscall mprotect(140737351888896, ...)
+warn: ignoring syscall mprotect(140737349132288, ...)
+warn: ignoring syscall mprotect(140737346080768, ...)
+warn: ignoring syscall mprotect(140737343852544, ...)
+warn: ignoring syscall mprotect(140737340133376, ...)
+warn: ignoring syscall mprotect(140737342230528, ...)
+warn: ignoring syscall mprotect(140737345949696, ...)
+warn: ignoring syscall mprotect(140737351229440, ...)
+warn: ignoring syscall mprotect(140737353981952, ...)
+warn: ignoring syscall mprotect(237102034944, ...)
+warn: x86 cpuid family 0x0000: unimplemented function 7
+warn: x86 cpuid family 0x0000: unimplemented function 7
