@@ -358,6 +358,9 @@ class Packet : public Printable
     /// The address of the request.  This address could be virtual or
     /// physical, depending on the system configuration.
     Addr addr;
+    /* MJL_Begin */
+    MemCmd::MJL_DirAttribute MJL_dataDir;
+    /* MJL_End */
 
     /// True if the request targets the secure memory space.
     bool _isSecure;
@@ -545,6 +548,11 @@ class Packet : public Printable
     MemCmd::MJL_DirAttribute MJL_getCmdDir() { return cmd.MJL_getCmdDir(); }
     bool MJL_cmdIsRow() const           { return cmd.MJL_isRow(); }
     bool MJL_cmdIsColumn() const        { return cmd.MJL_isColumn(); }
+    MemCmd::MJL_DirAttribute MJL_getDataDir() {return MJL_dataDir; }
+    bool MJL_dataIsRow() { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsRow; }
+    bool MJL_dataIsColumn() { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsColumn; }
+    bool MJL_sameCmdDataDir() { return MJL_dataDir == MJL_getCmdDir(); }
+    void MJL_setDataDir( MemCmd::MJL_DirAttribute in_MJL_dataDir ) { MJL_dataDir = in_MJL_dataDir; }
     /* MJL_End */
     bool isRead() const              { return cmd.isRead(); }
     bool isWrite() const             { return cmd.isWrite(); }
@@ -709,7 +717,7 @@ class Packet : public Printable
         if ( MJL_cmdIsRow() ) {
             return getAddr() & Addr(blk_size - 1);
         } else if ( MJL_cmdIsColumn() ) {
-            // MJL_TODO: Placeholder for column offset calculation
+            // MJL_TODO: Placeholder for column offset calculation, maybe should use data direction? check use cases
             return getAddr() & Addr(blk_size - 1);
         } else {
             return getAddr() & Addr(blk_size - 1);
@@ -781,7 +789,7 @@ class Packet : public Printable
      * not be valid. The command must be supplied.
      */
     Packet(const RequestPtr _req, MemCmd _cmd)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0), _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd->MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            size(0), headerDelay(0), snoopDelay(0), payloadDelay(0),
            senderState(NULL)
     {
@@ -802,7 +810,7 @@ class Packet : public Printable
      * req.  this allows for overriding the size/addr of the req.
      */
     Packet(const RequestPtr _req, MemCmd _cmd, int _blkSize)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0), _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd->MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            headerDelay(0), snoopDelay(0), payloadDelay(0),
            senderState(NULL)
     {
@@ -838,7 +846,7 @@ class Packet : public Printable
     Packet(const PacketPtr pkt, bool clear_flags, bool alloc_data)
         :  cmd(pkt->cmd), req(pkt->req),
            data(nullptr),
-           addr(pkt->addr), _isSecure(pkt->_isSecure), size(pkt->size),
+           addr(pkt->addr)/* MJL_Begin */ MJL_dataDir(pkt->MJL_getDataDir()),/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
            bytesValid(pkt->bytesValid),
            headerDelay(pkt->headerDelay),
            snoopDelay(0),

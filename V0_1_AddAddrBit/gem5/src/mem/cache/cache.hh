@@ -521,6 +521,11 @@ class Cache : public BaseCache
     CacheBlk *findBlock(Addr addr, bool is_secure) const {
         return tags->findBlock(addr, is_secure);
     }
+    /* MJL_Begin */
+    CacheBlk *MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const {
+        return tags->MJL_findBlock(addr, MJL_cacheBlkDir, is_secure);
+    }
+    /* MJL_End */
 
     bool inCache(Addr addr, bool is_secure) const override {
         return (tags->findBlock(addr, is_secure) != 0);

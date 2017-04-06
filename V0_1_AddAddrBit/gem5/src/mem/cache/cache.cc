@@ -127,7 +127,12 @@ Cache::cmpAndSwap(CacheBlk *blk, PacketPtr pkt)
     uint64_t condition_val64;
     uint32_t condition_val32;
 
+    /* MJL_Begin */
+    int offset = tags->MJL_extractBlkOffset(pkt->getAddr(), pkt->MJL_getCmdDir());
+    /* MJL_End */
+    /* MJL_Comment 
     int offset = tags->extractBlkOffset(pkt->getAddr());
+    */
     uint8_t *blk_data = blk->data + offset;
 
     assert(sizeof(uint64_t) >= pkt->getSize());
@@ -312,7 +317,12 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         DPRINTF(Cache, "uncacheable: %s\n", pkt->print());
 
         // flush and invalidate any existing block
+        /* MJL_Begin */
+        CacheBlk *old_blk(tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure()));
+        /* MJL_End */
+        /* MJL_Comment
         CacheBlk *old_blk(tags->findBlock(pkt->getAddr(), pkt->isSecure()));
+        */
         if (old_blk && old_blk->isValid()) {
             if (old_blk->isDirty() || writebackClean)
                 writebacks.push_back(writebackBlk(old_blk));
@@ -332,7 +342,12 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         pkt->req->contextId() : InvalidContextID;
     // Here lat is the value passed as parameter to accessBlock() function
     // that can modify its value.
+    /* MJL_Begin */
+    blk = tags->MJL_accessBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
+    /* MJL_End */
+    /* MJL_Comment
     blk = tags->accessBlock(pkt->getAddr(), pkt->isSecure(), lat, id);
+    */
 
     DPRINTF(Cache, "%s %s\n", pkt->print(),
             blk ? "hit " + blk->print() : "miss");
@@ -347,7 +362,13 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // generating CleanEvict and Writeback or simply CleanEvict and
         // CleanEvict almost simultaneously will be caught by snoops sent out
         // by crossbar.
+        /* MJL_Begin */
+        WriteQueueEntry *wb_entry = writeBuffer.MJL_findMatch(pkt->getAddr(),
+                                                          pkt->MJL_getCmdDir(),
+        /* MJL_End */
+        /* MJL_Comment
         WriteQueueEntry *wb_entry = writeBuffer.findMatch(pkt->getAddr(),
+        */
                                                           pkt->isSecure());
         if (wb_entry) {
             assert(wb_entry->getNumTargets() == 1);
@@ -386,7 +407,12 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // now and drop the clean writeback so that we do not upset
         // any ordering/decisions about ownership already taken
         if (pkt->cmd == MemCmd::WritebackClean &&
+        /* MJL_Begin */
+            mshrQueue.MJL_findMatch(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure())) {
+        /* MJL_End */
+        /* MJL_Comment
             mshrQueue.findMatch(pkt->getAddr(), pkt->isSecure())) {
+        */
             DPRINTF(Cache, "Clean writeback %#llx to block with MSHR, "
                     "dropping\n", pkt->getAddr());
             return true;
@@ -394,7 +420,12 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
 
         if (blk == nullptr) {
             // need to do a replacement
+            /* MJL_Begin */
+            blk = MJL_allocateBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), writebacks);
+            /* MJL_End */
+            /* MJL_Comment
             blk = allocateBlock(pkt->getAddr(), pkt->isSecure(), writebacks);
+            */
             if (blk == nullptr) {
                 // no replaceable block available: give up, fwd to next level.
                 incMissCount(pkt);
@@ -1719,6 +1750,50 @@ Cache::allocateBlock(Addr addr, bool is_secure, PacketList &writebacks)
 
     return blk;
 }
+/* MJL_Begin */
+CacheBlk*
+Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, PacketList &writebacks)
+{
+    CacheBlk *blk = tags->findVictim(addr);
+
+    // It is valid to return nullptr if there is no victim
+    if (!blk)
+        return nullptr;
+
+    if (blk->isValid()) {
+        Addr repl_addr = tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
+        MSHR *repl_mshr = mshrQueue.MJL_findMatch(repl_addr, blk->MJL_blkDir, blk->isSecure());
+        if (repl_mshr) {
+            // must be an outstanding upgrade request
+            // on a block we're about to replace...
+            assert(!blk->isWritable() || blk->isDirty());
+            assert(repl_mshr->needsWritable());
+            // too hard to replace block with transient state
+            // allocation failed, block not inserted
+            return nullptr;
+        } else {
+            DPRINTF(Cache, "replacement: replacing %#llx (%s) with %#llx "
+                    "(%s): %s\n", repl_addr, blk->isSecure() ? "s" : "ns",
+                    addr, is_secure ? "s" : "ns",
+                    blk->isDirty() ? "writeback" : "clean");
+
+            if (blk->wasPrefetched()) {
+                unusedPrefetches++;
+            }
+            // Will send up Writeback/CleanEvict snoops via isCachedAbove
+            // when pushing this writeback list into the write buffer.
+            if (blk->isDirty() || writebackClean) {
+                // Save writeback packet for handling by caller
+                writebacks.push_back(writebackBlk(blk));
+            } else {
+                writebacks.push_back(cleanEvictBlk(blk));
+            }
+        }
+    }
+
+    return blk;
+}
+/* MJL_End */
 
 void
 Cache::invalidateBlock(CacheBlk *blk)
