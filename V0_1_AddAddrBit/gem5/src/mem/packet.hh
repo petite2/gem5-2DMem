@@ -714,9 +714,10 @@ class Packet : public Printable
         /* MJL_Begin */
         /* Deals with different access directions respectively
         */
-        if ( MJL_cmdIsRow() ) {
+        // MJL_TODO: looks like it's been used with blkdata in this file, so changing to data direction. Need to check whether it is true over all
+        if ( MJL_dataIsRow() ) {
             return getAddr() & Addr(blk_size - 1);
-        } else if ( MJL_cmdIsColumn() ) {
+        } else if ( MJL_dataIsColumn() ) {
             // MJL_TODO: Placeholder for column offset calculation, maybe should use data direction? check use cases
             return getAddr() & Addr(blk_size - 1);
         } else {

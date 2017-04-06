@@ -294,6 +294,9 @@ class Cache : public BaseCache
      * no replaceable blocks at the moment.
      */
     CacheBlk *allocateBlock(Addr addr, bool is_secure, PacketList &writebacks);
+    /* MJL_Begin */
+    CacheBlk *MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, PacketList &writebacks);
+    /* MJL_End */
 
     /**
      * Invalidate a cache block.

@@ -128,7 +128,8 @@ Cache::cmpAndSwap(CacheBlk *blk, PacketPtr pkt)
     uint32_t condition_val32;
 
     /* MJL_Begin */
-    int offset = tags->MJL_extractBlkOffset(pkt->getAddr(), pkt->MJL_getCmdDir());
+    // Should be the offset of the block since it operates on data of blk
+    int offset = tags->MJL_extractBlkOffset(pkt->getAddr(), blk->MJL_blkDir);
     /* MJL_End */
     /* MJL_Comment 
     int offset = tags->extractBlkOffset(pkt->getAddr());
@@ -177,6 +178,11 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // Read requester(s) to have buffered the ReadEx snoop and to
     // invalidate their blocks after receiving them.
     // assert(!pkt->needsWritable() || blk->isWritable());
+    /* MJL_Begin */
+    // Packet's requested and Block data's direction should be the same, unless the requested size is less than a word sizeof(uint64_t)
+    assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) )
+    /* MJL_End */
+    // MJL_TODO: a use case of getOffset, I think the direction of the cmd should be used, the requested size should not exceed the blksize anyway. And different direction should only happen when the size is smaller than a word.
     assert(pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
 
     // Check RMW operations first since both isRead() and
@@ -191,6 +197,10 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         assert(blk->isWritable());
         // Write or WriteLine at the first cache with block in writable state
         if (blk->checkWrite(pkt)) {
+            /* MJL_Begin */
+            // Setting the direction to make sure that offset is calculated correctly. Maybe can also be used to collect the statistics on different directional hit?
+            pkt->MJL_setDataDir(blk->MJL_blkDir);
+            /* MJL_End */
             pkt->writeDataToBlock(blk->data, blkSize);
         }
         // Always mark the line as dirty (and thus transition to the
@@ -206,6 +216,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
 
         // all read responses have a data payload
         assert(pkt->hasRespData());
+        /* MJL_Begin */
+        pkt->MJL_setDataDir(blk->MJL_blkDir);
+        /* MJL_End */
         pkt->setDataFromBlock(blk->data, blkSize);
 
         // determine if this read is from a (coherent) cache or not
@@ -343,7 +356,12 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     // Here lat is the value passed as parameter to accessBlock() function
     // that can modify its value.
     /* MJL_Begin */
-    blk = tags->MJL_accessBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
+    if ( pkt->getSize() <= sizeof(uint64_t) ) { // Less than a word, cross direction possible
+        blk = tags->MJL_accessBlockOneWord(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
+    } else {
+        blk = tags->MJL_accessBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
+    }
+    // MJL_TODO: may need to change lat if vector load/store is not possible
     /* MJL_End */
     /* MJL_Comment
     blk = tags->accessBlock(pkt->getAddr(), pkt->isSecure(), lat, id);
@@ -363,13 +381,15 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // CleanEvict almost simultaneously will be caught by snoops sent out
         // by crossbar.
         /* MJL_Begin */
+        // MJL_TODO: Eviction should be from cache, so should be cacheline size requests. Writeback in order? Should we check the other direction as well for clean eviction?
         WriteQueueEntry *wb_entry = writeBuffer.MJL_findMatch(pkt->getAddr(),
                                                           pkt->MJL_getCmdDir(),
+                                                          pkt->isSecure());
         /* MJL_End */
         /* MJL_Comment
         WriteQueueEntry *wb_entry = writeBuffer.findMatch(pkt->getAddr(),
-        */
                                                           pkt->isSecure());
+        */
         if (wb_entry) {
             assert(wb_entry->getNumTargets() == 1);
             PacketPtr wbPkt = wb_entry->getTarget()->pkt;
@@ -1590,9 +1610,15 @@ Cache::writebackBlk(CacheBlk *blk)
     assert(blk && blk->isValid() && (blk->isDirty() || writebackClean));
 
     writebacks[Request::wbMasterId]++;
-
+    /* MJL_Begin */
+    Request *req = new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
+                               blkSize, 0, Request::wbMasterId);
+    req->MJL_setReqDir = blk->MJL_blkDir;//MJL_TODO: how to get the two together?
+    /* MJL_End */
+    /* MJL_Comment
     Request *req = new Request(tags->regenerateBlkAddr(blk->tag, blk->set),
                                blkSize, 0, Request::wbMasterId);
+    */
     if (blk->isSecure())
         req->setFlags(Request::SECURE);
 

@@ -158,30 +158,70 @@ class CacheBlk
         ContextID contextId;     // locking context
         Addr lowAddr;      // low address of lock range
         Addr highAddr;     // high address of lock range
+        /* MJL_Begin */
+        Request::MJL_DirAttribute MJL_reqDir;
+        /* MJL_End */
 
         // check for matching execution context, and an address that
         // is within the lock
         bool matches(const RequestPtr req) const
         {
             Addr req_low = req->getPaddr();
+            /* MJL_Begin */
+            if ( req->MJL_reqIsRow() ) {
+                Addr req_high = req_low + req->getSize() -1;
+            } else if ( req->MJL_reqIsColumn() ) { //MJL_TODO: Placeholder
+                Addr req_high = req_low + req->getSize() -1;
+            } else {
+                Addr req_high = req_low + req->getSize() -1;
+            }
+            if ( req->getSize() <= sizeof(uint64_t) ) {
+                return (contextId == req->contextId()) &&
+                   (req_low >= lowAddr) && (req_high <= highAddr);
+            } else {
+                return (contextId == req->contextId()) && (MJL_reqDir == req->MJL_getReqDir()) &&
+                   (req_low >= lowAddr) && (req_high <= highAddr);
+            }
+            /* MJL_End */
+            /* MJL_Comment 
             Addr req_high = req_low + req->getSize() -1;
             return (contextId == req->contextId()) &&
                    (req_low >= lowAddr) && (req_high <= highAddr);
+            */
         }
 
         // check if a request is intersecting and thus invalidating the lock
         bool intersects(const RequestPtr req) const
         {
             Addr req_low = req->getPaddr();
+            /* MJL_Begin */
+            if ( req->MJL_reqIsRow() ) {
+                Addr req_high = req_low + req->getSize() -1;
+            } else if ( req->MJL_reqIsColumn() ) { //MJL_TODO: Placeholder
+                Addr req_high = req_low + req->getSize() -1;
+            } else {
+                Addr req_high = req_low + req->getSize() -1;
+            }
+            if ( (req->getSize() <= sizeof(uint64_t)) || (MJL_reqDir == req->MJL_getReqDir()) ) {
+                return (req_low <= highAddr) && (req_high >= lowAddr);
+            } else { // MJL_TODO: Placeholder, depends on row/column address calculation
+                return (req_low <= highAddr) && (req_high >= lowAddr);
+            }
+            /* MJL_End */
+            /* MJL_Comment
             Addr req_high = req_low + req->getSize() - 1;
 
             return (req_low <= highAddr) && (req_high >= lowAddr);
+            */
         }
 
         Lock(const RequestPtr req)
             : contextId(req->contextId()),
               lowAddr(req->getPaddr()),
               highAddr(lowAddr + req->getSize() - 1)
+              /* MJL_Begin */
+              , MJL_reqDir(req->MJL_getReqDir())
+              /* MJL_End */
         {
         }
     };

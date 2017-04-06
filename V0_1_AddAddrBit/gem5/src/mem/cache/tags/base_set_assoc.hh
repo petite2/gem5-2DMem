@@ -279,6 +279,54 @@ public:
 
         return blk;
     }
+
+    CacheBlk* MJL_accessBlockOneWord(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                          int context_src) override
+    {
+        Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
+        int set = extractSet(addr);
+        BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
+        if (blk == nullptr) {
+            if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
+                blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
+            } else if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
+                blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, is_secure);
+            } else {
+                assert( (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) || (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) );
+            }
+        }
+
+        // Access all tags in parallel, hence one in each way.  The data side
+        // either accesses all blocks in parallel, or one block sequentially on
+        // a hit.  Sequential access with a miss doesn't access data.
+        tagAccesses += allocAssoc;
+        if (sequentialAccess) {
+            if (blk != nullptr) {
+                dataAccesses += 1;
+            }
+        } else {
+            dataAccesses += allocAssoc;
+        }
+
+        if (blk != nullptr) {
+            // If a cache hit
+            lat = accessLatency;
+            // Check if the block to be accessed is available. If not,
+            // apply the accessLatency on top of block->whenReady.
+            if (blk->whenReady > curTick() &&
+                cache->ticksToCycles(blk->whenReady - curTick()) >
+                accessLatency) {
+                lat = cache->ticksToCycles(blk->whenReady - curTick()) +
+                accessLatency;
+            }
+            blk->refCount += 1;
+        } else {
+            // If a cache miss
+            lat = lookupLatency;
+        }
+
+        return blk;
+    }
     /* MJL_End */
 
     /**
