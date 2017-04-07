@@ -381,7 +381,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // CleanEvict almost simultaneously will be caught by snoops sent out
         // by crossbar.
         /* MJL_Begin */
-        // MJL_TODO: Eviction should be from cache, so should be cacheline size requests. Writeback in order? Should we check the other direction as well for clean eviction?
+        // MJL_TODO: Eviction should be from cache, so should be cacheline size requests. Writeback should be in order. Should we check the other direction as well for clean eviction?
         WriteQueueEntry *wb_entry = writeBuffer.MJL_findMatch(pkt->getAddr(),
                                                           pkt->MJL_getCmdDir(),
                                                           pkt->isSecure());
@@ -462,6 +462,11 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // and leave it as is for a clean writeback
         if (pkt->cmd == MemCmd::WritebackDirty) {
             blk->status |= BlkDirty;
+            /* MJL_Begin */
+            // MJL_TODO: need to invalidate other blocks since we write a dirty block here. I think I'll need to write another funciton for that.
+            assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
+
+            /* MJL_End */
         }
         // if the packet does not have sharers, it is passing
         // writable, and we got the writeback in Modified or Exclusive
@@ -639,6 +644,12 @@ void
 Cache::promoteWholeLineWrites(PacketPtr pkt)
 {
     // Cache line clearing instructions
+    /* MJL_Begin */
+    if (pkt->cmd == MemCmd::WriteReq) {
+        // For writes, dataDir should be the same as cmdDir, and getOffset() works on MJL_dataDir
+        assert(pkt->MJL_sameCmdDataDir());
+    }
+    /* MJL_End */
     if (doFastWrites && (pkt->cmd == MemCmd::WriteReq) &&
         (pkt->getSize() == blkSize) && (pkt->getOffset(blkSize) == 0)) {
         pkt->cmd = MemCmd::WriteLineReq;
@@ -804,12 +815,35 @@ Cache::recvTimingReq(PacketPtr pkt)
     } else {
         // miss
 
+        /* MJL_Begin */
+        Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+        MSHR *mshr = pkt->req->isUncacheable() ? nullptr :
+            mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), pkt->isSecure());
+
+        if ( (!mshr) && (pkt->getSize() <= sizeof(uint64_t)) ) {
+            if (pkt->MJL_cmdIsRow()) {
+                blk_addr = MJL_blockAlign(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                *mshr = pkt->req->isUncacheable() ? nullptr :
+                        mshrQueue.MJL_findMatch(blk_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
+            } else if (pkt->MJL_cmdIsColumn()) {
+                blk_addr = MJL_blockAlign(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsRow);
+                *mshr = pkt->req->isUncacheable() ? nullptr :
+                        mshrQueue.MJL_findMatch(blk_addr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+            } else {
+                assert( pkt->MJL_cmdIsRow() || pkt->MJL_cmdIsColumn() );
+            }
+        }
+        /* MJL_End */
+        /* MJL_Comment
         Addr blk_addr = blockAlign(pkt->getAddr());
+        */
 
         // ignore any existing MSHR if we are dealing with an
         // uncacheable request
+        /* MJL_Comment 
         MSHR *mshr = pkt->req->isUncacheable() ? nullptr :
             mshrQueue.findMatch(blk_addr, pkt->isSecure());
+        */
 
         // Software prefetch handling:
         // To keep the core from waiting on data it won't look at
@@ -837,6 +871,12 @@ Cache::recvTimingReq(PacketPtr pkt)
                                              pkt->req->getSize(),
                                              pkt->req->getFlags(),
                                              pkt->req->masterId());
+                
+                /* MJL_Begin */
+                req->MJL_setReqDir() = pkt->req->MJL_getReqDir();
+                // MJL_TODO: not sure whether this would cause problem, but I would assume that reqDir should be the same as cmdDir
+                assert(pkt->req->MJL_getReqDir() == pkt->MJL_getCmdDir());
+                /* MJL_End */
                 pf = new Packet(req, pkt->cmd);
                 pf->allocate();
                 assert(pf->getAddr() == pkt->getAddr());
@@ -942,6 +982,26 @@ Cache::recvTimingReq(PacketPtr pkt)
                     assert(pkt->needsWritable());
                     assert(!blk->isWritable());
                     blk->status &= ~BlkReadable;
+                    /* MJL_Begin */
+                    // For write invalidation, if other direction's one exist, then it should not be readable either
+                    // MJL_TODO: Check if this breaks things
+                    if ( (blk->MJL_blkDir == pkt->MJL_getCmdDir()) && (pkt->getSize() <= sizeof(uint64_t)) ) {
+                        CacheBlk::MJL_CacheBlkDir MJL_diffDir;
+                        if (pkt->MJL_cmdIsRow()) {
+                            MJL_diffDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+                        } else if (pkt->MJL_cmdIsColumn()) {
+                            MJL_diffDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                        } else {
+                            assert(pkt->MJL_cmdIsRow() || pkt->MJL_cmdIsColumn());
+                        }
+                        Addr MJL_diffDir_tag = tags->MJL_extractTag(pkt->getAddr(), MJL_diffDir);
+                        int MJL_diffDir_set = tags->extractSet()
+                        CacheBlk *MJL_diffDir_blk = tags->sets[MJL_diffDir_set].MJL_findBlk(MJL_diffDir_tag, MJL_diffDir, pkt->isSecure());
+                        if (MJL_diffDir_blk != nullptr) {
+                            MJL_diffDir_blk->status &= ~BlkReadable;
+                        }
+                    }
+                    /* MJL_End */
                 }
                 // Here we are using forward_time, modelling the latency of
                 // a miss (outbound) just as forwardLatency, neglecting the
@@ -1613,7 +1673,7 @@ Cache::writebackBlk(CacheBlk *blk)
     /* MJL_Begin */
     Request *req = new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
                                blkSize, 0, Request::wbMasterId);
-    req->MJL_setReqDir = blk->MJL_blkDir;//MJL_TODO: how to get the two together?
+    req->MJL_setReqDir(blk->MJL_blkDir);
     /* MJL_End */
     /* MJL_Comment
     Request *req = new Request(tags->regenerateBlkAddr(blk->tag, blk->set),
@@ -1629,6 +1689,9 @@ Cache::writebackBlk(CacheBlk *blk)
     PacketPtr pkt =
         new Packet(req, blk->isDirty() ?
                    MemCmd::WritebackDirty : MemCmd::WritebackClean);
+    /* MJL_Begin */
+    pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
+    /* MJL_End */
 
     DPRINTF(Cache, "Create Writeback %s writable: %d, dirty: %d\n",
             pkt->print(), blk->isWritable(), blk->isDirty());
@@ -1647,6 +1710,9 @@ Cache::writebackBlk(CacheBlk *blk)
 
     pkt->allocate();
     std::memcpy(pkt->getPtr<uint8_t>(), blk->data, blkSize);
+    /* MJL_Begin */
+    pkt->MJL_setDataDir(blk->MJL_blkDir);
+    /* MJL_End */
 
     return pkt;
 }

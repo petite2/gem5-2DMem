@@ -488,9 +488,9 @@ class BaseCache : public MemObject
     Addr blockAlign(Addr addr) const { return (addr & ~(Addr(blkSize - 1))); }
     /* MJL_Begin */
     Addr MJL_blockAlign(Addr addr, MemCmd::MJL_DirAttribute MJL_dir) const {
-        if (MJL_dir == MemCmd::MJL_IsRow) {
+        if (MJL_dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             return (addr & ~(Addr(blkSize - 1)));
-        } else if (MJL_dir == MemCmd::MJL_IsColumn) { // MJL_TODO: Placeholder
+        } else if (MJL_dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) { // MJL_TODO: Placeholder
             return (addr & ~(Addr(blkSize - 1)));
         } else {
             return (addr & ~(Addr(blkSize - 1)));
@@ -532,16 +532,15 @@ class BaseCache : public MemObject
         Addr blk_addr = blockAlign(pkt->getAddr());
         */
         /* MJL_Begin */
-        Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+        Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getDataDir());
         /* MJL_End */
 
-        /* MJL_TODO: Change writeBuffer.findMatch to have a parameter for direction */
         WriteQueueEntry *wq_entry =
         /* MJL_Comment
             writeBuffer.findMatch(blk_addr, pkt->isSecure());
         */
         /* MJL_Begin */
-            writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), pkt->isSecure());
+            writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getDataDir(), pkt->isSecure());
         /* MJL_End */
         if (wq_entry && !wq_entry->inService) {
             DPRINTF(Cache, "Potential to merge writeback %s", pkt->print());

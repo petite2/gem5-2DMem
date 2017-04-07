@@ -383,9 +383,9 @@ class Request
           accessDelta(0), depth(0)
     {}
 
-    Request(Addr paddr,/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ unsigned size, Flags flags, MasterID mid,
+    Request(Addr paddr, unsigned size, Flags flags, MasterID mid,
             InstSeqNum seq_num, ContextID cid)
-        : _paddr(0), _size(0), _masterId(invldMasterId), _time(0),
+        : _paddr(0),/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
           _taskId(ContextSwitchTaskId::Unknown), _asid(0), _vaddr(0),
           _extraData(0), _contextId(0), _pc(0),
           _reqInstSeqNum(seq_num), atomicOpFunctor(nullptr), translateDelta(0),
@@ -401,8 +401,8 @@ class Request
      * just physical address, size, flags, and timestamp (to curTick()).
      * These fields are adequate to perform a request.
      */
-    Request(Addr paddr,/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ unsigned size, Flags flags, MasterID mid)
-        : _paddr(0), _size(0), _masterId(invldMasterId), _time(0),
+    Request(Addr paddr, unsigned size, Flags flags, MasterID mid)
+        : _paddr(0),/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
           _taskId(ContextSwitchTaskId::Unknown), _asid(0), _vaddr(0),
           _extraData(0), _contextId(0), _pc(0),
           _reqInstSeqNum(0), atomicOpFunctor(nullptr), translateDelta(0),

@@ -117,11 +117,11 @@ class CacheBlk
     // enum MJL_CacheBlkDir : unsigned {
     //     /* MJL_TODO: Check if it works to set them to MemCmd */
     //     /** Invalid */
-    //     MJL_BlkInv =    MemCmd::MJL_IsInvalid,
+    //     MJL_BlkInv =    MemCmd::MJL_DirAttribute::MJL_IsInvalid,
     //     /** Row, default */
-    //     MJL_BlkRow =    MemCmd::MJL_IsRow,
+    //     MJL_BlkRow =    MemCmd::MJL_DirAttribute::MJL_IsRow,
     //     /** Column */
-    //     MJL_BlkCol =    MemCmd::MJL_IsColumn,
+    //     MJL_BlkCol =    MemCmd::MJL_DirAttribute::MJL_IsColumn,
     // };
     
     /** block data direction */

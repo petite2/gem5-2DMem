@@ -304,6 +304,29 @@ class Cache : public BaseCache
      * @param blk Block to invalidate
      */
     void invalidateBlock(CacheBlk *blk);
+    /* MJL_Begin
+    // MJL_TODO: Make this happen, but probably after the only one core version happens
+    bool MJL_invalidateOtherBlocks();
+    // Assuming sharing only happens in L1, and L2 is unified.
+    // For any pair of row and column block holding the same word
+    // The statuses are MOESI, where Modified and Exclusive means this cache is the
+    // only one holding the block, and Owned and Shared means there are other caches 
+    // That has the block. I is Invalid.
+    // The problem is when can we Invalidate the Other Blocks, should be treated as 
+    // an upgrade miss and the update cannot happen. And then we need to figure out how
+    // to resolve the upgrade misses. 
+    // I think that the other ones should be marked not readable as well if we are 
+    // waiting on an upgrade miss, and becomes invalid when we have the right to write
+    // Column one is the status of the block that we want to update, Row is the others
+    // Status|       M       |       O       |       E       |       S       |  I
+    //   M   |               |               |               | Yes, inform S | ---- 
+    //   O   |               |               |               |               | ---- 
+    //   E   |               |               |               | Yes, inform S | ---- 
+    //   S   |               |               |               |               | ---- 
+    //   I   |               |               |               |               | ---- 
+    // Apparently it is ok to invalidate if the other is shared, but need to tell the others that the shared copy is not there anymore... 
+    // Apparently nothing to invalidate if the others are invalid...
+    MJL_End */
 
     /**
      * Maintain the clusivity of this cache by potentially
