@@ -203,6 +203,11 @@ public:
     {
         return accessBlock(addr, is_secure, lat, context_src, 0);
     }
+    CacheBlk* MJL_accessBlockOneWord(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                          int context_src)
+    {
+        return accessBlock(addr, is_secure, lat, context_src, 0);
+    }
     /* MJL_End */
 
     /**

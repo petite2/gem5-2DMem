@@ -546,7 +546,7 @@ class Request
         return MJL_reqDir;
     }
     void
-    MJL_setReqDir( MJL_DirAttribute in_MJL_reqDir ) const
+    MJL_setReqDir( MJL_DirAttribute in_MJL_reqDir )
     {
         MJL_reqDir = in_MJL_reqDir;
     }

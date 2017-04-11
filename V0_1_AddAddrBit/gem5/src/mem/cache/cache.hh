@@ -330,8 +330,7 @@ class Cache : public BaseCache
      */
     void MJL_invalidateOtherBlocks(Addr MJL_written_addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned size, bool is_secure) {
         CacheBlk::MJL_CacheBlkDir MJL_diffDir;
-        Addr MJL_diffDir_tag, MJL_writtenWord_addr;
-        int MJL_diffDir_set;
+        Addr MJL_writtenWord_addr;
         CacheBlk *MJL_diffDir_blk;
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
@@ -339,12 +338,11 @@ class Cache : public BaseCache
             MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
         } else {
             assert(MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow || MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+            MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
         }
         for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {
             MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_written_addr, MJL_cacheBlkDir, offset);
-            MJL_diffDir_tag = tags->MJL_extractTag(MJL_writtenWord_addr, MJL_diffDir);
-            MJL_diffDir_set = tags->extractSet(MJL_writtenWord_addr);
-            MJL_diffDir_blk = tags->sets[MJL_diffDir_set].MJL_findBlk(MJL_diffDir_tag, MJL_diffDir, is_secure);
+	    MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
             if (MJL_diffDir_blk != nullptr) {
                 if (MJL_diffDir_blk->isValid()) {
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
@@ -362,8 +360,7 @@ class Cache : public BaseCache
      */
     void MJL_unreadableOtherBlocks(Addr MJL_upgrade_addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned size, bool is_secure) {
         CacheBlk::MJL_CacheBlkDir MJL_diffDir;
-        Addr MJL_diffDir_tag, MJL_writtenWord_addr;
-        int MJL_diffDir_set;
+        Addr MJL_writtenWord_addr;
         CacheBlk *MJL_diffDir_blk;
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
@@ -371,12 +368,11 @@ class Cache : public BaseCache
             MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
         } else {
             assert(MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow || MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+            MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
         }
         for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {
             MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_upgrade_addr, MJL_cacheBlkDir, offset);
-            MJL_diffDir_tag = tags->MJL_extractTag(MJL_writtenWord_addr, MJL_diffDir);
-            MJL_diffDir_set = tags->extractSet(MJL_writtenWord_addr);
-            MJL_diffDir_blk = tags->sets[MJL_diffDir_set].MJL_findBlk(MJL_diffDir_tag, MJL_diffDir, is_secure);
+	    MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
             if (MJL_diffDir_blk != nullptr) {
                 if (MJL_diffDir_blk->isValid()) {
                     MJL_diffDir_blk->status &= ~BlkReadable;

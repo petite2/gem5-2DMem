@@ -167,21 +167,21 @@ class CacheBlk
         bool matches(const RequestPtr req) const
         {
             Addr req_low = req->getPaddr();
+            Addr req_high;
             /* MJL_Begin */
             if ( req->MJL_reqIsRow() ) {
-                Addr req_high = req_low + req->getSize() -1;
+                req_high = req_low + req->getSize() -1;
             } else if ( req->MJL_reqIsColumn() ) { //MJL_TODO: Placeholder
-                Addr req_high = req_low + req->getSize() -1;
+                req_high = req_low + req->getSize() -1;
             } else {
-                Addr req_high = req_low + req->getSize() -1;
+                req_high = req_low + req->getSize() -1;
             }
             if ( req->getSize() <= sizeof(uint64_t) ) {
                 return (contextId == req->contextId()) &&
                    (req_low >= lowAddr) && (req_high <= highAddr);
-            } else {
-                return (contextId == req->contextId()) && (MJL_reqDir == req->MJL_getReqDir()) &&
-                   (req_low >= lowAddr) && (req_high <= highAddr);
             }
+            return (contextId == req->contextId()) && (MJL_reqDir == req->MJL_getReqDir()) &&
+                   (req_low >= lowAddr) && (req_high <= highAddr);
             /* MJL_End */
             /* MJL_Comment 
             Addr req_high = req_low + req->getSize() -1;
@@ -194,19 +194,20 @@ class CacheBlk
         bool intersects(const RequestPtr req) const
         {
             Addr req_low = req->getPaddr();
+            Addr req_high;
             /* MJL_Begin */
             if ( req->MJL_reqIsRow() ) {
-                Addr req_high = req_low + req->getSize() -1;
+                req_high = req_low + req->getSize() -1;
             } else if ( req->MJL_reqIsColumn() ) { //MJL_TODO: Placeholder
-                Addr req_high = req_low + req->getSize() -1;
+                req_high = req_low + req->getSize() -1;
             } else {
-                Addr req_high = req_low + req->getSize() -1;
+                req_high = req_low + req->getSize() -1;
             }
             if ( (req->getSize() <= sizeof(uint64_t)) || (MJL_reqDir == req->MJL_getReqDir()) ) {
                 return (req_low <= highAddr) && (req_high >= lowAddr);
-            } else { // MJL_TODO: Placeholder, depends on row/column address calculation
-                return (req_low <= highAddr) && (req_high >= lowAddr);
             }
+	    // MJL_TODO: Placeholder, depends on row/column address calculation
+            return (req_low <= highAddr) && (req_high >= lowAddr);
             /* MJL_End */
             /* MJL_Comment
             Addr req_high = req_low + req->getSize() - 1;

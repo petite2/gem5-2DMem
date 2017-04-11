@@ -183,7 +183,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // assert(!pkt->needsWritable() || blk->isWritable());
     /* MJL_Begin */
     // Packet's requested and Block data's direction should be the same, unless the requested size is less than a word sizeof(uint64_t)
-    assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) )
+    assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) );
     /* MJL_End */
     // MJL_TODO: a use case of getOffset, I think the direction of the cmd should be used, the requested size should not exceed the blksize anyway. And different direction should only happen when the size is smaller than a word.
     assert(pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
@@ -831,11 +831,11 @@ Cache::recvTimingReq(PacketPtr pkt)
         if ( (!mshr) && (pkt->getSize() <= sizeof(uint64_t)) ) {
             if (pkt->MJL_cmdIsRow()) {
                 blk_addr = MJL_blockAlign(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsColumn);
-                *mshr = pkt->req->isUncacheable() ? nullptr :
+                mshr = pkt->req->isUncacheable() ? nullptr :
                         mshrQueue.MJL_findMatch(blk_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
             } else if (pkt->MJL_cmdIsColumn()) {
                 blk_addr = MJL_blockAlign(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsRow);
-                *mshr = pkt->req->isUncacheable() ? nullptr :
+                mshr = pkt->req->isUncacheable() ? nullptr :
                         mshrQueue.MJL_findMatch(blk_addr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
             } else {
                 assert( pkt->MJL_cmdIsRow() || pkt->MJL_cmdIsColumn() );
@@ -881,7 +881,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                                              pkt->req->masterId());
                 
                 /* MJL_Begin */
-                req->MJL_setReqDir() = pkt->req->MJL_getReqDir();
+                req->MJL_setReqDir(pkt->req->MJL_getReqDir());
                 // MJL_TODO: not sure whether this would cause problem, but I would assume that reqDir should be the same as cmdDir
                 assert(pkt->req->MJL_getReqDir() == pkt->MJL_getCmdDir());
                 /* MJL_End */
@@ -1049,7 +1049,7 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // MJL_TODO: coherence related
         cmd = MemCmd::InvalidateReq;
         /* MJL_Begin */
-        cmd.MJL_setCmdDir(pkt->MJL_getCmdDir());
+        cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
         /* MJL_End */
     } else if (blkValid && useUpgrades) {
         // only reason to be here is that blk is read only and we need
@@ -1068,14 +1068,14 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // all caches not being on the same local bus.
         cmd = MemCmd::SCUpgradeFailReq;
         /* MJL_Begin */
-        cmd.MJL_setCmdDir(pkt->MJL_getCmdDir());
+        cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
         /* MJL_End */
     } else {
         // block is invalid
         cmd = needsWritable ? MemCmd::ReadExReq :
             (isReadOnly ? MemCmd::ReadCleanReq : MemCmd::ReadSharedReq);
         /* MJL_Begin */
-        cmd.MJL_setCmdDir(pkt->MJL_getCmdDir());
+        cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
         /* MJL_End */
     }
     PacketPtr pkt = new Packet(cpu_pkt->req, cmd, blkSize);
@@ -1313,7 +1313,7 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
     // see if we have data at all (owned or otherwise)
     bool have_data = blk && blk->isValid()
     /* MJL_Begin 
-        && pkt->MJL_checkFunctional(&cbpw, blk_addr, pkt->getCmdDir(), is_secure, blkSize,
+        && pkt->MJL_checkFunctional(&cbpw, blk_addr, pkt->MJL_getCmdDir(), is_secure, blkSize,
                                 blk->data);
      MJL_End */
     /* MJL_Comment */
@@ -1452,7 +1452,7 @@ Cache::recvTimingResp(PacketPtr pkt)
         (pkt->isRead() || pkt->cmd == MemCmd::UpgradeResp);
 
     /* MJL_Begin */
-    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->getCmdDir(), pkt->isSecure());
+    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
     /* MJL_End */
     /* MJL_Comment
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
@@ -1472,7 +1472,7 @@ Cache::recvTimingResp(PacketPtr pkt)
 
     // First offset for critical word first calculations
     /* MJL_Begin */
-    int initial_offset = initial_tgt->pkt->MJL_getOffset(blkSize);
+    int initial_offset = initial_tgt->pkt->getOffset(blkSize);
     /* MJL_End */
     /* MJL_Comment
     int initial_offset = initial_tgt->pkt->getOffset(blkSize);
@@ -1532,7 +1532,7 @@ Cache::recvTimingResp(PacketPtr pkt)
                 // How many bytes past the first request is this one
                 int transfer_offset =
                 /* MJL_Begin */
-                    tgt_pkt->MJL_getOffset(blkSize) - initial_offset;
+                    tgt_pkt->getOffset(blkSize) - initial_offset;
                 /* MJL_End */
                 /* MJL_Comment
                     tgt_pkt->getOffset(blkSize) - initial_offset;
@@ -1831,7 +1831,7 @@ Cache::writebackVisitor(CacheBlk &blk)
         /* MJL_Begin */
         Request request(tags->MJL_regenerateBlkAddr(blk.tag, blk.MJL_blkDir, blk.set),
                         blkSize, 0, Request::funcMasterId);
-        request.MJL_setReqDir(blk->MJL_blkDir);
+        request.MJL_setReqDir(blk.MJL_blkDir);
         /* MJL_End */
         /* MJL_Comment 
         Request request(tags->regenerateBlkAddr(blk.tag, blk.set),
@@ -1842,7 +1842,7 @@ Cache::writebackVisitor(CacheBlk &blk)
 
         Packet packet(&request, MemCmd::WriteReq);
         /* MJL_Begin */
-        packet.MJL_setDataDir(blk->MJL_blkDir);
+        packet.MJL_setDataDir(blk.MJL_blkDir);
         /* MJL_End */
         packet.dataStatic(blk.data);
 
@@ -2554,7 +2554,7 @@ Cache::getNextQueueEntry()
         // need to check for conflicting earlier writeback
         WriteQueueEntry *conflict_mshr =
         /* MJL_Begin */
-            writeBuffer.findPending(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, 
+            writeBuffer.MJL_findPending(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, 
                                     miss_mshr->isSecure);
         /* MJL_End */
         /* MJL_Comment

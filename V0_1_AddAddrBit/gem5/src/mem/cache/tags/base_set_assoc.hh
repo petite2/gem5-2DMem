@@ -281,7 +281,7 @@ public:
     }
 
     CacheBlk* MJL_accessBlockOneWord(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
-                          int context_src) override
+                          int context_src) override 
     {
         Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
         int set = extractSet(addr);

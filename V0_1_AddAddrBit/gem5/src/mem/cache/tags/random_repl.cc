@@ -56,6 +56,11 @@ RandomRepl::MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir
 {
     return BaseSetAssoc::MJL_accessBlock(addr, MJL_cacheBlkDir, is_secure, lat, master_id);
 }
+CacheBlk*
+RandomRepl::MJL_accessBlockOneWord(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat, int master_id)
+{
+    return BaseSetAssoc::MJL_accessBlockOneWord(addr, MJL_cacheBlkDir, is_secure, lat, master_id);
+}
 /* MJL_End */
 
 CacheBlk*

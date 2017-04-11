@@ -248,6 +248,8 @@ class BaseTags : public ClockedObject
     /* MJL_Begin */
     virtual CacheBlk* MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                                   int context_src) = 0;
+    virtual CacheBlk* MJL_accessBlockOneWord(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                          int context_src) = 0;
     /* MJL_End */
 
     virtual Addr extractTag(Addr addr) const = 0;

@@ -552,7 +552,7 @@ class Packet : public Printable
     MemCmd::MJL_DirAttribute MJL_getDataDir() {return MJL_dataDir; }
     bool MJL_dataIsRow() const          { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsRow; }
     bool MJL_dataIsColumn() const       { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsColumn; }
-    bool MJL_sameCmdDataDir() const     { return MJL_dataDir == MJL_getCmdDir(); }
+    bool MJL_sameCmdDataDir()           { return MJL_dataDir == cmd.MJL_getCmdDir(); }
     void MJL_setDataDir( MemCmd::MJL_DirAttribute in_MJL_dataDir ) { MJL_dataDir = in_MJL_dataDir; }
     /* MJL_End */
     bool isRead() const              { return cmd.isRead(); }
@@ -848,7 +848,7 @@ class Packet : public Printable
     Packet(const PacketPtr pkt, bool clear_flags, bool alloc_data)
         :  cmd(pkt->cmd), req(pkt->req),
            data(nullptr),
-           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir()),/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
+           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir())/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
            bytesValid(pkt->bytesValid),
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
