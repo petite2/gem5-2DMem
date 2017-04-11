@@ -1,0 +1,11 @@
+warn: DRAM device capacity (8192 Mbytes) does not match the address range assigned (512 Mbytes)
+0: system.remote_gdb.listener: listening for remote gdb on port 7000
+warn: ClockedObject: More than one power state change request encountered within the same simulation tick
+warn: x86 cpuid family 0x0000: unimplemented function 7
+warn: readlink() called on '/proc/self/exe' may yield unexpected results in various settings.
+      Returning '/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/xblat3s'
+warn: ignoring syscall access(5199777, ...)
+warn: instruction 'fwait' unimplemented
+warn: instruction 'fnclex' unimplemented
+warn: ignoring syscall rt_sigaction(3, ...)
+      (further warnings will be suppressed)

@@ -2036,7 +2036,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
     } else {
         // existing block... probably an upgrade
         /* MJL_Begin */
-        assert((blk->MJL_blkDir == pkt->MJL_getCmdDir()) && (blk->tag == tags->extractTag(addr, pkt->MJL_getCmdDir())));
+        assert((blk->MJL_blkDir == pkt->MJL_getCmdDir()) && (blk->tag == tags->MJL_extractTag(addr, pkt->MJL_getCmdDir())));
         /* MJL_End */
         /* MJL_Comment
         assert(blk->tag == tags->extractTag(addr));

@@ -1,0 +1,22 @@
+#!/bin/sh
+#PBS -l nodes=1:ppn=1
+#PBS -l walltime=48:00:00
+#PBS -q titan@shai
+#PBS -N xblaSE
+#PBS -m ae
+#PBS -M mjl5868@cse.psu.edu
+#
+
+PROG=/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast 
+ARGS="--redirect-stdout --stdout-file=xbla_test_Apr11_2017.gemout --redirect-stderr --stderr-file=xbla_test_Apr11_2017.gemerr --stats-file=xbla_test_Apr11_2017.stats /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/se.py --output=xbla_test_Apr11_2017.appout --errout=xbla_test_Apr11_2017.apperr -c /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/xblat3s -i /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/sblat3.in --caches --l2cache --cpu-type=detailed"
+#
+cd $PBS_O_WORKDIR
+# run the program
+#
+echo $LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/home/software/gcc/gcc-4.8.3/lib:/home/software/gcc/gcc-4.8.3/lib64:${LD_LIBRARY_PATH}
+echo $LD_LIBRARY_PATH
+$PROG $ARGS
+
+exit 0
+

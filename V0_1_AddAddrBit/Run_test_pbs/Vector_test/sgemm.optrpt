@@ -1,0 +1,190 @@
+Intel(R) Advisor can now assist with vectorization and show optimization
+  report messages with your source code.
+See "https://software.intel.com/en-us/intel-advisor-xe" for details.
+
+
+Begin optimization report for: SGEMM
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at sgemm.f(282,18)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at sgemm.f(283,22)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at sgemm.f(283,22)
+         remark #15300: LOOP WAS VECTORIZED
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(283,22)
+      <Remainder loop for vectorization>
+      LOOP END
+   LOOP END
+LOOP END
+
+LOOP BEGIN at sgemm.f(288,18)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at sgemm.f(289,22)
+   <Peeled loop for vectorization>
+   LOOP END
+
+   LOOP BEGIN at sgemm.f(289,22)
+      remark #15300: LOOP WAS VECTORIZED
+   LOOP END
+
+   LOOP BEGIN at sgemm.f(289,22)
+   <Remainder loop for vectorization>
+      remark #15335: remainder loop was not vectorized: vectorization possible but seems inefficient. Use vector always directive or -vec-threshold0 to override 
+   LOOP END
+LOOP END
+
+LOOP BEGIN at sgemm.f(304,18)
+<Distributed chunk1>
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at sgemm.f(306,26)
+      remark #15300: LOOP WAS VECTORIZED
+   LOOP END
+
+   LOOP BEGIN at sgemm.f(306,26)
+   <Remainder loop for vectorization>
+   LOOP END
+
+   LOOP BEGIN at sgemm.f(310,26)
+      remark #15300: LOOP WAS VECTORIZED
+   LOOP END
+
+   LOOP BEGIN at sgemm.f(310,26)
+   <Remainder loop for vectorization>
+   LOOP END
+LOOP END
+
+LOOP BEGIN at sgemm.f(314,22)
+<Distributed chunk2>
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at sgemm.f(315,28)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at sgemm.f(304,18)
+      <Peeled loop for vectorization>
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(304,18)
+         remark #15301: PERMUTED LOOP WAS VECTORIZED
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(304,18)
+      <Alternate Alignment Vectorized Loop>
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(304,18)
+      <Remainder loop for vectorization>
+         remark #15335: remainder loop was not vectorized: vectorization possible but seems inefficient. Use vector always directive or -vec-threshold0 to override 
+      LOOP END
+   LOOP END
+LOOP END
+
+LOOP BEGIN at sgemm.f(328,18)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at sgemm.f(329,22)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at sgemm.f(331,26)
+      <Peeled loop for vectorization>
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(331,26)
+         remark #15300: LOOP WAS VECTORIZED
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(331,26)
+      <Alternate Alignment Vectorized Loop>
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(331,26)
+      <Remainder loop for vectorization>
+      LOOP END
+   LOOP END
+LOOP END
+
+LOOP BEGIN at sgemm.f(347,18)
+<Distributed chunk1>
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at sgemm.f(349,26)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at sgemm.f(349,26)
+         remark #15300: LOOP WAS VECTORIZED
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(349,26)
+      <Remainder loop for vectorization>
+      LOOP END
+   LOOP END
+
+   LOOP BEGIN at sgemm.f(353,26)
+   <Peeled loop for vectorization>
+   LOOP END
+
+   LOOP BEGIN at sgemm.f(353,26)
+      remark #15300: LOOP WAS VECTORIZED
+   LOOP END
+
+   LOOP BEGIN at sgemm.f(353,26)
+   <Remainder loop for vectorization>
+      remark #15335: remainder loop was not vectorized: vectorization possible but seems inefficient. Use vector always directive or -vec-threshold0 to override 
+   LOOP END
+LOOP END
+
+LOOP BEGIN at sgemm.f(347,18)
+<Distributed chunk2>
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at sgemm.f(357,22)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at sgemm.f(359,26)
+      <Peeled loop for vectorization>
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(359,26)
+         remark #15300: LOOP WAS VECTORIZED
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(359,26)
+      <Alternate Alignment Vectorized Loop>
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(359,26)
+      <Remainder loop for vectorization>
+         remark #15335: remainder loop was not vectorized: vectorization possible but seems inefficient. Use vector always directive or -vec-threshold0 to override 
+      LOOP END
+   LOOP END
+LOOP END
+
+LOOP BEGIN at sgemm.f(368,18)
+   remark #15542: loop was not vectorized: inner loop was already vectorized
+
+   LOOP BEGIN at sgemm.f(369,22)
+      remark #15542: loop was not vectorized: inner loop was already vectorized
+
+      LOOP BEGIN at sgemm.f(371,26)
+      <Peeled loop for vectorization>
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(371,26)
+         remark #15300: LOOP WAS VECTORIZED
+      LOOP END
+
+      LOOP BEGIN at sgemm.f(371,26)
+      <Remainder loop for vectorization>
+      LOOP END
+   LOOP END
+LOOP END
+===========================================================================

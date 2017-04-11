@@ -233,13 +233,13 @@
                         "pid": 100, 
                         "kvmInSE": false, 
                         "cxx_class": "LiveProcess", 
-                        "executable": "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/Original/Vectorization test/test-bin", 
+                        "executable": "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/xblat3s", 
                         "drivers": [], 
                         "system": "system", 
                         "gid": 100, 
                         "eventq_index": 0, 
                         "env": [], 
-                        "input": "cin", 
+                        "input": "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/sblat3.in", 
                         "ppid": 99, 
                         "type": "LiveProcess", 
                         "cwd": "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test", 
@@ -249,12 +249,12 @@
                         "max_stack_size": 67108864, 
                         "name": "workload", 
                         "cmd": [
-                            "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/Original/Vectorization test/test-bin"
+                            "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/xblat3s"
                         ], 
-                        "errout": "build_test_Apr11_2017.apperr", 
+                        "errout": "xbla_test_Apr11_2017.apperr", 
                         "useArchPT": false, 
                         "egid": 100, 
-                        "output": "build_test_Apr11_2017.appout"
+                        "output": "xbla_test_Apr11_2017.appout"
                     }
                 ], 
                 "name": "cpu", 

@@ -1,0 +1,43 @@
+warn: DRAM device capacity (8192 Mbytes) does not match the address range assigned (512 Mbytes)
+0: system.remote_gdb.listener: listening for remote gdb on port 7000
+warn: ClockedObject: More than one power state change request encountered within the same simulation tick
+warn: instruction 'fnclex' unimplemented
+fatal: syscall sigaltstack (#131) unimplemented.
+ @ tick 64531000
+[unimplementedFunc:build/X86/sim/syscall_emul.cc, line 95]
+Memory Usage: 780708 KBytes
+Program aborted at tick 64531000
+--- BEGIN LIBC BACKTRACE ---
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x660745]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x66fd26]
+/lib64/libpthread.so.0[0x347080f7e0]
+/lib64/libc.so.6(gsignal+0x35)[0x34704325e5]
+/lib64/libc.so.6(abort+0x175)[0x3470433dc5]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x5287ec]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6a2bc6]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x69fc72]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x69924c]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6ce862]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6dbc7f]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x10d06d5]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6dc205]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6e8db2]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6ebc32]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6d2387]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x66a031]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6871b8]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x6876b7]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.fast[0x588844]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x4e26)[0x3471cd55b6]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCodeEx+0x927)[0x3471cd7647]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x5304)[0x3471cd5a94]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x63ef)[0x3471cd6b7f]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x63ef)[0x3471cd6b7f]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCodeEx+0x927)[0x3471cd7647]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCode+0x32)[0x3471cd7722]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x54f2)[0x3471cd5c82]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCodeEx+0x927)[0x3471cd7647]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x5304)[0x3471cd5a94]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCodeEx+0x927)[0x3471cd7647]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCode+0x32)[0x3471cd7722]
+--- END LIBC BACKTRACE ---
