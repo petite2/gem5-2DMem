@@ -309,7 +309,7 @@ class Request
     Addr _paddr;
     /* MJL_Begin */
     // MJL_TODO: only used for Lock in cache blocks right now. Check to see if anything else needs this.
-    MJL_DirAttribute _MJL_reqDir;
+    MJL_DirAttribute MJL_reqDir;
     /* MJL_End */
 
     /**
@@ -376,7 +376,7 @@ class Request
      *  constructor.)
      */
     Request()
-        : _paddr(0),/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
+        : _paddr(0),/* MJL_Begin */ MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
           _taskId(ContextSwitchTaskId::Unknown), _asid(0), _vaddr(0),
           _extraData(0), _contextId(0), _pc(0),
           _reqInstSeqNum(0), atomicOpFunctor(nullptr), translateDelta(0),
@@ -385,7 +385,7 @@ class Request
 
     Request(Addr paddr, unsigned size, Flags flags, MasterID mid,
             InstSeqNum seq_num, ContextID cid)
-        : _paddr(0),/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
+        : _paddr(0),/* MJL_Begin */ MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
           _taskId(ContextSwitchTaskId::Unknown), _asid(0), _vaddr(0),
           _extraData(0), _contextId(0), _pc(0),
           _reqInstSeqNum(seq_num), atomicOpFunctor(nullptr), translateDelta(0),
@@ -402,7 +402,7 @@ class Request
      * These fields are adequate to perform a request.
      */
     Request(Addr paddr, unsigned size, Flags flags, MasterID mid)
-        : _paddr(0),/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
+        : _paddr(0),/* MJL_Begin */ MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
           _taskId(ContextSwitchTaskId::Unknown), _asid(0), _vaddr(0),
           _extraData(0), _contextId(0), _pc(0),
           _reqInstSeqNum(0), atomicOpFunctor(nullptr), translateDelta(0),
@@ -412,7 +412,7 @@ class Request
     }
 
     Request(Addr paddr, unsigned size, Flags flags, MasterID mid, Tick time)
-        : _paddr(0),/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
+        : _paddr(0),/* MJL_Begin */ MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
           _taskId(ContextSwitchTaskId::Unknown), _asid(0), _vaddr(0),
           _extraData(0), _contextId(0), _pc(0),
           _reqInstSeqNum(0), atomicOpFunctor(nullptr), translateDelta(0),
@@ -423,7 +423,7 @@ class Request
 
     Request(Addr paddr, unsigned size, Flags flags, MasterID mid, Tick time,
             Addr pc)
-        : _paddr(0),/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
+        : _paddr(0),/* MJL_Begin */ MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
           _taskId(ContextSwitchTaskId::Unknown), _asid(0), _vaddr(0),
           _extraData(0), _contextId(0), _pc(pc),
           _reqInstSeqNum(0), atomicOpFunctor(nullptr), translateDelta(0),
@@ -435,7 +435,7 @@ class Request
 
     Request(int asid, Addr vaddr, unsigned size, Flags flags, MasterID mid,
             Addr pc, ContextID cid)
-        : _paddr(0),/* MJL_Begin */ _MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
+        : _paddr(0),/* MJL_Begin */ MJL_reqDir(MJL_IsRow),/* MJL_End */ _size(0), _masterId(invldMasterId), _time(0),
           _taskId(ContextSwitchTaskId::Unknown), _asid(0), _vaddr(0),
           _extraData(0), _contextId(0), _pc(0),
           _reqInstSeqNum(0), atomicOpFunctor(nullptr), translateDelta(0),
@@ -543,22 +543,22 @@ class Request
     MJL_DirAttribute
     MJL_getReqDir() const
     {
-        return _MJL_reqDir;
+        return MJL_reqDir;
     }
     void
     MJL_setReqDir( MJL_DirAttribute in_MJL_reqDir ) const
     {
-        _MJL_reqDir = in_MJL_reqDir;
+        MJL_reqDir = in_MJL_reqDir;
     }
     bool
     MJL_reqIsRow() const
     {
-        return _MJL_reqDir == MJL_IsRow;
+        return MJL_reqDir == MJL_IsRow;
     }
     bool
     MJL_reqIsColumn() const
     {
-        return _MJL_reqDir == MJL_IsColumn;
+        return MJL_reqDir == MJL_IsColumn;
     }
     /* MJL_End */
     /**

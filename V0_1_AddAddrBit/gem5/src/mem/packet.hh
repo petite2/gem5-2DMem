@@ -214,8 +214,8 @@ class MemCmd
     bool isEviction() const        { return testCmdAttrib(IsEviction); }
     bool fromCache() const         { return testCmdAttrib(FromCache); }
     /* MJL_Begin */
-    bool MJL_isRow() const         { return (MJL_cmdDir == MJL_IsRow); }
-    bool MJL_isColumn() const      { return (MJL_cmdDir == MJL_IsColumn); }
+    bool MJL_isRow() const         { return (MJL_cmdDir == MJL_DirAttribute::MJL_IsRow); }
+    bool MJL_isColumn() const      { return (MJL_cmdDir == MJL_DirAttribute::MJL_IsColumn); }
     /* MJL_End */
 
     /**
@@ -267,9 +267,9 @@ class MemCmd
     MemCmd operator=(int _cmd) { this->cmd = (Command)_cmd; return *this; }
     // Implicit already covered this? MemCmd(MemCmd c2) : cmd(c2.cmd), MJL_cmdDir(c2.MJL_cmdDir) { }
     /* MJL_End */
-    MemCmd(Command _cmd) : cmd(_cmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }
-    MemCmd(int _cmd) : cmd((Command)_cmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }
-    MemCmd() : cmd(InvalidCmd)/* MJL_Begin */, MJL_cmdDir(MJL_IsRow) /* MJL_End */ { }
+    MemCmd(Command _cmd) : cmd(_cmd)/* MJL_Begin */, MJL_cmdDir(MJL_DirAttribute::MJL_IsRow) /* MJL_End */ { }
+    MemCmd(int _cmd) : cmd((Command)_cmd)/* MJL_Begin */, MJL_cmdDir(MJL_DirAttribute::MJL_IsRow) /* MJL_End */ { }
+    MemCmd() : cmd(InvalidCmd)/* MJL_Begin */, MJL_cmdDir(MJL_DirAttribute::MJL_IsRow) /* MJL_End */ { }
 
     /* MJL_Comment
         Not changing operator to include comparison on MJL_cmdDir due to the use of the operators in the form of cmd == MemCmd::xxx
@@ -550,9 +550,9 @@ class Packet : public Printable
     bool MJL_cmdIsRow() const           { return cmd.MJL_isRow(); }
     bool MJL_cmdIsColumn() const        { return cmd.MJL_isColumn(); }
     MemCmd::MJL_DirAttribute MJL_getDataDir() {return MJL_dataDir; }
-    bool MJL_dataIsRow() { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsRow; }
-    bool MJL_dataIsColumn() { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsColumn; }
-    bool MJL_sameCmdDataDir() { return MJL_dataDir == MJL_getCmdDir(); }
+    bool MJL_dataIsRow() const          { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsRow; }
+    bool MJL_dataIsColumn() const       { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsColumn; }
+    bool MJL_sameCmdDataDir() const     { return MJL_dataDir == MJL_getCmdDir(); }
     void MJL_setDataDir( MemCmd::MJL_DirAttribute in_MJL_dataDir ) { MJL_dataDir = in_MJL_dataDir; }
     /* MJL_End */
     bool isRead() const              { return cmd.isRead(); }
@@ -791,7 +791,7 @@ class Packet : public Printable
      * not be valid. The command must be supplied.
      */
     Packet(const RequestPtr _req, MemCmd _cmd)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd->MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            size(0), headerDelay(0), snoopDelay(0), payloadDelay(0),
            senderState(NULL)
     {
@@ -812,7 +812,7 @@ class Packet : public Printable
      * req.  this allows for overriding the size/addr of the req.
      */
     Packet(const RequestPtr _req, MemCmd _cmd, int _blkSize)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd->MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            headerDelay(0), snoopDelay(0), payloadDelay(0),
            senderState(NULL)
     {
@@ -848,7 +848,7 @@ class Packet : public Printable
     Packet(const PacketPtr pkt, bool clear_flags, bool alloc_data)
         :  cmd(pkt->cmd), req(pkt->req),
            data(nullptr),
-           addr(pkt->addr)/* MJL_Begin */ MJL_dataDir(pkt->MJL_getDataDir()),/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
+           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir()),/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
            bytesValid(pkt->bytesValid),
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
