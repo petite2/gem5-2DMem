@@ -159,6 +159,9 @@ Cache::cmpAndSwap(CacheBlk *blk, PacketPtr pkt)
 
     if (overwrite_mem) {
         std::memcpy(blk_data, &overwrite_val, pkt->getSize());
+        /* MJL_Begin */
+        MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
+        /* MJL_End */
         blk->status |= BlkDirty;
     }
 }
@@ -207,6 +210,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // Modified state) even if we are a failed StoreCond so we
         // supply data to any snoops that have appended themselves to
         // this cache before knowing the store will fail.
+        /* MJL_Begin */
+        MJL_invalidateOtherBlocks(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
+        /* MJL_End */
         blk->status |= BlkDirty;
         DPRINTF(CacheVerbose, "%s for %s (write)\n", __func__, pkt->print());
     } else if (pkt->isRead()) {
@@ -221,6 +227,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         /* MJL_End */
         pkt->setDataFromBlock(blk->data, blkSize);
 
+        // MJL_TODO: coherence things
         // determine if this read is from a (coherent) cache or not
         if (pkt->fromCache()) {
             assert(pkt->getSize() == blkSize);
@@ -290,6 +297,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         }
     } else if (pkt->isUpgrade()) {
         // sanity check
+        // MJL_TODO: would need to comment this if cross directional block existence also mark sharers (cannot respond even if it is a sharer). Or is it that they should have invalidated theirs anyway?
         assert(!pkt->hasSharers());
 
         if (blk->isDirty()) {
@@ -441,7 +449,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         if (blk == nullptr) {
             // need to do a replacement
             /* MJL_Begin */
-            blk = MJL_allocateBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), writebacks);
+            blk = MJL_allocateBlock(pkt->getAddr(), pkt->isSecure(), writebacks);
             /* MJL_End */
             /* MJL_Comment
             blk = allocateBlock(pkt->getAddr(), pkt->isSecure(), writebacks);
@@ -461,12 +469,12 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // only mark the block dirty if we got a writeback command,
         // and leave it as is for a clean writeback
         if (pkt->cmd == MemCmd::WritebackDirty) {
-            blk->status |= BlkDirty;
             /* MJL_Begin */
             // MJL_TODO: need to invalidate other blocks since we write a dirty block here. I think I'll need to write another funciton for that.
             assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
-
+            MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
             /* MJL_End */
+            blk->status |= BlkDirty;
         }
         // if the packet does not have sharers, it is passing
         // writable, and we got the writeback in Modified or Exclusive
@@ -985,22 +993,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                     /* MJL_Begin */
                     // For write invalidation, if other direction's one exist, then it should not be readable either
                     // MJL_TODO: Check if this breaks things
-                    if ( (blk->MJL_blkDir == pkt->MJL_getCmdDir()) && (pkt->getSize() <= sizeof(uint64_t)) ) {
-                        CacheBlk::MJL_CacheBlkDir MJL_diffDir;
-                        if (pkt->MJL_cmdIsRow()) {
-                            MJL_diffDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-                        } else if (pkt->MJL_cmdIsColumn()) {
-                            MJL_diffDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
-                        } else {
-                            assert(pkt->MJL_cmdIsRow() || pkt->MJL_cmdIsColumn());
-                        }
-                        Addr MJL_diffDir_tag = tags->MJL_extractTag(pkt->getAddr(), MJL_diffDir);
-                        int MJL_diffDir_set = tags->extractSet()
-                        CacheBlk *MJL_diffDir_blk = tags->sets[MJL_diffDir_set].MJL_findBlk(MJL_diffDir_tag, MJL_diffDir, pkt->isSecure());
-                        if (MJL_diffDir_blk != nullptr) {
-                            MJL_diffDir_blk->status &= ~BlkReadable;
-                        }
-                    }
+                    MJL_unreadableOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
                     /* MJL_End */
                 }
                 // Here we are using forward_time, modelling the latency of
@@ -1053,13 +1046,20 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // forward as invalidate to all other caches, this gives us
         // the line in Exclusive state, and invalidates all other
         // copies
+        // MJL_TODO: coherence related
         cmd = MemCmd::InvalidateReq;
+        /* MJL_Begin */
+        cmd.MJL_setCmdDir(pkt->MJL_getCmdDir());
+        /* MJL_End */
     } else if (blkValid && useUpgrades) {
         // only reason to be here is that blk is read only and we need
         // it to be writable
         assert(needsWritable);
         assert(!blk->isWritable());
         cmd = cpu_pkt->isLLSC() ? MemCmd::SCUpgradeReq : MemCmd::UpgradeReq;
+        /* MJL_Begin */
+        cmd.MJL_setCmdDir(blk->MJL_blkDir);
+        /* MJL_End */
     } else if (cpu_pkt->cmd == MemCmd::SCUpgradeFailReq ||
                cpu_pkt->cmd == MemCmd::StoreCondFailReq) {
         // Even though this SC will fail, we still need to send out the
@@ -1067,10 +1067,16 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // where the determination the StoreCond fails is delayed due to
         // all caches not being on the same local bus.
         cmd = MemCmd::SCUpgradeFailReq;
+        /* MJL_Begin */
+        cmd.MJL_setCmdDir(pkt->MJL_getCmdDir());
+        /* MJL_End */
     } else {
         // block is invalid
         cmd = needsWritable ? MemCmd::ReadExReq :
             (isReadOnly ? MemCmd::ReadCleanReq : MemCmd::ReadSharedReq);
+        /* MJL_Begin */
+        cmd.MJL_setCmdDir(pkt->MJL_getCmdDir());
+        /* MJL_End */
     }
     PacketPtr pkt = new Packet(cpu_pkt->req, cmd, blkSize);
 
@@ -1088,7 +1094,12 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
     }
 
     // the packet should be block aligned
+    /* MJL_Begin */
+    assert(pkt->getAddr() == MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()));
+    /* MJL_End */
+    /* MJL_Comment
     assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
+    */
 
     pkt->allocate();
     DPRINTF(Cache, "%s: created %s from %s\n", __func__, pkt->print(),
@@ -1276,10 +1287,19 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
         return;
     }
 
+    /* MJL_Begin 
+    Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+    bool is_secure = pkt->isSecure();
+    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
+    MSHR *mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+    // MJL_TODO: Do we need to change for functional?
+     MJL_End */
+    /* MJL_Comment */
     Addr blk_addr = blockAlign(pkt->getAddr());
     bool is_secure = pkt->isSecure();
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), is_secure);
     MSHR *mshr = mshrQueue.findMatch(blk_addr, is_secure);
+    
 
     pkt->pushLabel(name());
 
@@ -1292,6 +1312,11 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
 
     // see if we have data at all (owned or otherwise)
     bool have_data = blk && blk->isValid()
+    /* MJL_Begin 
+        && pkt->MJL_checkFunctional(&cbpw, blk_addr, pkt->getCmdDir(), is_secure, blkSize,
+                                blk->data);
+     MJL_End */
+    /* MJL_Comment */
         && pkt->checkFunctional(&cbpw, blk_addr, is_secure, blkSize,
                                 blk->data);
 
@@ -1302,10 +1327,18 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
                       (mshr && mshr->inService && mshr->isPendingModified()));
 
     bool done = have_dirty
+    /* MJL_Begin 
+        || cpuSidePort->MJL_checkFunctional(pkt)
+        || mshrQueue.MJL_checkFunctional(pkt, blk_addr)
+        || writeBuffer.MJL_checkFunctional(pkt, blk_addr)
+        || memSidePort->MJL_checkFunctional(pkt);
+     MJL_End */
+    /* MJL_Comment */
         || cpuSidePort->checkFunctional(pkt)
         || mshrQueue.checkFunctional(pkt, blk_addr)
         || writeBuffer.checkFunctional(pkt, blk_addr)
         || memSidePort->checkFunctional(pkt);
+    /* */
 
     DPRINTF(CacheVerbose, "%s: %s %s%s%s\n", __func__,  pkt->print(),
             (blk && blk->isValid()) ? "valid " : "",
@@ -1418,7 +1451,12 @@ Cache::recvTimingResp(PacketPtr pkt)
     bool is_fill = !mshr->isForward &&
         (pkt->isRead() || pkt->cmd == MemCmd::UpgradeResp);
 
+    /* MJL_Begin */
+    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->getCmdDir(), pkt->isSecure());
+    /* MJL_End */
+    /* MJL_Comment
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
+    */
 
     if (is_fill && !is_error) {
         DPRINTF(Cache, "Block for addr %#llx being updated in Cache\n",
@@ -1433,7 +1471,12 @@ Cache::recvTimingResp(PacketPtr pkt)
     bool is_invalidate = pkt->isInvalidate();
 
     // First offset for critical word first calculations
+    /* MJL_Begin */
+    int initial_offset = initial_tgt->pkt->MJL_getOffset(blkSize);
+    /* MJL_End */
+    /* MJL_Comment
     int initial_offset = initial_tgt->pkt->getOffset(blkSize);
+    */
 
     bool from_cache = false;
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
@@ -1488,7 +1531,12 @@ Cache::recvTimingResp(PacketPtr pkt)
 
                 // How many bytes past the first request is this one
                 int transfer_offset =
+                /* MJL_Begin */
+                    tgt_pkt->MJL_getOffset(blkSize) - initial_offset;
+                /* MJL_End */
+                /* MJL_Comment
                     tgt_pkt->getOffset(blkSize) - initial_offset;
+                */
                 if (transfer_offset < 0) {
                     transfer_offset += blkSize;
                 }
@@ -1594,6 +1642,7 @@ Cache::recvTimingResp(PacketPtr pkt)
 
     maintainClusivity(from_cache, blk);
 
+    // MJL_TODO: probably coherence handling
     if (blk && blk->isValid()) {
         // an invalidate response stemming from a write line request
         // should not invalidate the block, so check if the
@@ -1724,8 +1773,15 @@ Cache::cleanEvictBlk(CacheBlk *blk)
     assert(blk && blk->isValid() && !blk->isDirty());
     // Creating a zero sized write, a message to the snoop filter
     Request *req =
+    /* MJL_Begin */
+        new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blkSize, 0,
+                        Request::wbMasterId);
+    req->MJL_setReqDir(blk->MJL_blkDir);
+    /* MJL_End */
+    /* MJL_Comment 
         new Request(tags->regenerateBlkAddr(blk->tag, blk->set), blkSize, 0,
-                    Request::wbMasterId);
+                        Request::wbMasterId);
+    */
     if (blk->isSecure())
         req->setFlags(Request::SECURE);
 
@@ -1734,6 +1790,9 @@ Cache::cleanEvictBlk(CacheBlk *blk)
     blk->tickInserted = curTick();
 
     PacketPtr pkt = new Packet(req, MemCmd::CleanEvict);
+    /* MJL_Begin */
+    pkt->MJL_setDataDir(blk->MJL_blkDir);
+    /* MJL_End */
     pkt->allocate();
     DPRINTF(Cache, "Create CleanEvict %s\n", pkt->print());
 
@@ -1769,11 +1828,22 @@ Cache::writebackVisitor(CacheBlk &blk)
     if (blk.isDirty()) {
         assert(blk.isValid());
 
+        /* MJL_Begin */
+        Request request(tags->MJL_regenerateBlkAddr(blk.tag, blk.MJL_blkDir, blk.set),
+                        blkSize, 0, Request::funcMasterId);
+        request.MJL_setReqDir(blk->MJL_blkDir);
+        /* MJL_End */
+        /* MJL_Comment 
         Request request(tags->regenerateBlkAddr(blk.tag, blk.set),
                         blkSize, 0, Request::funcMasterId);
+        req->MJL_setReqDir(blk->MJL_blkDir);
+        */
         request.taskId(blk.task_id);
 
         Packet packet(&request, MemCmd::WriteReq);
+        /* MJL_Begin */
+        packet.MJL_setDataDir(blk->MJL_blkDir);
+        /* MJL_End */
         packet.dataStatic(blk.data);
 
         memSidePort->sendFunctional(&packet);
@@ -1844,7 +1914,7 @@ Cache::allocateBlock(Addr addr, bool is_secure, PacketList &writebacks)
 }
 /* MJL_Begin */
 CacheBlk*
-Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, PacketList &writebacks)
+Cache::MJL_allocateBlock(Addr addr, bool is_secure, PacketList &writebacks)
 {
     CacheBlk *blk = tags->findVictim(addr);
 
@@ -1912,8 +1982,16 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
 #endif
 
     // When handling a fill, we should have no writes to this line.
+    /* MJL_Begin */
+    // MJL_TODO: should be packets operating on cachelines, and should have the same direction for cmd and data, need verification
+    assert(pkt->MJL_sameCmdDataDir());
+    assert(addr == MJL_blockAlign(addr, pkt->MJL_getCmdDir()));
+    assert(!writeBuffer.MJL_findMatch(addr, pkt->MJL_getCmdDir(), is_secure));
+    /* MJL_End */
+    /* MJL_Comment
     assert(addr == blockAlign(addr));
     assert(!writeBuffer.findMatch(addr, is_secure));
+    */
 
     if (blk == nullptr) {
         // better have read new data...
@@ -1926,7 +2004,12 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
 
         // need to do a replacement if allocating, otherwise we stick
         // with the temporary storage
+        /* MJL_Begin */
+        blk = allocate ? MJL_allocateBlock(addr, is_secure, writebacks) : nullptr;
+        /* MJL_End */
+        /* MJL_Comment
         blk = allocate ? allocateBlock(addr, is_secure, writebacks) : nullptr;
+        */
 
         if (blk == nullptr) {
             // No replaceable block or a mostly exclusive
@@ -1935,7 +2018,12 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             assert(!tempBlock->isValid());
             blk = tempBlock;
             tempBlock->set = tags->extractSet(addr);
+            /* MJL_Begin */
+            tempBlock->tag = tags->MJL_extractTag(addr, pkt->MJL_getDataDir());
+            /* MJL_End */
+            /* MJL_Comment 
             tempBlock->tag = tags->extractTag(addr);
+            */
             // @todo: set security state as well...
             DPRINTF(Cache, "using temp block for %#llx (%s)\n", addr,
                     is_secure ? "s" : "ns");
@@ -1947,7 +2035,12 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         assert(!blk->isValid());
     } else {
         // existing block... probably an upgrade
+        /* MJL_Begin */
+        assert((blk->MJL_blkDir == pkt->MJL_getCmdDir()) && (blk->tag == tags->extractTag(addr, pkt->MJL_getCmdDir())));
+        /* MJL_End */
+        /* MJL_Comment
         assert(blk->tag == tags->extractTag(addr));
+        */
         // either we're getting new data or the block should already be valid
         assert(pkt->hasData() || blk->isValid());
         // don't clear block status... if block is already dirty we
@@ -1999,6 +2092,9 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         // sanity checks
         assert(pkt->hasData());
         assert(pkt->getSize() == blkSize);
+        /* MJL_Begin */
+        assert(pkt->MJL_getDataDir() == blk->MJL_blkDir);
+        /* MJL_End */
 
         std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
     }
@@ -2271,10 +2367,18 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
     }
 
     bool is_secure = pkt->isSecure();
+    /* MJL_Begin */
+    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
+
+    Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+    MSHR *mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+    /* MJL_End */
+    /* MJL_Comment 
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), is_secure);
 
     Addr blk_addr = blockAlign(pkt->getAddr());
     MSHR *mshr = mshrQueue.findMatch(blk_addr, is_secure);
+    */
 
     // Update the latency cost of the snoop so that the crossbar can
     // account for it. Do not overwrite what other neighbouring caches
@@ -2306,7 +2410,12 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
     }
 
     //We also need to check the writeback buffers and handle those
+    /* MJL_Begin */
+    WriteQueueEntry *wb_entry = writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+    /* MJL_End */
+    /* MJL_Comment
     WriteQueueEntry *wb_entry = writeBuffer.findMatch(blk_addr, is_secure);
+    */
     if (wb_entry) {
         DPRINTF(Cache, "Snoop hit in writeback to addr %#llx (%s)\n",
                 pkt->getAddr(), is_secure ? "s" : "ns");
@@ -2335,6 +2444,7 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
         // the difference being that instead of querying the block
         // state to determine if it is dirty and writable, we use the
         // command and fields of the writeback packet
+        // MJL_TODO: should check other direction as well for coherency
         bool respond = wb_pkt->cmd == MemCmd::WritebackDirty &&
             pkt->needsResponse();
         bool have_writable = !wb_pkt->hasSharers();
@@ -2397,7 +2507,12 @@ Cache::recvAtomicSnoop(PacketPtr pkt)
         return 0;
     }
 
+    /* MJL_Begin */
+    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
+    /* MJL_End */
+    /* MJL_Comment
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
+    */
     uint32_t snoop_delay = handleSnoop(pkt, blk, false, false, false);
     return snoop_delay + lookupLatency * clockPeriod();
 }
@@ -2417,8 +2532,14 @@ Cache::getNextQueueEntry()
     if (wq_entry && (writeBuffer.isFull() || !miss_mshr)) {
         // need to search MSHR queue for conflicting earlier miss.
         MSHR *conflict_mshr =
+        /* MJL_Begin */
+            mshrQueue.MJL_findPending(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, 
+                                  wq_entry->isSecure);
+        /* MJL_End */
+        /* MJL_Comment
             mshrQueue.findPending(wq_entry->blkAddr,
                                   wq_entry->isSecure);
+        */
 
         if (conflict_mshr && conflict_mshr->order < wq_entry->order) {
             // Service misses in order until conflict is cleared.
@@ -2432,8 +2553,14 @@ Cache::getNextQueueEntry()
     } else if (miss_mshr) {
         // need to check for conflicting earlier writeback
         WriteQueueEntry *conflict_mshr =
+        /* MJL_Begin */
+            writeBuffer.findPending(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, 
+                                    miss_mshr->isSecure);
+        /* MJL_End */
+        /* MJL_Comment
             writeBuffer.findPending(miss_mshr->blkAddr,
                                     miss_mshr->isSecure);
+        */
         if (conflict_mshr) {
             // not sure why we don't check order here... it was in the
             // original code but commented out.
@@ -2462,10 +2589,18 @@ Cache::getNextQueueEntry()
         // If we have a miss queue slot, we can try a prefetch
         PacketPtr pkt = prefetcher->getPacket();
         if (pkt) {
+            /* MJL_Begin */
+            Addr pf_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+            if (!tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
+                !mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
+                !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
+            /* MJL_End */
+            /* MJL_Comment
             Addr pf_addr = blockAlign(pkt->getAddr());
             if (!tags->findBlock(pf_addr, pkt->isSecure()) &&
                 !mshrQueue.findMatch(pf_addr, pkt->isSecure()) &&
                 !writeBuffer.findMatch(pf_addr, pkt->isSecure())) {
+            */
                 // Update statistic on number of prefetches issued
                 // (hwpf_mshr_misses)
                 assert(pkt->req->masterId() < system->maxMasters());
@@ -2540,7 +2675,12 @@ Cache::sendMSHRQueuePacket(MSHR* mshr)
 
     DPRINTF(Cache, "%s: MSHR %s\n", __func__, tgt_pkt->print());
 
+    /* MJL_Begin */
+    CacheBlk *blk = tags->MJL_findBlock(mshr->blkAddr, mshr->MJL_qEntryDir, mshr->isSecure);
+    /* MJL_End */
+    /* MJL_Comment
     CacheBlk *blk = tags->findBlock(mshr->blkAddr, mshr->isSecure);
+    */
 
     if (tgt_pkt->cmd == MemCmd::HardPFReq && forwardSnoops) {
         // we should never have hardware prefetches to allocated
@@ -2824,6 +2964,10 @@ Cache::CpuSidePort::recvFunctional(PacketPtr pkt)
         std::cout << ", MemCmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", CmdDir: " << pkt->MJL_getCmdDir() << "\n";
     }
      MJL_End */
+    /* MJL_Begin */
+    // MJL_TODO: to check whether there are column accesses for functional
+    assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
+    /* MJL_End */
     // functional request
     cache->functionalAccess(pkt, true);
 }
@@ -2875,6 +3019,11 @@ Cache::MemSidePort::recvFunctionalSnoop(PacketPtr pkt)
     // functional snoop (note that in contrast to atomic we don't have
     // a specific functionalSnoop method, as they have the same
     // behaviour regardless)
+     /* MJL_Begin */
+    // MJL_TODO: to check whether there are column accesses for functional
+    assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
+    /* MJL_End */
+    
     cache->functionalAccess(pkt, false);
 }
 

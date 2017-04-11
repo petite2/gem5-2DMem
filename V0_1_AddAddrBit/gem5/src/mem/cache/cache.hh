@@ -295,7 +295,7 @@ class Cache : public BaseCache
      */
     CacheBlk *allocateBlock(Addr addr, bool is_secure, PacketList &writebacks);
     /* MJL_Begin */
-    CacheBlk *MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, PacketList &writebacks);
+    CacheBlk *MJL_allocateBlock(Addr addr, bool is_secure, PacketList &writebacks);
     /* MJL_End */
 
     /**
@@ -304,9 +304,94 @@ class Cache : public BaseCache
      * @param blk Block to invalidate
      */
     void invalidateBlock(CacheBlk *blk);
-    /* MJL_Begin
+    /* MJL_Begin */
     // MJL_TODO: Make this happen, but probably after the only one core version happens
-    bool MJL_invalidateOtherBlocks();
+    /**
+     * MJL_baseAddr: starting address
+     * MJL_cacheBlkDir: direction of the address
+     * offset: which byte from the starting address to get the word address
+     * return the address of the word
+     */
+    Addr MJL_addOffsetAddr(Addr MJL_baseAddr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned offset) {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            return MJL_baseAddr + Addr(offset);
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder
+            return MJL_baseAddr + Addr(offset);
+        } else {
+            return MJL_baseAddr + Addr(offset);
+        }
+    }
+    /**
+     * Invalidate blocks that are cross direction of the addresses written
+     * MJL_written_addr: starting address of the words written
+     * MJL_cacheBlkDir: direction of the block written
+     * size: size of bytes writte, can be used to determine how many words are written and their address
+     * is_secure: used in MJL_findBlk
+     */
+    void MJL_invalidateOtherBlocks(Addr MJL_written_addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned size, bool is_secure) {
+        CacheBlk::MJL_CacheBlkDir MJL_diffDir;
+        Addr MJL_diffDir_tag, MJL_writtenWord_addr;
+        int MJL_diffDir_set;
+        CacheBlk *MJL_diffDir_blk;
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+        } else {
+            assert(MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow || MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+        }
+        for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {
+            MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_written_addr, MJL_cacheBlkDir, offset);
+            MJL_diffDir_tag = tags->MJL_extractTag(MJL_writtenWord_addr, MJL_diffDir);
+            MJL_diffDir_set = tags->extractSet(MJL_writtenWord_addr);
+            MJL_diffDir_blk = tags->sets[MJL_diffDir_set].MJL_findBlk(MJL_diffDir_tag, MJL_diffDir, is_secure);
+            if (MJL_diffDir_blk != nullptr) {
+                if (MJL_diffDir_blk->isValid()) {
+                    // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
+                    invalidateBlock(MJL_diffDir_blk);
+                }
+            }
+        }
+    }
+    /**
+     * Mark blocks that are cross direction of the addresses waiting on writable unreadable
+     * MJL_upgrade_addr: starting address of the words waiting on writable
+     * MJL_cacheBlkDir: direction of the block waiting on writable
+     * size: size of bytes going to be written, can be used to determine how many words are going to be written and their address
+     * is_secure: used in MJL_findBlk
+     */
+    void MJL_unreadableOtherBlocks(Addr MJL_upgrade_addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned size, bool is_secure) {
+        CacheBlk::MJL_CacheBlkDir MJL_diffDir;
+        Addr MJL_diffDir_tag, MJL_writtenWord_addr;
+        int MJL_diffDir_set;
+        CacheBlk *MJL_diffDir_blk;
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+        } else {
+            assert(MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow || MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+        }
+        for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {
+            MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_upgrade_addr, MJL_cacheBlkDir, offset);
+            MJL_diffDir_tag = tags->MJL_extractTag(MJL_writtenWord_addr, MJL_diffDir);
+            MJL_diffDir_set = tags->extractSet(MJL_writtenWord_addr);
+            MJL_diffDir_blk = tags->sets[MJL_diffDir_set].MJL_findBlk(MJL_diffDir_tag, MJL_diffDir, is_secure);
+            if (MJL_diffDir_blk != nullptr) {
+                if (MJL_diffDir_blk->isValid()) {
+                    MJL_diffDir_blk->status &= ~BlkReadable;
+                }
+            }
+        }
+    }
+    // For each cross directional address of the addresses written (MJL_written_addr <= addr < MJL_written_addr + MJL_size, invalidate the block if it exists. Should be needing writeback before invalidation. )
+    // Code for handling dirty and all 
+    // if (blk->isDirty() || writebackClean) {
+    //     // Save writeback packet for handling by caller
+    //     writebacks.push_back(writebackBlk(blk));
+    // } else {
+    //     writebacks.push_back(cleanEvictBlk(blk));
+    // }
     // Assuming sharing only happens in L1, and L2 is unified.
     // For any pair of row and column block holding the same word
     // The statuses are MOESI, where Modified and Exclusive means this cache is the
@@ -326,7 +411,7 @@ class Cache : public BaseCache
     //   I   |               |               |               |               | ---- 
     // Apparently it is ok to invalidate if the other is shared, but need to tell the others that the shared copy is not there anymore... 
     // Apparently nothing to invalidate if the others are invalid...
-    MJL_End */
+    /* MJL_End */
 
     /**
      * Maintain the clusivity of this cache by potentially
