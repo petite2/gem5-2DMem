@@ -242,6 +242,52 @@ class Cache : public BaseCache
      * to send them.
      */
     PacketPtr tempBlockWriteback;
+    /* MJL_Begin */
+    /**
+     * The map that contains the mapping from PC to direction
+     */
+    std::map<Addr, CacheBlk::MJL_CacheBlkDir> MJL_PC2DirMap;
+
+    /**
+     * The name of the input file that contains the mapping information from PC to direction
+     */
+    std::string MJL_PC2DirFilename;
+    /**
+     * The method to read the map information from file
+     */
+    void MJL_readPC2DirMap () {
+        // MJL_TODO: test read input file function
+        std::ifstream MJL_PC2DirFile;
+        std::string line;
+        Addr tempPC;
+        char tempDir;
+
+        MJL_PC2DirFile.open(MJL_PC2DirFilename);
+        if (MJL_PC2DirFile.is_open()) {
+            while (getline(MJL_PC2DirFile, line)) {
+                stringstream(line) >> tempPC >> tempDir;
+                if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
+                    std::cout << "MJL_Error: Redefinition of instruction direction found!\n";
+                }
+                if (tempDir == 'R') {
+                    MJL_PC2DirMap[tempPC] =  CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+                } else if (tempDir == 'C') {
+                    MJL_PC2DirMap[tempPC] =  CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
+                } else {
+                    std::cout << "MJL_Error: Invalid input direction annotation!\n";
+                    assert((tempDir == 'R') || (tempDir == 'C'));
+                }
+                // MJL_Test: For test use
+                if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end())
+            }
+        }
+        else {
+            std::cout << "MJL_Error: Could not open input file!\n";
+            assert(MJL_PC2DirFile.is_open());
+        }
+        MJL_PC2DirFile.close();
+    }
+    /* MJL_End */
 
     /**
      * Send the outstanding tempBlock writeback. To be called after

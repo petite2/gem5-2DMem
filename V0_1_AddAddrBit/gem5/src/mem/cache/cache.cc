@@ -72,7 +72,8 @@ Cache::Cache(const CacheParams *p)
       prefetchOnAccess(p->prefetch_on_access),
       clusivity(p->clusivity),
       writebackClean(p->writeback_clean),
-      tempBlockWriteback(nullptr),
+      tempBlockWriteback(nullptr),/* MJL_Begin MJL_TODO: how to add a parameter from command line?
+      MJL_PC2DirFilename(p->MJL_PC2DirFilename), MJL_End */
       writebackTempBlockAtomicEvent(this, false,
                                     EventBase::Delayed_Writeback_Pri)
 {
