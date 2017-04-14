@@ -60,6 +60,10 @@
 #include "mem/cache/tags/base.hh"
 #include "params/Cache.hh"
 #include "sim/eventq.hh"
+/* MJL_Begin */
+#include <fstream>
+#include <sstream>
+/* MJL_End */
 
 //Forward decleration
 class BasePrefetcher;
@@ -265,7 +269,7 @@ class Cache : public BaseCache
         MJL_PC2DirFile.open(MJL_PC2DirFilename);
         if (MJL_PC2DirFile.is_open()) {
             while (getline(MJL_PC2DirFile, line)) {
-                stringstream(line) >> tempPC >> tempDir;
+                std::stringstream(line) >> tempPC >> tempDir;
                 if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
                     std::cout << "MJL_Error: Redefinition of instruction direction found!\n";
                 }
@@ -278,7 +282,9 @@ class Cache : public BaseCache
                     assert((tempDir == 'R') || (tempDir == 'C'));
                 }
                 // MJL_Test: For test use
-                if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end())
+                if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
+                    std::cout << "PC: " << MJL_PC2DirMap.find(tempPC)->first << ", Dir: " << MJL_PC2DirMap.find(tempPC)->second << "\n";
+                }
             }
         }
         else {
