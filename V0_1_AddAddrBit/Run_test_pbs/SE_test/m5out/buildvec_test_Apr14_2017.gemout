@@ -1,0 +1,8 @@
+gem5 Simulator System.  http://gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 compiled Apr 14 2017 16:10:58
+gem5 started Apr 14 2017 16:18:01
+gem5 executing on shai.cse.psu.edu, pid 38632
+command line: /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt --redirect-stdout --stdout-file=buildvec_test_Apr14_2017.gemout --redirect-stderr --stderr-file=buildvec_test_Apr14_2017.gemerr --stats-file=buildvec_test_Apr14_2017.stats /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/se.py --output=buildvec_test_Apr14_2017.appout --errout=buildvec_test_Apr14_2017.apperr -c /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/Vector_test/test_vec-bin --mem-type-dramsim2 --caches --l2cache --cpu-type=detailed
+
