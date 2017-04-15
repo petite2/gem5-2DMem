@@ -250,6 +250,23 @@ bool
 SlavePort::sendTimingResp(PacketPtr pkt)
 {
     assert(pkt->isResponse());
+    /* MJL_Begin */
+    if (this->name().find("dcache") != std::string::npos) {
+        std::cout << this->name() << "::sendTimingResp: hasPC? " << pkt->req->hasPC() << ", PC = ";
+        if (pkt->req->hasPC()) {
+            std::cout << pkt->req->getPC();
+        } else {
+            std::cout << "NoPC";
+        }
+        std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
+        if (pkt->req->hasContextId()) {
+            std::cout << pkt->req->contextId();
+        } else {
+            std::cout << "NoContextId";
+        }
+        std::cout << "\n";
+    }
+    /* MJL_End */
     return _masterPort->recvTimingResp(pkt);
 }
 

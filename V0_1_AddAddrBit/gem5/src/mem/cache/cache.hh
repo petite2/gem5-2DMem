@@ -295,6 +295,8 @@ class Cache : public BaseCache
 
     /* MJL_Test: For test use */
     std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > MJL_testInputList;
+    std::map< Addr, std::map< unsigned, std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > > > MJL_testPktOrigParamList;// [PC][size] = [<addr, dir, cmd>]
+    
     
     void MJL_readTestInput () {
         std::ifstream MJL_testInputFile;
@@ -330,8 +332,8 @@ class Cache : public BaseCache
                 MJL_testInputList.push_back(std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (tempAddr, tempDir, tempCmd));
             }
         } else {
-            std::cout << "MJL_Error: Could not open input file!\n";
-            assert(MJL_testInputFile.is_open());
+            std::cout << "MJL_Error: Could not open test input file!\n";
+            //assert(MJL_testInputFile.is_open());
         }
         MJL_testInputFile.close();
 

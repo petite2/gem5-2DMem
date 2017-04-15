@@ -2864,21 +2864,27 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     // MJL_Test for mode
     //std::cout << this->name() << "::recvTimingReq(PacketPtr pkt)\n";
     // MJL_Test for PC and contextID
-    // if (this->name().find("dcache") != std::string::npos) {
-    //     std::cout << this->name() << "::recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
-    //     if (pkt->req->hasPC()) {
-    //         std::cout << pkt->req->getPC();
-    //     } else {
-    //         std::cout << "NoPC";
-    //     }
-    //     std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
-    //     if (pkt->req->hasContextId()) {
-    //         std::cout << pkt->req->contextId();
-    //     } else {
-    //         std::cout << "NoContextId";
-    //     }
-    //     //std::cout << "\n";
-    // }
+    if (this->name().find("dcache") != std::string::npos) {
+        std::cout << this->name() << "::recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
+        if (pkt->req->hasPC()) {
+            std::cout << pkt->req->getPC();
+        } else {
+            std::cout << "NoPC";
+        }
+        std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
+        if (pkt->req->hasContextId()) {
+            std::cout << pkt->req->contextId();
+        } else {
+            std::cout << "NoContextId";
+        }
+        std::cout << ", needsResponse? ";
+        if (pkt->needsResponse()) {
+            std::cout << "Y";
+        } else {
+            std::cout << "N";
+        }
+        std::cout << "\n";
+    }
     // // MJL_Test for MemCmd type, size and Dir
     // if (this->name().find("dcache") != std::string::npos) {
     //     std::cout << ", MemCmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", CmdDir: " << pkt->MJL_getCmdDir() << "\n";
@@ -2909,6 +2915,10 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             Addr pktOrigAddr = pkt->getAddr();
             CacheBlk::MJL_CacheBlkDir pktOrigDir = pkt->MJL_getCmdDir();
             MemCmd::Command pktOrigCmd = pkt->cmd.MJL_getCmd();
+            assert(pkt->req->hasPC());
+            if (pkt->needsResponse()) {
+                MJL_testPktOrigParamList[pkt->req->getPC()][pkt->getSize()].push_back(std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmd));
+            }
             // Insert test address, direction, command
             //pkt->setAddr(std::get<0>(MJL_testInputList.front()));
             //pkt->cmd = std::get<2>(MJL_testInputList.front());
