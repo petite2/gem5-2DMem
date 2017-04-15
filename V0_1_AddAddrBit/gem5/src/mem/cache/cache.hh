@@ -260,7 +260,6 @@ class Cache : public BaseCache
      * The method to read the map information from file
      */
     void MJL_readPC2DirMap () {
-        // MJL_TODO: test read input file function
         std::ifstream MJL_PC2DirFile;
         std::string line;
         Addr tempPC;
@@ -293,6 +292,55 @@ class Cache : public BaseCache
         }
         MJL_PC2DirFile.close();
     }
+
+    /* MJL_Test: For test use */
+    std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > MJL_testInputList;
+    
+    void MJL_readTestInput () {
+        std::ifstream MJL_testInputFile;
+        std::string line;
+
+        Addr tempAddr;
+        char intempDir;
+        char intempCmd;
+        CacheBlk::MJL_CacheBlkDir tempDir;
+        MemCmd::Command tempCmd;
+
+        MJL_testInputFile.open("CacheTestInput.txt");
+        if (MJL_testInputFile.is_open()) {
+            while (getline(MJL_testInputFile, line)) {
+                if (line == "End") break;
+                std::stringstream(line) >> tempAddr >> intempDir >> intempCmd;
+                if (intempDir == 'R') {
+                    tempDir =  CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+                } else if (intempDir == 'C') {
+                    tempDir =  CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
+                } else {
+                    std::cout << "MJL_Error: Invalid input direction annotation!\n";
+                    assert((intempDir == 'R') || (intempDir == 'C'));
+                }
+                if (intempCmd == 'R') {
+                    tempCmd =  MemCmd::Command::ReadReq;
+                } else if (intempCmd == 'W') {
+                    tempCmd = MemCmd::Command::WriteReq;
+                } else {
+                    std::cout << "MJL_Error: Invalid input command annotation!\n";
+                    assert((intempCmd == 'R') || (intempCmd == 'W'));
+                }
+                MJL_testInputList.push_back(std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (tempAddr, tempDir, tempCmd));
+            }
+        } else {
+            std::cout << "MJL_Error: Could not open input file!\n";
+            assert(MJL_testInputFile.is_open());
+        }
+        MJL_testInputFile.close();
+
+        std::cout << "After reading the file\n";
+        for (auto it = MJL_testInputList.begin(); it != MJL_testInputList.end(); ++it) {
+            std::cout << "Addr: " << std::get<0>(*it) << ", Dir: " << std::get<1>(*it) << ", Cmd: " <<  std::get<2>(*it) << "\n";
+        }
+    }
+    /* */
     /* MJL_End */
 
     /**

@@ -216,6 +216,8 @@ class MemCmd
     /* MJL_Begin */
     bool MJL_isRow() const         { return (MJL_cmdDir == MJL_DirAttribute::MJL_IsRow); }
     bool MJL_isColumn() const      { return (MJL_cmdDir == MJL_DirAttribute::MJL_IsColumn); }
+    // MJL_Test method to get cmd
+    Command MJL_getCmd()           { return cmd; }
     /* MJL_End */
 
     /**
