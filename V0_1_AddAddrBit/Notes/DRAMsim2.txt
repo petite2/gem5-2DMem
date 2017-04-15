@@ -1,0 +1,6 @@
+Useful link: http://eng.umd.edu/~blj/dramsim/
+https://www.ece.umd.edu/~blj/papers/cal10-1.pdf
+
+Address mapping scheme selected in system.ini(.example) file
+Changes needed:
+    address mapping, 
