@@ -2,13 +2,15 @@
 #include <sstream>
 #include <map>
 #include <string>
-#include <cinttype>
+#include <cinttypes>
+#include <cassert>
+#include <iostream>
 
 typedef uint64_t Addr;
 
 class CacheBlk {
     public:
-        enum MJL_DirAttribute
+        enum MJL_CacheBlkDir
         {
             // MJL_TODO: Check whether adding this would break things
             MJL_IsInvalid,  //!< Requested direction is invalid
@@ -54,6 +56,11 @@ int main (int argc , char *argv[]) {
         assert(MJL_PC2DirFile.is_open());
     }
     MJL_PC2DirFile.close();
+
+    std::cout << "After reading all the file\n";
+    for (auto it = MJL_PC2DirMap.begin(); it != MJL_PC2DirMap.end(); ++it) {
+        std::cout << "PC: " << it->first << ", Dir: " << it->second << "\n";
+    }
 
     return 0;
 }
