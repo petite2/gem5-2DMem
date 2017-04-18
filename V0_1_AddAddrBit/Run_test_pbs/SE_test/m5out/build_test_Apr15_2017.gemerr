@@ -1,0 +1,38 @@
+warn: DRAM device capacity (8192 Mbytes) does not match the address range assigned (512 Mbytes)
+0: system.remote_gdb.listener: listening for remote gdb #0 on port 7000
+warn: ClockedObject: More than one power state change request encountered within the same simulation tick
+gem5.opt: build/X86/mem/cache/cache.hh:127: virtual bool Cache::CpuSidePort::sendTimingResp(PacketPtr): Assertion `!cache->MJL_testPktOrigParamList.empty()' failed.
+Program aborted at tick 177500
+--- BEGIN LIBC BACKTRACE ---
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x6dd8e5]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x6efa36]
+/lib64/libpthread.so.0[0x347080f7e0]
+/lib64/libc.so.6(gsignal+0x35)[0x34704325e5]
+/lib64/libc.so.6(abort+0x175)[0x3470433dc5]
+/lib64/libc.so.6[0x347042b70e]
+/lib64/libc.so.6(__assert_perror_fail+0x0)[0x347042b7d0]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x4e7311]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x46cca9]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x6e7501]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x708ca8]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x70922b]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x5d7e85]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x4e26)[0x3471cd55b6]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCodeEx+0x927)[0x3471cd7647]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x5304)[0x3471cd5a94]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x63ef)[0x3471cd6b7f]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x63ef)[0x3471cd6b7f]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCodeEx+0x927)[0x3471cd7647]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCode+0x32)[0x3471cd7722]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x54f2)[0x3471cd5c82]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCodeEx+0x927)[0x3471cd7647]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalFrameEx+0x5304)[0x3471cd5a94]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCodeEx+0x927)[0x3471cd7647]
+/usr/lib64/libpython2.6.so.1.0(PyEval_EvalCode+0x32)[0x3471cd7722]
+/usr/lib64/libpython2.6.so.1.0[0x3471cf1b9c]
+/usr/lib64/libpython2.6.so.1.0(PyRun_StringFlags+0x7a)[0x3471cf1daa]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x6ef2ef]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x419c73]
+/lib64/libc.so.6(__libc_start_main+0xfd)[0x347041ed1d]
+/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x419b15]
+--- END LIBC BACKTRACE ---

@@ -1,0 +1,15 @@
+gem5 Simulator System.  http://gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 compiled Apr 15 2017 21:45:49
+gem5 started Apr 15 2017 21:46:25
+gem5 executing on shai.cse.psu.edu, pid 46028
+command line: /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt --redirect-stdout --stdout-file=build_test_Apr15_2017.gemout --redirect-stderr --stderr-file=build_test_Apr15_2017.gemerr --stats-file=build_test_Apr15_2017.stat /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/se.py --output=build_test_Apr15_2017.appout --errout=build_test_Apr15_2017.apperr -c /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/Vector_test/testscl-bin --caches --l2cache --cpu-type=detailed
+
+Global frequency set at 1000000000000 ticks per second
+MJL_Error: Could not open test input file!
+After reading the file
+**** REAL SIMULATION ****
+info: Entering event queue @ 0.  Starting simulation...
+system.cpu.dcache.cpu_side::recvTimingReq: hasPC? 1, PC = 4194757, hasContextId? 1, contextID = 0, Size = 8, MemCmd: ReadReq, needsResponse? Y
+system.cpu.dcache.cpu_side::sendTimingResp: hasPC? 1, PC = 4194757, hasContextId? 1, contextID = 0, Size = 8, InList? 

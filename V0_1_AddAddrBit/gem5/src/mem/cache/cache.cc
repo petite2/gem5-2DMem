@@ -89,18 +89,22 @@ Cache::Cache(const CacheParams *p)
     if (prefetcher)
         prefetcher->setCache(this);
 
-    /* MJL_Begin 
+    /* MJL_Begin */
     // MJL_Test for names
     // L1D$:    Cache:system.cpu.dcache	cpuPort:system.cpu.dcache.cpu_side	memPort:system.cpu.dcache.mem_side	tags:system.cpu.dcache.tags
     // Data TLB:    Cache:system.cpu.dtb_walker_cache	cpuPort:system.cpu.dtb_walker_cache.cpu_side	memPort:system.cpu.dtb_walker_cache.mem_side	tags:system.cpu.dtb_walker_cache.tags
     // L1I$:    Cache:system.cpu.icache	cpuPort:system.cpu.icache.cpu_side	memPort:system.cpu.icache.mem_side	tags:system.cpu.icache.tags
     // Instruction TLB$:    Cache:system.cpu.itb_walker_cache	cpuPort:system.cpu.itb_walker_cache.cpu_side	memPort:system.cpu.itb_walker_cache.mem_side	tags:system.cpu.itb_walker_cache.tags
     // L2D$:    Cache:system.l2	cpuPort:system.l2.cpu_side	memPort:system.l2.mem_side	tags:system.l2.tags
-    std::cout << "Cache:" << this->name() << "\t";
-    std::cout << "cpuPort:"  << cpuSidePort->name() << "\t";
-    std::cout << "memPort:"  << memSidePort->name() << "\t";
-    std::cout << "tags:"  << tags->name() << "\n";
-     MJL_End */
+    // std::cout << "Cache:" << this->name() << "\t";
+    // std::cout << "cpuPort:"  << cpuSidePort->name() << "\t";
+    // std::cout << "memPort:"  << memSidePort->name() << "\t";
+    // std::cout << "tags:"  << tags->name() << "\n";
+    // MJL_Test for cache function
+    if (this->name().find("dcache") != std::string::npos) {
+        MJL_readTestInput();
+    }
+    /* MJL_End */
 }
 
 Cache::~Cache()
@@ -2877,7 +2881,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         } else {
             std::cout << "NoContextId";
         }
-        std::cout << ", needsResponse? ";
+        std::cout << ", Size = " << pkt->getSize() << ", MemCmd: " << pkt->cmd.toString() << ", needsResponse? ";
         if (pkt->needsResponse()) {
             std::cout << "Y";
         } else {
@@ -2911,21 +2915,22 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     // }
     // MJL_Test for cache functionality 
     if (this->name().find("dcache") != std::string::npos) {
-        if (!MJL_testInputList.empty()) {
-            Addr pktOrigAddr = pkt->getAddr();
-            CacheBlk::MJL_CacheBlkDir pktOrigDir = pkt->MJL_getCmdDir();
-            MemCmd::Command pktOrigCmd = pkt->cmd.MJL_getCmd();
-            assert(pkt->req->hasPC());
-            if (pkt->needsResponse()) {
-                MJL_testPktOrigParamList[pkt->req->getPC()][pkt->getSize()].push_back(std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmd));
-            }
+        Addr pktOrigAddr = pkt->getAddr();
+        CacheBlk::MJL_CacheBlkDir pktOrigDir = pkt->MJL_getCmdDir();
+        MemCmd::Command pktOrigCmd = pkt->cmd.MJL_getCmd();
+        MemCmd::Command pktOrigCmdResp = pkt->cmd.responseCommand();
+        assert(pkt->req->hasPC());
+        if (pkt->needsResponse()) {
+            cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].push_back(std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmdResp));
+        }
+        if (!(cache->MJL_testInputList.empty())) {
             // Insert test address, direction, command
-            //pkt->setAddr(std::get<0>(MJL_testInputList.front()));
-            //pkt->cmd = std::get<2>(MJL_testInputList.front());
-            pkt->MJL_setCmdDir(std::get<1>(MJL_testInputList.front()));
+            //pkt->setAddr(std::get<0>(cache->MJL_testInputList.front()));
+            //pkt->cmd = std::get<2>(cache->MJL_testInputList.front());
+            pkt->cmd.MJL_setCmdDir(std::get<1>(cache->MJL_testInputList.front()));
             std::cout << "Packet's [Addr, Dir, Cmd]: [" << pktOrigAddr << ", " << pktOrigDir << ", " << pktOrigCmd << "] --> ["  << pkt->getAddr() << ", " << pkt->cmd.MJL_getCmdDir() << ", " << pkt->cmd.MJL_getCmd() << "]\n";
-            MJL_testInputList.pop_front();
-            if (MJL_testInputList.empty()) {
+            cache->MJL_testInputList.pop_front();
+            if (cache->MJL_testInputList.empty()) {
                 std::cout << "End of test packet modification.\n";
             }
         }

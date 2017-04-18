@@ -106,6 +106,41 @@ class Cache : public BaseCache
         virtual AddrRangeList getAddrRanges() const;
 
       public:
+        /* MJL_Begin */
+        // MJL_Test to see whether cache functions work as desired, recovering original packet address, direction, and respond command
+        virtual bool sendTimingResp(PacketPtr pkt)
+        {
+            assert(pkt->isResponse());
+            if (this->name().find("dcache") != std::string::npos) {
+                std::cout << this->name() << "::sendTimingResp: hasPC? " << pkt->req->hasPC() << ", PC = ";
+                if (pkt->req->hasPC()) {
+                    std::cout << pkt->req->getPC();
+                } else {
+                    std::cout << "NoPC";
+                }
+                std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
+                if (pkt->req->hasContextId()) {
+                    std::cout << pkt->req->contextId();
+                } else {
+                    std::cout << "NoContextId";
+                }
+                std::cout << ", time = " << pkt->req->time() << ", Addr = " << pkt->getAddr() << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd() <<  "\n";
+                assert(!cache->MJL_testPktOrigParamList.empty());
+                auto PC_it = cache->MJL_testPktOrigParamList.find(pkt->req->getPC());
+                assert(PC_it != cache->MJL_testPktOrigParamList.end());
+                auto time_it = PC_it->second.find(pkt->req->time());
+                assert((time_it != PC_it->second.end()) && !time_it->second.empty());
+                assert(pkt->getAddr() == std::get<0>(time_it->second.front()));
+                assert(pkt->MJL_getCmdDir() == std::get<1>(time_it->second.front()));
+                assert(pkt->cmd.MJL_getCmd() == std::get<2>(time_it->second.front()));
+                pkt->setAddr(std::get<0>(time_it->second.front()));
+                pkt->cmd.MJL_setCmdDir(std::get<1>(time_it->second.front()));
+                pkt->cmd = std::get<2>(time_it->second.front());
+                time_it->second.pop_front();
+            }
+            return CacheSlavePort::sendTimingResp(pkt);
+        }
+        /* MJL_End */
 
         CpuSidePort(const std::string &_name, Cache *_cache,
                     const std::string &_label);
@@ -295,7 +330,7 @@ class Cache : public BaseCache
 
     /* MJL_Test: For test use */
     std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > MJL_testInputList;
-    std::map< Addr, std::map< unsigned, std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > > > MJL_testPktOrigParamList;// [PC][size] = [<addr, dir, cmd>]
+    std::map< Addr, std::map< Tick, std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > > > MJL_testPktOrigParamList;// [PC][_time] = [<addr, dir, cmd>]
     
     
     void MJL_readTestInput () {
