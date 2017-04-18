@@ -72,6 +72,9 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
       mshrQueue("MSHRs", p->mshrs, 0, p->demand_mshr_reserve), // see below
       writeBuffer("write buffer", p->write_buffers, p->mshrs), // see below
       blkSize(blk_size),
+      /* MJL_Begin */
+      MJL_rowWidth(p->MJL_row_width),
+      /* MJL_End */
       lookupLatency(p->tag_latency),
       dataLatency(p->data_latency),
       forwardLatency(p->tag_latency),
@@ -95,6 +98,10 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
 
     // forward snoops is overridden in init() once we can query
     // whether the connected master is actually snooping or not
+    /* MJL_Begin */
+    // MJL_Test to see if the parameter MJL_rowWidth has been passed in correctly
+    std::cout << this->name() << "::MJL_rowWidth = " << MJL_rowWidth << "\n";
+    /* MJL_End */
 }
 
 void

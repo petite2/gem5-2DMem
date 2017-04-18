@@ -257,6 +257,10 @@ class BaseCache : public MemObject
 
     /** Block size of this cache */
     const unsigned blkSize;
+    /* MJL_Begin */
+    /** Row size of this memory system in number of cachelines */
+    const unsigned MJL_rowWidth;
+    /* MJL_End */
 
     /**
      * The latency of tag lookup of a cache. It occurs when there is

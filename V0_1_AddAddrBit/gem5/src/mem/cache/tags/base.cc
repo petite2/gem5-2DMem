@@ -55,7 +55,7 @@
 using namespace std;
 
 BaseTags::BaseTags(const Params *p)
-    : ClockedObject(p), blkSize(p->block_size), size(p->size),
+    : ClockedObject(p), blkSize(p->block_size)/* MJL_Begin */, MJL_rowWidth(p->MJL_rowWidth)/* MJL_End */, size(p->size),
       lookupLatency(p->tag_latency),
       accessLatency(p->sequential_access ?
                     p->tag_latency + p->data_latency :
@@ -63,6 +63,10 @@ BaseTags::BaseTags(const Params *p)
       cache(nullptr), warmupBound(0),
       warmedUp(false), numBlocks(0)
 {
+    /* MJL_Begin */
+    // MJL_Test to see if the parameter of MJL_rowWidth has been passed in correctly
+    std::cout << this->name() << "::MJL_rowWidth = " << MJL_rowWidth << "\n";
+    /* MJL_End */
 }
 
 void

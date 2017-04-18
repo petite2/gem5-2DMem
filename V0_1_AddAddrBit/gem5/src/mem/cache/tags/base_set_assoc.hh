@@ -110,6 +110,10 @@ class BaseSetAssoc : public BaseTags
     unsigned setMask;
     /** Mask out all bits that aren't part of the block offset. */
     unsigned blkMask;
+    /* MJL_Begin */
+    /** Mask out all bits that aren't part of the column block offset. */
+    unsigned MJL_blkMaskColumn;
+    /* MJL_End */
 
 public:
 
@@ -472,14 +476,9 @@ public:
      */
     int extractSet(Addr addr) const override
     {
-        /* MJL_Begin */
-        // MJL_TODO: Might change, but should be the same for both row and column
         return ((addr >> setShift) & setMask);
-        /* MJL_End */
-        /* MJL_Comment
-        return ((addr >> setShift) & setMask);
-        */
     }
+    // MJL_TODO: Add an extractSet method that takes in direction as a parameter
 
     /**
      * Align an address to the block size.

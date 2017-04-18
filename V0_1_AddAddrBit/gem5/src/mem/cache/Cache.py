@@ -52,6 +52,9 @@ class BaseCache(MemObject):
 
     size = Param.MemorySize("Capacity")
     assoc = Param.Unsigned("Associativity")
+    # MJL_Begin
+    MJL_row_width = Param.Int("Row size in number of cachelines")
+    # MJL_End 
 
     tag_latency = Param.Cycles("Tag lookup latency")
     data_latency = Param.Cycles("Data access latency")
@@ -110,3 +113,7 @@ class Cache(BaseCache):
     # this should be set to True for anything but the last-level
     # cache.
     writeback_clean = Param.Bool(False, "Writeback clean lines")
+
+    # MJL_Begin
+    MJL_PC2DirFile = Param.String("PC2Dir.txt", "File with PC to direction mapping")
+    # MJL_End

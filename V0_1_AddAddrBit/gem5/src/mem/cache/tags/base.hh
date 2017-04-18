@@ -67,6 +67,10 @@ class BaseTags : public ClockedObject
   protected:
     /** The block size of the cache. */
     const unsigned blkSize;
+    /* MJL_Begin */
+    /** The size of a row in the memory system (how many cachelines) */
+    const unsigned MJL_rowWidth;
+    /* MJL_End */
     /** The size of the cache. */
     const unsigned size;
     /** The tag lookup latency of the cache. */

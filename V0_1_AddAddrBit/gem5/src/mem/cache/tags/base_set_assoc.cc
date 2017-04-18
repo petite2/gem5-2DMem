@@ -71,6 +71,9 @@ BaseSetAssoc::BaseSetAssoc(const Params *p)
     }
 
     blkMask = blkSize - 1;
+    /* MJL_Begin */
+    MJL_blkMaskColumn = blkMask << (floorLog2(MJL_rowWidth) + floorLog2(blkSize));
+    /* MJL_End */
     setShift = floorLog2(blkSize);
     setMask = numSets - 1;
     tagShift = setShift + floorLog2(numSets);

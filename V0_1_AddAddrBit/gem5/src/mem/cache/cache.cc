@@ -72,8 +72,8 @@ Cache::Cache(const CacheParams *p)
       prefetchOnAccess(p->prefetch_on_access),
       clusivity(p->clusivity),
       writebackClean(p->writeback_clean),
-      tempBlockWriteback(nullptr),/* MJL_Begin MJL_TODO: how to add a parameter from command line?
-      MJL_PC2DirFilename(p->MJL_PC2DirFilename), MJL_End */
+      tempBlockWriteback(nullptr),/* MJL_Begin */
+      MJL_PC2DirFilename(p->MJL_PC2DirFile), /* MJL_End */
       writebackTempBlockAtomicEvent(this, false,
                                     EventBase::Delayed_Writeback_Pri)
 {
@@ -100,6 +100,8 @@ Cache::Cache(const CacheParams *p)
     // std::cout << "cpuPort:"  << cpuSidePort->name() << "\t";
     // std::cout << "memPort:"  << memSidePort->name() << "\t";
     // std::cout << "tags:"  << tags->name() << "\n";
+    // MJL_Test for input file name passing
+    std::cout << this->name() << "::MJL_PC2DirFilname = " << MJL_PC2DirFilename << "\n";
     // MJL_Test for cache function
     if (this->name().find("dcache") != std::string::npos) {
         MJL_readTestInput();

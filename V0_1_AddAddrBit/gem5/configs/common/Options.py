@@ -110,6 +110,10 @@ def addNoISAOptions(parser):
     parser.add_option("--l2_assoc", type="int", default=8)
     parser.add_option("--l3_assoc", type="int", default=16)
     parser.add_option("--cacheline_size", type="int", default=64)
+    # MJL_Begin
+    parser.add_option("--MJL_row_width", type="int", default=512, help="Specify the size of a row (how many cachelines)")
+    parser.add_option("--MJL_PC2DirFile", type="string", default="PC2Dir.txt", help="Specify the filename of the input file with mapping of PC to access direction")
+    # MJL_End
 
     # Enable Ruby
     parser.add_option("--ruby", action="store_true")
