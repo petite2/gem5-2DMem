@@ -124,19 +124,19 @@ class Cache : public BaseCache
                 } else {
                     std::cout << "NoContextId";
                 }
-                std::cout << ", time = " << pkt->req->time() << ", Addr = " << pkt->getAddr() << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd() <<  "\n";
+                std::cout << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", Addr = " << pkt->getAddr() << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd() <<  "\n";
                 assert(!cache->MJL_testPktOrigParamList.empty());
                 auto PC_it = cache->MJL_testPktOrigParamList.find(pkt->req->getPC());
                 assert(PC_it != cache->MJL_testPktOrigParamList.end());
                 auto time_it = PC_it->second.find(pkt->req->time());
                 assert((time_it != PC_it->second.end()) && !time_it->second.empty());
-                assert(pkt->getAddr() == std::get<0>(time_it->second.front()));
-                assert(pkt->MJL_getCmdDir() == std::get<1>(time_it->second.front()));
-                assert(pkt->cmd.MJL_getCmd() == std::get<2>(time_it->second.front()));
-                pkt->setAddr(std::get<0>(time_it->second.front()));
-                pkt->cmd.MJL_setCmdDir(std::get<1>(time_it->second.front()));
-                pkt->cmd = std::get<2>(time_it->second.front());
-                time_it->second.pop_front();
+                assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
+                assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
+                assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
+                pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
+                pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
+                pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
+                time_it->second.erase(pkt->MJL_testSeq);
             }
             return CacheSlavePort::sendTimingResp(pkt);
         }
@@ -330,7 +330,7 @@ class Cache : public BaseCache
 
     /* MJL_Test: For test use */
     std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > MJL_testInputList;
-    std::map< Addr, std::map< Tick, std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > > > MJL_testPktOrigParamList;// [PC][_time] = [<addr, dir, cmd>]
+    std::map< Addr, std::map< Tick, std::map< int , std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > > > MJL_testPktOrigParamList;// [PC][_time][MJL_testSeq] = <addr, dir, cmd>
     
     
     void MJL_readTestInput () {

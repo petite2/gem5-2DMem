@@ -50,7 +50,7 @@ class DRAMSim2(AbstractMemory):
                                     "Device configuration file")
     systemConfigFile = Param.String("system.ini.example",
                                     "Memory organisation configuration file")
-    filePath = Param.String("ext/dramsim2/DRAMSim2/",
+    filePath = Param.String("/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/ext/dramsim2/DRAMSim2/",
                             "Directory to prepend to file names")
     traceFile = Param.String("", "Output file for trace generation")
     enableDebug = Param.Bool(False, "Enable DRAMSim2 debug output")

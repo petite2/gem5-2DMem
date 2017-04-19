@@ -548,6 +548,7 @@ class Packet : public Printable
     inline int cmdToIndex() const { return cmd.toInt(); }
 
     /* MJL_Begin */
+    int MJL_testSeq; // Used to identify packet during test
     MemCmd::MJL_DirAttribute MJL_getCmdDir() { return cmd.MJL_getCmdDir(); }
     bool MJL_cmdIsRow() const           { return cmd.MJL_isRow(); }
     bool MJL_cmdIsColumn() const        { return cmd.MJL_isColumn(); }

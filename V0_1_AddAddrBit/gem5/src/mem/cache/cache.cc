@@ -2883,7 +2883,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         } else {
             std::cout << "NoContextId";
         }
-        std::cout << ", Size = " << pkt->getSize() << ", MemCmd: " << pkt->cmd.toString() << ", needsResponse? ";
+        std::cout << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", MemCmd: " << pkt->cmd.toString() << ", needsResponse? ";
         if (pkt->needsResponse()) {
             std::cout << "Y";
         } else {
@@ -2923,7 +2923,12 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         MemCmd::Command pktOrigCmdResp = pkt->cmd.responseCommand();
         assert(pkt->req->hasPC());
         if (pkt->needsResponse()) {
-            cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].push_back(std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmdResp));
+            int MJL_testSeq = 0;
+            while (cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].find(MJL_testSeq) != cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].end()) {
+                MJL_testSeq++;
+            }
+            cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmdResp);
+            pkt->MJL_testSeq = MJL_testSeq;
         }
         if (!(cache->MJL_testInputList.empty())) {
             // Insert test address, direction, command
