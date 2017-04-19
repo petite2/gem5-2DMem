@@ -108,6 +108,9 @@ def build_test_system(np):
 
     # Set the cache line size for the entire system
     test_sys.cache_line_size = options.cacheline_size
+    # MJL_Begin
+    test_sys.MJL_row_width = options.MJL_row_width
+    # MJL_End
 
     # Create a top-level voltage domain
     test_sys.voltage_domain = VoltageDomain(voltage = options.sys_voltage)

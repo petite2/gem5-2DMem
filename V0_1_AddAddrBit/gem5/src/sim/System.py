@@ -71,6 +71,9 @@ class System(MemObject):
     mem_ranges = VectorParam.AddrRange([], "Ranges that constitute main memory")
 
     cache_line_size = Param.Unsigned(64, "Cache line size in bytes")
+    # MJL_Begin
+    MJL_row_width = Param.Unsigned(512, "Row size in number of cache lines")
+    # MJL_End
 
     exit_on_work_items = Param.Bool(False, "Exit from the simulation loop when "
                                     "encountering work item annotations.")

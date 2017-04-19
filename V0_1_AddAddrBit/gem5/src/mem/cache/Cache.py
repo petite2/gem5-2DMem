@@ -53,7 +53,7 @@ class BaseCache(MemObject):
     size = Param.MemorySize("Capacity")
     assoc = Param.Unsigned("Associativity")
     # MJL_Begin
-    MJL_row_width = Param.Int("Row size in number of cachelines")
+    MJL_row_width = Param.Int(Parent.MJL_row_width, "Row size in number of cachelines")
     # MJL_End 
 
     tag_latency = Param.Cycles("Tag lookup latency")
