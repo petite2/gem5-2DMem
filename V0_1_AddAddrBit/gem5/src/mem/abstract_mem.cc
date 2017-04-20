@@ -346,7 +346,23 @@ AbstractMemory::access(PacketPtr pkt)
         if (pkt->isAtomicOp()) {
             if (pmemAddr) {
                 // MJL_TODO: Can we just copy?
+                /* MJL_Begin */
+                if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+                } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
+                    Addr MJL_colOff = 0;
+                    for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
+                        memcpy(pkt->getPtr<uint8_t>() + MJL_Offset, hostAddr + MJL_colOff, sizeof(uint64_t));
+                        MJL_colOff = MJL_incColOff;
+                    }
+                } else {
+                    memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+                }
+                /* MJL_End */
+                /* MJL_Comment
                 memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+                */
                 (*(pkt->getAtomicOp()))(hostAddr);
             }
         } else {
@@ -362,7 +378,22 @@ AbstractMemory::access(PacketPtr pkt)
             // memory address into the packet
             std::memcpy(&overwrite_val[0], pkt->getConstPtr<uint8_t>(),
                         pkt->getSize());
+            /* MJL_Begin */
+            if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                std::memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+            } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
+                Addr MJL_colOff = 0;
+                for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
+                    std::memcpy(pkt->getPtr<uint8_t>() + MJL_Offset, hostAddr + MJL_colOff, sizeof(uint64_t));
+                    MJL_colOff = MJL_incColOff;
+                }
+            } else {
+                std::memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+            /* MJL_End */
+            /* MJL_Comment
             std::memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+            */
 
             if (pkt->req->isCondSwap()) {
                 if (pkt->getSize() == sizeof(uint64_t)) {
@@ -378,7 +409,22 @@ AbstractMemory::access(PacketPtr pkt)
             }
 
             if (overwrite_mem)
+                /* MJL_Begin */
+                if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    std::memcpy(hostAddr, &overwrite_val[0], pkt->getSize());
+                } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
+                    Addr MJL_colOff = 0;
+                    for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
+                        std::memcpy(hostAddr + MJL_Offset, &overwrite_val[0] + MJL_colOff, sizeof(uint64_t));
+                        MJL_colOff = MJL_incColOff;
+                    }
+                } else {
+                    std::memcpy(hostAddr, &overwrite_val[0], pkt->getSize());
+                /* MJL_End */
+                /* MJL_Comment
                 std::memcpy(hostAddr, &overwrite_val[0], pkt->getSize());
+                */
 
             assert(!pkt->req->isInstFetch());
             TRACE_PACKET("Read/Write");
@@ -390,7 +436,22 @@ AbstractMemory::access(PacketPtr pkt)
             trackLoadLocked(pkt);
         }
         if (pmemAddr)
+            /* MJL_Begin */
+            if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+            } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
+                Addr MJL_colOff = 0;
+                for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
+                    memcpy(pkt->getPtr<uint8_t>() + MJL_Offset, hostAddr + MJL_colOff, sizeof(uint64_t));
+                    MJL_colOff = MJL_incColOff;
+                }
+            } else {
+                memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+            /* MJL_End */
+            /* MJL_Comment
             memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+            */
         TRACE_PACKET(pkt->req->isInstFetch() ? "IFetch" : "Read");
         numReads[pkt->req->masterId()]++;
         bytesRead[pkt->req->masterId()] += pkt->getSize();
@@ -406,7 +467,22 @@ AbstractMemory::access(PacketPtr pkt)
     } else if (pkt->isWrite()) {
         if (writeOK(pkt)) {
             if (pmemAddr) {
+                /* MJL_Begin */
+                if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    memcpy(hostAddr, pkt->getPtr<uint8_t>(), pkt->getSize());
+                } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
+                    Addr MJL_colOff = 0;
+                    for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
+                        memcpy(hostAddr + MJL_Offset, pkt->getPtr<uint8_t>() + MJL_colOff, sizeof(uint64_t));
+                        MJL_colOff = MJL_incColOff;
+                    }
+                } else {
+                    memcpy(hostAddr, pkt->getPtr<uint8_t>(), pkt->getSize());
+                /* MJL_End */
+                /* MJL_Comment
                 memcpy(hostAddr, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+                */
                 DPRINTF(MemoryAccess, "%s wrote %i bytes to address %x\n",
                         __func__, pkt->getSize(), pkt->getAddr());
             }

@@ -2990,6 +2990,10 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     // MJL_Test for mode
     std::cout << this->name() << "::recvAtomic(PacketPtr pkt)\n";
      MJL_End */
+    /* MJL_Begin */
+    pkt->req->MJL_cachelineSize = cache->blkSize;
+    pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
+    /* MJL_End */
     return cache->recvAtomic(pkt);
 }
 
@@ -3023,6 +3027,8 @@ Cache::CpuSidePort::recvFunctional(PacketPtr pkt)
     /* MJL_Begin */
     // MJL_TODO: to check whether there are column accesses for functional
     assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
+    pkt->req->MJL_cachelineSize = cache->blkSize;
+    pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     /* MJL_End */
     // functional request
     cache->functionalAccess(pkt, true);
