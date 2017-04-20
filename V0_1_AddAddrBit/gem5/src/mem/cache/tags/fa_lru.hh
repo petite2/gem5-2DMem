@@ -325,7 +325,7 @@ public:
         return 0;
     }
     /* MJL_Begin */
-    int MJL_extractSet(Addr addr) const override
+    int MJL_extractSet(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override
     {
         return 0;
     }

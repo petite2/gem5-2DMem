@@ -204,10 +204,15 @@ class BaseTags : public ClockedObject
     }
     /* MJL_Begin */
     int MJL_extractBlkOffset(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) {
+        int MJL_rowShift = floorLog2(sizeof(uint64_t));
+        uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+        int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+
+        Addr new_row = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             return (addr & (Addr)(blkSize-1));
         } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
-            return (addr & (Addr)(blkSize-1));
+            return ((new_row << MJL_rowShift) | (addr & (Addr)(sizeof(uint64_t) - 1)) );
         } else {
             return (addr & (Addr)(blkSize-1));
         }

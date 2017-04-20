@@ -4,11 +4,11 @@ sim_seconds                                  0.000083                       # Nu
 sim_ticks                                    83054500                       # Number of ticks simulated
 final_tick                                   83054500                       # Number of ticks from beginning of simulation (restored from checkpoints and never reset)
 sim_freq                                 1000000000000                       # Frequency of simulated ticks
-host_inst_rate                                  49330                       # Simulator instruction rate (inst/s)
-host_op_rate                                    92011                       # Simulator op (including micro ops) rate (op/s)
-host_tick_rate                               47383413                       # Simulator tick rate (ticks/s)
-host_mem_usage                                 800288                       # Number of bytes of host memory used
-host_seconds                                     1.75                       # Real time elapsed on the host
+host_inst_rate                                  45290                       # Simulator instruction rate (inst/s)
+host_op_rate                                    84477                       # Simulator op (including micro ops) rate (op/s)
+host_tick_rate                               43503416                       # Simulator tick rate (ticks/s)
+host_mem_usage                                 801536                       # Number of bytes of host memory used
+host_seconds                                     1.91                       # Real time elapsed on the host
 sim_insts                                       86465                       # Number of instructions simulated
 sim_ops                                        161278                       # Number of ops (including micro ops) simulated
 system.voltage_domain.voltage                       1                       # Voltage in Volts
@@ -600,8 +600,8 @@ system.cpu.dcache.tags.occ_task_id_blocks::1024          384                    
 system.cpu.dcache.tags.age_task_id_blocks_1024::0           22                       # Occupied blocks per task id
 system.cpu.dcache.tags.age_task_id_blocks_1024::1          362                       # Occupied blocks per task id
 system.cpu.dcache.tags.occ_task_id_percent::1024     0.375000                       # Percentage of cache occupancy per task id
-system.cpu.dcache.tags.tag_accesses             70677                       # Number of tag accesses
-system.cpu.dcache.tags.data_accesses            70677                       # Number of data accesses
+system.cpu.dcache.tags.tag_accesses             71785                       # Number of tag accesses
+system.cpu.dcache.tags.data_accesses            71785                       # Number of data accesses
 system.cpu.dcache.pwrStateResidencyTicks::UNDEFINED     83054500                       # Cumulative time (in ticks) in various power states
 system.cpu.dcache.ReadReq_hits::cpu.data        20734                       # number of ReadReq hits
 system.cpu.dcache.ReadReq_hits::total           20734                       # number of ReadReq hits

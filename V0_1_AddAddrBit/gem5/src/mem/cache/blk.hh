@@ -151,6 +151,24 @@ class CacheBlk
         Addr highAddr;     // high address of lock range
         /* MJL_Begin */
         Request::MJL_DirAttribute MJL_reqDir;
+        inline int
+        floorLog2(unsigned long x) const
+        {
+            assert(x > 0);
+
+            int y = 0;
+
+        #if defined(__LP64__)
+            if (x & ULL(0xffffffff00000000)) { y += 32; x >>= 32; }
+        #endif
+            if (x & 0xffff0000) { y += 16; x >>= 16; }
+            if (x & 0x0000ff00) { y +=  8; x >>=  8; }
+            if (x & 0x000000f0) { y +=  4; x >>=  4; }
+            if (x & 0x0000000c) { y +=  2; x >>=  2; }
+            if (x & 0x00000002) { y +=  1; }
+
+            return y;
+        }
         Addr MJL_swapRowColBits(Addr addr, unsigned blkSize, unsigned MJL_rowWidth) const 
         {
             int MJL_rowShift = floorLog2(sizeof(uint64_t));

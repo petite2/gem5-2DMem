@@ -772,6 +772,7 @@ class Cache : public BaseCache
     }
     /* MJL_End */
 
+    // MJL_TODO: seems inCache() and inMissQueue() are only used by the prefetcher, would need to change if we use prefetchers
     bool inCache(Addr addr, bool is_secure) const override {
         return (tags->findBlock(addr, is_secure) != 0);
     }

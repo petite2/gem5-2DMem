@@ -1296,18 +1296,18 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
         return;
     }
 
-    /* MJL_Begin 
+    /* MJL_Begin */ 
     Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
     bool is_secure = pkt->isSecure();
     CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
     MSHR *mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
-    // MJL_TODO: Do we need to change for functional?
-     MJL_End */
-    /* MJL_Comment */
+    /* MJL_End */
+    /* MJL_Comment 
     Addr blk_addr = blockAlign(pkt->getAddr());
     bool is_secure = pkt->isSecure();
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), is_secure);
     MSHR *mshr = mshrQueue.findMatch(blk_addr, is_secure);
+    */
     
 
     pkt->pushLabel(name());
@@ -2036,7 +2036,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             assert(!tempBlock->isValid());
             blk = tempBlock;
             /* MJL_Begin */
-            tempBlock->set = tags->MJL_xtractSet(addr, pkt->MJL_getDataDir());
+            tempBlock->set = tags->MJL_extractSet(addr, pkt->MJL_getDataDir());
             tempBlock->tag = tags->MJL_extractTag(addr, pkt->MJL_getDataDir());
             /* MJL_End */
             /* MJL_Comment 
@@ -2956,8 +2956,8 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             }
         }
     }
-    pkt->req->MJL_cachelineSize = blkSize;
-    pkt->req->MJL_rowWidth = MJL_rowWidth;
+    pkt->req->MJL_cachelineSize = cache->blkSize;
+    pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     /* MJL_End */
     assert(!cache->system->bypassCaches());
 
