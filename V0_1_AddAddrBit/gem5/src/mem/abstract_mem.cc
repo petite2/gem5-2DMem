@@ -390,6 +390,7 @@ AbstractMemory::access(PacketPtr pkt)
                 }
             } else {
                 std::memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+            }
             /* MJL_End */
             /* MJL_Comment
             std::memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
@@ -410,6 +411,7 @@ AbstractMemory::access(PacketPtr pkt)
 
             if (overwrite_mem)
                 /* MJL_Begin */
+            {
                 if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
                     std::memcpy(hostAddr, &overwrite_val[0], pkt->getSize());
                 } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
@@ -421,6 +423,8 @@ AbstractMemory::access(PacketPtr pkt)
                     }
                 } else {
                     std::memcpy(hostAddr, &overwrite_val[0], pkt->getSize());
+                }
+            }
                 /* MJL_End */
                 /* MJL_Comment
                 std::memcpy(hostAddr, &overwrite_val[0], pkt->getSize());
@@ -437,6 +441,7 @@ AbstractMemory::access(PacketPtr pkt)
         }
         if (pmemAddr)
             /* MJL_Begin */
+        {
             if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
                 memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
             } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
@@ -448,6 +453,8 @@ AbstractMemory::access(PacketPtr pkt)
                 }
             } else {
                 memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+            }
+        }
             /* MJL_End */
             /* MJL_Comment
             memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
@@ -479,6 +486,7 @@ AbstractMemory::access(PacketPtr pkt)
                     }
                 } else {
                     memcpy(hostAddr, pkt->getPtr<uint8_t>(), pkt->getSize());
+                }
                 /* MJL_End */
                 /* MJL_Comment
                 memcpy(hostAddr, pkt->getConstPtr<uint8_t>(), pkt->getSize());

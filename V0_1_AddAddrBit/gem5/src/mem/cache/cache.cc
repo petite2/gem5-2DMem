@@ -2956,6 +2956,11 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             }
         }
     }
+    // MJL_Test for column access
+    pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+
     pkt->req->MJL_cachelineSize = cache->blkSize;
     pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     /* MJL_End */
