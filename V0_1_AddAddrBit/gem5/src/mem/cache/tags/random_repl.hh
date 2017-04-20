@@ -67,6 +67,9 @@ class RandomRepl : public BaseSetAssoc
                           int context_src);
     /* MJL_End */
     CacheBlk* findVictim(Addr addr);
+    /* MJL_Begin */
+    CacheBlk* MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir);
+    /* MJL_End */
     void insertBlock(PacketPtr pkt, BlkType *blk);
     void invalidate(CacheBlk *blk);
 };

@@ -114,15 +114,6 @@ class CacheBlk
     Row:        MJL_CacheBlkDir::MJL_IsRow
     Column:     MJL_CacheBlkDir::MJL_IsColumn
     */
-    // enum MJL_CacheBlkDir : unsigned {
-    //     /* MJL_TODO: Check if it works to set them to MemCmd */
-    //     /** Invalid */
-    //     MJL_BlkInv =    MemCmd::MJL_DirAttribute::MJL_IsInvalid,
-    //     /** Row, default */
-    //     MJL_BlkRow =    MemCmd::MJL_DirAttribute::MJL_IsRow,
-    //     /** Column */
-    //     MJL_BlkCol =    MemCmd::MJL_DirAttribute::MJL_IsColumn,
-    // };
     
     /** block data direction */
     MJL_CacheBlkDir MJL_blkDir;
@@ -160,6 +151,24 @@ class CacheBlk
         Addr highAddr;     // high address of lock range
         /* MJL_Begin */
         Request::MJL_DirAttribute MJL_reqDir;
+        Addr MJL_swapRowColBits(Addr addr, unsigned blkSize, unsigned MJL_rowWidth) const 
+        {
+            int MJL_rowShift = floorLog2(sizeof(uint64_t));
+            uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+            int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+
+            Addr new_row = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
+            Addr new_col = (addr >> MJL_rowShift) & (Addr)MJL_wordMask;
+            return ((addr & ~(((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift))) | (new_row << MJL_rowShift) | (new_col << MJL_colShift));
+        }
+        Addr MJL_commonMask(Addr addr, unsigned blkSize, unsigned MJL_rowWidth) const 
+        {
+            int MJL_rowShift = floorLog2(sizeof(uint64_t));
+            uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+            int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+
+            return (addr & ~(((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift)));
+        }
         /* MJL_End */
 
         // check for matching execution context, and an address that
@@ -171,8 +180,8 @@ class CacheBlk
             /* MJL_Begin */
             if ( req->MJL_reqIsRow() ) {
                 req_high = req_low + req->getSize() -1;
-            } else if ( req->MJL_reqIsColumn() ) { //MJL_TODO: Placeholder
-                req_high = req_low + req->getSize() -1;
+            } else if ( req->MJL_reqIsColumn() ) { //MJL_temp temporary fix for column
+                req_high = MJL_swapRowColBits(MJL_swapRowColBits(req_low, req->MJL_cachelineSize, req->MJL_rowWidth) + req->getSize() -1, req->MJL_cachelineSize, req->MJL_rowWidth);
             } else {
                 req_high = req_low + req->getSize() -1;
             }
@@ -198,16 +207,18 @@ class CacheBlk
             /* MJL_Begin */
             if ( req->MJL_reqIsRow() ) {
                 req_high = req_low + req->getSize() -1;
-            } else if ( req->MJL_reqIsColumn() ) { //MJL_TODO: Placeholder
-                req_high = req_low + req->getSize() -1;
+            } else if ( req->MJL_reqIsColumn() ) { //MJL_temp temporary fix for column
+                req_high = MJL_swapRowColBits(MJL_swapRowColBits(req_low, req->MJL_cachelineSize, req->MJL_rowWidth) + req->getSize() -1, req->MJL_cachelineSize, req->MJL_rowWidth);
             } else {
                 req_high = req_low + req->getSize() -1;
             }
             if ( (req->getSize() <= sizeof(uint64_t)) || (MJL_reqDir == req->MJL_getReqDir()) ) {
                 return (req_low <= highAddr) && (req_high >= lowAddr);
+            } else {
+                //MJL_temp temporary fix for column, assuming that req->getSize() is smaller cacheline size
+                assert(req->getSize() <= req->MJL_cachelineSize);
+                return (MJL_commonMask(req_low, req->MJL_cachelineSize, req->MJL_rowWidth) == MJL_commonMask(lowAddr, req->MJL_cachelineSize, req->MJL_rowWidth));
             }
-	    // MJL_TODO: Placeholder, depends on row/column address calculation
-            return (req_low <= highAddr) && (req_high >= lowAddr);
             /* MJL_End */
             /* MJL_Comment
             Addr req_high = req_low + req->getSize() - 1;
@@ -224,6 +235,9 @@ class CacheBlk
               , MJL_reqDir(req->MJL_getReqDir())
               /* MJL_End */
         {
+            /* MJL_Begin */
+            highAddr = MJL_swapRowColBits(MJL_swapRowColBits(lowAddr, req->MJL_cachelineSize, req->MJL_rowWidth) + req->getSize() -1, req->MJL_cachelineSize, req->MJL_rowWidth);
+            /* MJL_End */
         }
     };
 

@@ -111,8 +111,21 @@ class BaseSetAssoc : public BaseTags
     /** Mask out all bits that aren't part of the block offset. */
     unsigned blkMask;
     /* MJL_Begin */
+    // Mask first and then shift to get the value
     /** Mask out all bits that aren't part of the column block offset. */
-    unsigned MJL_blkMaskColumn;
+    uint64_t MJL_blkMaskColumn;
+    /** Mask out all bits that aren't part of the byte offset. */
+    uint64_t MJL_byteMask;
+    /** Mask out all bits that aren't part of the word offset. */
+    uint64_t MJL_wordMask;
+    /** Mask out all bits that aren't part of the same for both row and column (the higher part). */
+    uint64_t MJL_commonHighMask;
+    /** Mask out all bits that aren't part of the same for both row and column (the lower part). */
+    uint64_t MJL_commonLowMask;
+    /** The amount to shift the address to get the column. */
+    int MJL_colShift;
+    /** The amount to shift the address to get the row. */
+    int MJL_rowShift;
     /* MJL_End */
 
 public:
@@ -249,7 +262,7 @@ public:
                           int context_src) override
     {
         Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
-        int set = extractSet(addr);
+        int set = MJL_extractSet(addr, MJL_cacheBlkDir);
         BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
 
         // Access all tags in parallel, hence one in each way.  The data side
@@ -287,46 +300,15 @@ public:
     CacheBlk* MJL_accessBlockOneWord(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                           int context_src) override 
     {
-        Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
-        int set = extractSet(addr);
-        BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
+        BlkType *blk = MJL_accessBlock(addr, MJL_cacheBlkDir, is_secure, lat, context_src);
         if (blk == nullptr) {
             if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
-                blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
+                blk = MJL_accessBlock(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, lat, context_src);
             } else if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
-                blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, is_secure);
+                blk = MJL_accessBlock(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, is_secure, lat, context_src);
             } else {
                 assert( (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) || (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) );
             }
-        }
-
-        // Access all tags in parallel, hence one in each way.  The data side
-        // either accesses all blocks in parallel, or one block sequentially on
-        // a hit.  Sequential access with a miss doesn't access data.
-        tagAccesses += allocAssoc;
-        if (sequentialAccess) {
-            if (blk != nullptr) {
-                dataAccesses += 1;
-            }
-        } else {
-            dataAccesses += allocAssoc;
-        }
-
-        if (blk != nullptr) {
-            // If a cache hit
-            lat = accessLatency;
-            // Check if the block to be accessed is available. If not,
-            // apply the accessLatency on top of block->whenReady.
-            if (blk->whenReady > curTick() &&
-                cache->ticksToCycles(blk->whenReady - curTick()) >
-                accessLatency) {
-                lat = cache->ticksToCycles(blk->whenReady - curTick()) +
-                accessLatency;
-            }
-            blk->refCount += 1;
-        } else {
-            // If a cache miss
-            lat = lookupLatency;
         }
 
         return blk;
@@ -367,6 +349,22 @@ public:
 
         return blk;
     }
+    /* MJL_Begin */
+    CacheBlk* MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) override
+    {
+        BlkType *blk = nullptr;
+        int set = MJL_extractSet(addr, MJL_cacheBlkDir);
+
+        // prefer to evict an invalid block
+        for (int i = 0; i < allocAssoc; ++i) {
+            blk = sets[set].blks[i];
+            if (!blk->isValid())
+                break;
+        }
+
+        return blk;
+    }
+    /* MJL_End */
 
     /**
      * Insert the new block into the cache.
@@ -412,8 +410,8 @@ public:
          blk->tag = extractTag(addr);
          */
          /* MJL_Begin */
-         blk->tag = MJL_extractTag(addr, pkt->MJL_getCmdDir());
-         blk->MJL_blkDir = pkt->MJL_getCmdDir();
+         blk->tag = MJL_extractTag(addr, pkt->MJL_getDataDir());
+         blk->MJL_blkDir = pkt->MJL_getDataDir();
          /* MJL_End */
 
          // deal with what we are bringing in
@@ -460,9 +458,9 @@ public:
     Addr MJL_extractTag(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override
     {
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
-            return (addr >> tagShift);
-        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column 
-            return (addr >> tagShift);
+            return (MJL_movColRight(addr) >> tagShift);
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_Temp: temporary fix for column 
+            return (MJL_movColRight(MJL_swapRowColBits(addr)) >> tagShift);
         } else {
             return (addr >> tagShift);
         }
@@ -478,7 +476,18 @@ public:
     {
         return ((addr >> setShift) & setMask);
     }
-    // MJL_TODO: Add an extractSet method that takes in direction as a parameter
+    /* MJL_Begin */
+    int MJL_extractSet(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override
+    {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            return ((MJL_movColRight(addr) >> setShift) & setMask);
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_Temp: temporary fix for column 
+            return ((MJL_movColRight(MJL_swapRowColBits(addr)) >> setShift) & setMask);
+        } else {
+            return ((addr >> setShift) & setMask);
+        }
+    }
+    /* MJL_End */
 
     /**
      * Align an address to the block size.
@@ -494,8 +503,8 @@ public:
     {
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             return (addr & ~(Addr)blkMask);
-        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column 
-            return (addr & ~(Addr)blkMask);
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            return (addr & ~(Addr)MJL_blkMaskColumn);
         } else {
             return (addr & ~(Addr)blkMask);
         }
@@ -516,12 +525,40 @@ public:
     Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set) const override
     {
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
-            return ((tag << tagShift) | ((Addr)set << setShift));
-        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column
-            return ((tag << tagShift) | ((Addr)set << setShift));
+            return MJL_movColLeft(((tag << tagShift) | ((Addr)set << setShift)));
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_Temp: temporary fix for column 
+            return MJL_swapRowColBits(MJL_movColLeft(((tag << tagShift) | ((Addr)set << setShift))));
         } else {
             return ((tag << tagShift) | ((Addr)set << setShift));
         }
+    }
+    Addr MJL_swapRowColBits(Addr addr) const override
+    {
+        Addr new_row = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
+        Addr new_col = (addr >> MJL_rowShift) & (Addr)MJL_wordMask;
+        return ((addr & ~(((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift))) | (new_row << MJL_rowShift) | (new_col << MJL_colShift));
+    }
+    /** 
+     * Move column offset bits to right before row offset bits
+     */
+    Addr MJL_movColRight(Addr addr) const override
+    {
+        Addr col = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
+        Addr common_high = addr & MJL_commonHighMask;
+        Addr common_low = addr & MJL_commonLowMask;
+        Addr blk_offset = addr & blkMask;
+        return (common_high | (common_low << (setShift - MJL_rowShift)) | (col << setShift) | blk_offset);
+    }
+    /**
+     * Move the bits right before row offset bits to the column bits' place
+     */
+    Addr MJL_movColLeft(Addr addr) const override
+    {
+        Addr col = (addr >> setShift) & (Addr)MJL_wordMask;
+        Addr common_high = addr & MJL_commonHighMask;
+        Addr common_low = addr & (MJL_commonLowMask << (setShift - MJL_rowShift));
+        Addr blk_offset = addr & blkMask;
+        return (common_high | (common_low >> (setShift - MJL_rowShift)) | (col << MJL_colShift) | blk_offset);
     }
     /* MJL_End */
 

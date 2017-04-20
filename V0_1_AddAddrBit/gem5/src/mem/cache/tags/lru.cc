@@ -131,13 +131,42 @@ LRU::findVictim(Addr addr)
 
     return blk;
 }
+/* MJL_Begin */
+CacheBlk*
+LRU::MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir)
+{
+    int set = MJL_extractSet(addr, MJL_cacheBlkDir);
+    // grab a replacement candidate
+    BlkType *blk = nullptr;
+    for (int i = assoc - 1; i >= 0; i--) {
+        BlkType *b = sets[set].blks[i];
+        if (b->way < allocAssoc) {
+            blk = b;
+            break;
+        }
+    }
+    assert(!blk || blk->way < allocAssoc);
+
+    if (blk && blk->isValid()) {
+        DPRINTF(CacheRepl, "set %x: selecting blk %x for replacement\n",
+                set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, set));
+    }
+
+    return blk;
+}
+/* MJL_End */
 
 void
 LRU::insertBlock(PacketPtr pkt, BlkType *blk)
 {
     BaseSetAssoc::insertBlock(pkt, blk);
 
+    /* MJL_Begin */
+    int set = MJL_extractSet(pkt->getAddr(), pkt->MJL_getDataDir());
+    /* MJL_End */
+    /* MJL_Comment
     int set = extractSet(pkt->getAddr());
+    */
     sets[set].moveToHead(blk);
 }
 

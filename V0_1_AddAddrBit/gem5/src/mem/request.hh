@@ -246,7 +246,6 @@ class Request
      */
     enum MJL_DirAttribute
     {
-        // MJL_TODO: Check whether adding this would break things
         MJL_IsInvalid,  //!< Requested direction is invalid
         MJL_IsRow,      //!< Requested direction is row
         MJL_IsColumn,   //!< Requested direction is column
@@ -560,6 +559,9 @@ class Request
     {
         return MJL_reqDir == MJL_IsColumn;
     }
+    // MJL_temp quick fix to pass the values to Lock in blk.hh and packet, set at the L1DCache's recvTimingReq
+    unsigned MJL_cachelineSize;
+    unsigned MJL_rowWidth;
     /* MJL_End */
     /**
      * Time for the TLB/table walker to successfully translate this request.

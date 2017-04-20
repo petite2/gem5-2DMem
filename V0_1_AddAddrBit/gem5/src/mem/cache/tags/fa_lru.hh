@@ -231,6 +231,12 @@ public:
      * @return The block to place the replacement in.
      */
     CacheBlk* findVictim(Addr addr) override;
+    /* MJL_Begin */
+    CacheBlk* MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) override
+    {
+        return findVictim(addr);
+    }
+    /* MJL_End */
 
     void insertBlock(PacketPtr pkt, CacheBlk *blk) override;
 
@@ -318,6 +324,12 @@ public:
     {
         return 0;
     }
+    /* MJL_Begin */
+    int MJL_extractSet(Addr addr) const override
+    {
+        return 0;
+    }
+    /* MJL_End */
 
     /**
      * Regenerate the block address from the tag and the set.
@@ -333,6 +345,18 @@ public:
     Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set) const override 
     {
         return (tag);
+    }
+    Addr MJL_swapRowColBits(Addr addr) const override 
+    {
+        return (addr);
+    }
+    Addr MJL_movColRight(Addr addr) const override
+    {
+        return (addr);
+    }
+    Addr MJL_movColLeft(Addr addr) const override
+    {
+        return (addr);
     }
     /* MJL_End */
 

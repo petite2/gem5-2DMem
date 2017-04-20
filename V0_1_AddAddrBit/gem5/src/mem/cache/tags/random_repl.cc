@@ -95,6 +95,35 @@ RandomRepl::findVictim(Addr addr)
 
     return blk;
 }
+/* MJL_Begin */
+CacheBlk*
+RandomRepl::MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir)
+{
+    CacheBlk *blk = BaseSetAssoc::MJL_findVictim(addr, MJL_cacheBlkDir);
+    unsigned set = MJL_extractSet(addr, MJL_cacheBlkDir);
+
+    // if all blocks are valid, pick a replacement at random
+    if (blk && blk->isValid()) {
+        // find a random index within the bounds of the set
+        int idx = random_mt.random<int>(0, assoc - 1);
+        blk = sets[set].blks[idx];
+        // Enforce allocation limit
+        while (blk->way >= allocAssoc) {
+            idx = (idx + 1) % assoc;
+            blk = sets[set].blks[idx];
+        }
+
+        assert(idx < assoc);
+        assert(idx >= 0);
+        assert(blk->way < allocAssoc);
+
+        DPRINTF(CacheRepl, "set %x: selecting blk %x for replacement\n",
+                blk->set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set));
+    }
+
+    return blk;
+}
+/* MJL_End */
 
 void
 RandomRepl::insertBlock(PacketPtr pkt, BlkType *blk)

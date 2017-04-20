@@ -72,7 +72,13 @@ BaseSetAssoc::BaseSetAssoc(const Params *p)
 
     blkMask = blkSize - 1;
     /* MJL_Begin */
-    MJL_blkMaskColumn = blkMask << (floorLog2(MJL_rowWidth) + floorLog2(blkSize));
+    MJL_byteMask = sizeof(uint64_t) - 1;
+    MJL_rowShift = floorLog2(sizeof(uint64_t));
+    MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+    MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+    MJL_blkMaskColumn = (MJL_wordMask << MJL_colShift) | MJL_byteMask;
+    MJL_commonHighMask = ~(MJL_rowWidth * blkSize * blkSize/sizeof(uint64_t) - 1);
+    MJL_commonLowMask = (MJL_rowWidth - 1) << floorLog2(blkSize);
     /* MJL_End */
     setShift = floorLog2(blkSize);
     setMask = numSets - 1;
@@ -141,7 +147,7 @@ CacheBlk*
 BaseSetAssoc::MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
 {
     Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
-    unsigned set = extractSet(addr);
+    unsigned set = MJL_extractSet(addr, MJL_cacheBlkDir);
     BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
     return blk;
 }

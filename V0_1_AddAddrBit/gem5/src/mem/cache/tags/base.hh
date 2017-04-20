@@ -270,8 +270,17 @@ class BaseTags : public ClockedObject
 
 
     virtual CacheBlk* findVictim(Addr addr) = 0;
+    /* MJL_Begin */
+    virtual CacheBlk* MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) = 0;
+    /* MJL_End */
 
     virtual int extractSet(Addr addr) const = 0;
+    /* MJL_Begin */
+    virtual int MJL_extractSet(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const = 0;
+    virtual Addr MJL_swapRowColBits(Addr addr) const = 0;
+    virtual Addr MJL_movColRight(Addr addr) const = 0;
+    virtual Addr MJL_movColLeft(Addr addr) const = 0;
+    /* MJL_End */
     
     virtual void forEachBlk(CacheBlkVisitor &visitor) = 0;
 };

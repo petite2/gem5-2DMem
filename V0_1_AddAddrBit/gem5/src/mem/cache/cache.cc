@@ -456,7 +456,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         if (blk == nullptr) {
             // need to do a replacement
             /* MJL_Begin */
-            blk = MJL_allocateBlock(pkt->getAddr(), pkt->isSecure(), writebacks);
+            assert(pkt->MJL_getCmdDir() == pkt->MJL_getDataDir());
+            blk = MJL_allocateBlock(pkt->getAddr(), pkt->MJL_getDataDir(), pkt->isSecure(), writebacks);
             /* MJL_End */
             /* MJL_Comment
             blk = allocateBlock(pkt->getAddr(), pkt->isSecure(), writebacks);
@@ -477,7 +478,6 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // and leave it as is for a clean writeback
         if (pkt->cmd == MemCmd::WritebackDirty) {
             /* MJL_Begin */
-            // MJL_TODO: need to invalidate other blocks since we write a dirty block here. I think I'll need to write another funciton for that.
             assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
             MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
             /* MJL_End */
@@ -889,8 +889,10 @@ Cache::recvTimingReq(PacketPtr pkt)
                 
                 /* MJL_Begin */
                 req->MJL_setReqDir(pkt->req->MJL_getReqDir());
+                req->MJL_cachelineSize = blkSize;
+                req->MJL_rowWidth = MJL_rowWidth;
                 // MJL_TODO: not sure whether this would cause problem, but I would assume that reqDir should be the same as cmdDir
-                assert(pkt->req->MJL_getReqDir() == pkt->MJL_getCmdDir());
+                //assert(pkt->req->MJL_getReqDir() == pkt->MJL_getCmdDir());
                 /* MJL_End */
                 pf = new Packet(req, pkt->cmd);
                 pf->allocate();
@@ -1730,6 +1732,8 @@ Cache::writebackBlk(CacheBlk *blk)
     Request *req = new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
                                blkSize, 0, Request::wbMasterId);
     req->MJL_setReqDir(blk->MJL_blkDir);
+    req->MJL_cachelineSize = blkSize;
+    req->MJL_rowWidth = MJL_rowWidth;
     /* MJL_End */
     /* MJL_Comment
     Request *req = new Request(tags->regenerateBlkAddr(blk->tag, blk->set),
@@ -1747,6 +1751,7 @@ Cache::writebackBlk(CacheBlk *blk)
                    MemCmd::WritebackDirty : MemCmd::WritebackClean);
     /* MJL_Begin */
     pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
+    pkt->MJL_setDataDir(req->MJL_getReqDir());
     /* MJL_End */
 
     DPRINTF(Cache, "Create Writeback %s writable: %d, dirty: %d\n",
@@ -1784,6 +1789,8 @@ Cache::cleanEvictBlk(CacheBlk *blk)
         new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blkSize, 0,
                         Request::wbMasterId);
     req->MJL_setReqDir(blk->MJL_blkDir);
+    req->MJL_cachelineSize = blkSize;
+    req->MJL_rowWidth = MJL_rowWidth;
     /* MJL_End */
     /* MJL_Comment 
         new Request(tags->regenerateBlkAddr(blk->tag, blk->set), blkSize, 0,
@@ -1798,6 +1805,7 @@ Cache::cleanEvictBlk(CacheBlk *blk)
 
     PacketPtr pkt = new Packet(req, MemCmd::CleanEvict);
     /* MJL_Begin */
+    pkt->cmd.MJL_setCmdDir(blk->MJL_blkDir);
     pkt->MJL_setDataDir(blk->MJL_blkDir);
     /* MJL_End */
     pkt->allocate();
@@ -1839,6 +1847,8 @@ Cache::writebackVisitor(CacheBlk &blk)
         Request request(tags->MJL_regenerateBlkAddr(blk.tag, blk.MJL_blkDir, blk.set),
                         blkSize, 0, Request::funcMasterId);
         request.MJL_setReqDir(blk.MJL_blkDir);
+        request.MJL_cachelineSize = blkSize;
+        request.MJL_rowWidth = MJL_rowWidth;
         /* MJL_End */
         /* MJL_Comment 
         Request request(tags->regenerateBlkAddr(blk.tag, blk.set),
@@ -1849,6 +1859,7 @@ Cache::writebackVisitor(CacheBlk &blk)
 
         Packet packet(&request, MemCmd::WriteReq);
         /* MJL_Begin */
+        packet.cmd.MJL_setCmdDir(blk.MJL_blkDir);
         packet.MJL_setDataDir(blk.MJL_blkDir);
         /* MJL_End */
         packet.dataStatic(blk.data);
@@ -1921,9 +1932,9 @@ Cache::allocateBlock(Addr addr, bool is_secure, PacketList &writebacks)
 }
 /* MJL_Begin */
 CacheBlk*
-Cache::MJL_allocateBlock(Addr addr, bool is_secure, PacketList &writebacks)
+Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, PacketList &writebacks)
 {
-    CacheBlk *blk = tags->findVictim(addr);
+    CacheBlk *blk = tags->MJL_findVictim(addr, MJL_cacheBlkDir);
 
     // It is valid to return nullptr if there is no victim
     if (!blk)
@@ -2012,7 +2023,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         // need to do a replacement if allocating, otherwise we stick
         // with the temporary storage
         /* MJL_Begin */
-        blk = allocate ? MJL_allocateBlock(addr, is_secure, writebacks) : nullptr;
+        blk = allocate ? MJL_allocateBlock(addr, pkt->MJL_getDataDir(), is_secure, writebacks) : nullptr;
         /* MJL_End */
         /* MJL_Comment
         blk = allocate ? allocateBlock(addr, is_secure, writebacks) : nullptr;
@@ -2024,11 +2035,12 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             // current request and then get rid of it
             assert(!tempBlock->isValid());
             blk = tempBlock;
-            tempBlock->set = tags->extractSet(addr);
             /* MJL_Begin */
+            tempBlock->set = tags->MJL_xtractSet(addr, pkt->MJL_getDataDir());
             tempBlock->tag = tags->MJL_extractTag(addr, pkt->MJL_getDataDir());
             /* MJL_End */
             /* MJL_Comment 
+            tempBlock->set = tags->extractSet(addr);
             tempBlock->tag = tags->extractTag(addr);
             */
             // @todo: set security state as well...
@@ -2935,6 +2947,8 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             //pkt->setAddr(std::get<0>(cache->MJL_testInputList.front()));
             //pkt->cmd = std::get<2>(cache->MJL_testInputList.front());
             pkt->cmd.MJL_setCmdDir(std::get<1>(cache->MJL_testInputList.front()));
+            pkt->req->MJL_setReqDir(std::get<1>(cache->MJL_testInputList.front()));
+            pkt->MJL_setDataDir(std::get<1>(cache->MJL_testInputList.front()));
             std::cout << "Packet's [Addr, Dir, Cmd]: [" << pktOrigAddr << ", " << pktOrigDir << ", " << pktOrigCmd << "] --> ["  << pkt->getAddr() << ", " << pkt->cmd.MJL_getCmdDir() << ", " << pkt->cmd.MJL_getCmd() << "]\n";
             cache->MJL_testInputList.pop_front();
             if (cache->MJL_testInputList.empty()) {
@@ -2942,6 +2956,8 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             }
         }
     }
+    pkt->req->MJL_cachelineSize = blkSize;
+    pkt->req->MJL_rowWidth = MJL_rowWidth;
     /* MJL_End */
     assert(!cache->system->bypassCaches());
 

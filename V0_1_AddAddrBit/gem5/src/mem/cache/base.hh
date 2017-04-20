@@ -494,8 +494,8 @@ class BaseCache : public MemObject
     Addr MJL_blockAlign(Addr addr, MemCmd::MJL_DirAttribute MJL_dir) const {
         if (MJL_dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             return (addr & ~(Addr(blkSize - 1)));
-        } else if (MJL_dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) { // MJL_TODO: Placeholder
-            return (addr & ~(Addr(blkSize - 1)));
+        } else if (MJL_dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) { // MJL_temp: temporary fix for column
+            return (addr & ~(Addr((blkSize/sizeof(uint64_t) - 1) << (floorLog2(MJL_rowWidth) + floorLog2(blkSize))) | (sizeof(uint64_t) - 1)));
         } else {
             return (addr & ~(Addr(blkSize - 1)));
         }

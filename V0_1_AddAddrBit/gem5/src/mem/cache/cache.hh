@@ -135,6 +135,7 @@ class Cache : public BaseCache
                 assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
                 pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
                 pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
+                pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
                 pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
                 time_it->second.erase(pkt->MJL_testSeq);
             }
@@ -432,7 +433,7 @@ class Cache : public BaseCache
      */
     CacheBlk *allocateBlock(Addr addr, bool is_secure, PacketList &writebacks);
     /* MJL_Begin */
-    CacheBlk *MJL_allocateBlock(Addr addr, bool is_secure, PacketList &writebacks);
+    CacheBlk *MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, PacketList &writebacks);
     /* MJL_End */
 
     /**

@@ -136,7 +136,6 @@ class MemCmd
     typedef Request::MJL_DirAttribute MJL_DirAttribute;
     // enum MJL_DirAttribute
     // {
-    //     // MJL_TODO: Check whether adding this would break things
     //     MJL_IsInvalid,  //!< Data access direction is invalid
     //     MJL_IsRow,      //!< Data access direction is row
     //     MJL_IsColumn,   //!< Data access direction is column
@@ -264,7 +263,6 @@ class MemCmd
      * get called when cmd = MemCmd::xxx is used and resets the
      * MJL_cmdDir to default.
      */
-    // MJL_TODO: Check whether this breaks other things
     MemCmd operator=(Command _cmd) { this->cmd = _cmd; return *this; }
     MemCmd operator=(int _cmd) { this->cmd = (Command)_cmd; return *this; }
     // Implicit already covered this? MemCmd(MemCmd c2) : cmd(c2.cmd), MJL_cmdDir(c2.MJL_cmdDir) { }
@@ -695,7 +693,6 @@ class Packet : public Printable
     setBadAddress()
     {
         assert(isResponse());
-        /* MJL_TODO: not sure whether this line would execute normally... */
         cmd = MemCmd::BadAddressError;
     }
 
@@ -713,6 +710,25 @@ class Packet : public Printable
 
     unsigned getSize() const  { assert(flags.isSet(VALID_SIZE)); return size; }
 
+    /* MJL_Begin */
+    Addr MJL_swapRowColBits(Addr addr, unsigned blkSize, unsigned MJL_rowWidth) const 
+    {
+        int MJL_rowShift = floorLog2(sizeof(uint64_t));
+        uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+        int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+
+        Addr new_row = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
+        Addr new_col = (addr >> MJL_rowShift) & (Addr)MJL_wordMask;
+        return ((addr & ~(((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift))) | (new_row << MJL_rowShift) | (new_col << MJL_colShift));
+    }
+    uint64_t MJL_blkMaskColumn(unsigned blkSize, unsigned MJL_rowWidth) const
+    {
+        uint64_t MJL_byteMask = sizeof(uint64_t) - 1;
+        uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+        int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+        return (MJL_wordMask << MJL_colShift) | MJL_byteMask;
+    }
+    /* MJL_End */
     Addr getOffset(unsigned int blk_size) const
     {
         /* MJL_Begin */
@@ -722,8 +738,8 @@ class Packet : public Printable
         if ( MJL_dataIsRow() ) {
             return getAddr() & Addr(blk_size - 1);
         } else if ( MJL_dataIsColumn() ) {
-            // MJL_TODO: Placeholder for column offset calculation, maybe should use data direction? check use cases
-            return getAddr() & Addr(blk_size - 1);
+            // MJL_temp: temporary fix for column offset calculation, maybe should use data direction? check use cases
+            return MJL_swapRowColBits(getAddr(), blk_size, req->MJL_rowWidth) & Addr(blk_size - 1);
         } else {
             return getAddr() & Addr(blk_size - 1);
         }
@@ -740,8 +756,8 @@ class Packet : public Printable
         if ( MJL_cmdIsRow() ) {
             return getAddr() & ~(Addr(blk_size - 1));
         } else if ( MJL_cmdIsColumn() ) {
-            // MJL_TODO: Placeholder for column offset calculation
-            return getAddr() & ~(Addr(blk_size - 1));
+            // MJL_temp: temporary fix for column block address calculation
+            return getAddr() & ~(Addr(MJL_blkMaskColumn(blk_size, req->MJL_rowWidth)));
         } else {
             return getAddr() & ~(Addr(blk_size - 1));
         }
@@ -771,7 +787,6 @@ class Packet : public Printable
     {
         assert(isLLSC());
         assert(isWrite());
-        /* MJL_TODO: not sure whether this line would execute normally... */
         cmd = MemCmd::WriteReq;
     }
 
@@ -784,7 +799,6 @@ class Packet : public Printable
     {
         assert(isLLSC());
         assert(isRead());
-        /* MJL_TODO: not sure whether this line would execute normally... */
         cmd = MemCmd::ReadReq;
     }
 
@@ -826,8 +840,8 @@ class Packet : public Printable
             if ( MJL_cmdIsRow() ) {
                 addr = req->getPaddr() & ~(_blkSize - 1);
             } else if ( MJL_cmdIsColumn() ) {
-                // MJL_TODO: Placeholder for column offset calculation
-                addr = req->getPaddr() & ~(_blkSize - 1);
+                // MJL_temp: temporary fix for column block address calculation
+                addr = req->getPaddr() &  ~(Addr(MJL_blkMaskColumn(blk_size, req->MJL_rowWidth)));
             } else {
                 addr = req->getPaddr() & ~(_blkSize - 1);
             }
@@ -977,7 +991,6 @@ class Packet : public Printable
     void
     setFunctionalResponseStatus(bool success)
     {
-        /* MJL_TODO: not sure whether this line would execute normally... */
         if (!success) {
             if (isWrite()) {
                 cmd = MemCmd::FunctionalWriteError;
@@ -1252,7 +1265,6 @@ class Packet : public Printable
     bool
     mustCheckAbove() const
     {
-        /* MJL_TODO: not sure whether this line would execute normally... */
         return cmd == MemCmd::HardPFReq || isEviction();
     }
 
@@ -1263,7 +1275,6 @@ class Packet : public Printable
     bool
     isCleanEviction() const
     {
-        /* MJL_TODO: not sure whether this line would execute normally... */
         return cmd == MemCmd::CleanEvict || cmd == MemCmd::WritebackClean;
     }
 
