@@ -89,10 +89,18 @@ class SnoopFilter : public SimObject {
     typedef std::vector<QueuedSlavePort*> SnoopList;
 
     SnoopFilter (const SnoopFilterParams *p) :
-        SimObject(p), reqLookupResult(cachedLocations.end()), retryItem{0, 0},
-        linesize(p->system->cacheLineSize()), lookupLatency(p->lookup_latency),
+        SimObject(p), reqLookupResult(/* MJL_Begin */MJL_cachedLocations[MemCmd::MJL_DirAttribute::MJL_IsRow]/* MJL_End *//* MJL_Comment cachedLocations*/.end()), retryItem{0, 0},
+        linesize(p->system->cacheLineSize()), lookupLatency(p->lookup_latency),/* MJL_Begin */
+        MJL_rowWidth(p->MJL_row_width),
+        /* MJL_End */
         maxEntryCount(p->max_capacity / p->system->cacheLineSize())
     {
+        /* MJL_Begin */
+        uint64_t MJL_byteMask = sizeof(uint64_t) - 1;
+        uint64_t MJL_wordMask = linesize/sizeof(uint64_t) - 1;
+        int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(linesize);
+        MJL_blkMaskColumn = (MJL_wordMask << MJL_colShift) | MJL_byteMask;
+        /* MJL_End */
     }
 
     /**
@@ -144,6 +152,10 @@ class SnoopFilter : public SimObject {
      * @param addr          Packet address, merely for sanity checking
      */
     void finishRequest(bool will_retry, Addr addr, bool is_secure);
+    /* MJL_Begin */
+    void MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure);
+    uint64_t MJL_blkMaskColumn;
+    /* MJL_End */
 
     /**
      * Handle an incoming snoop from below (the master port). These
@@ -219,6 +231,10 @@ class SnoopFilter : public SimObject {
      * HashMap of SnoopItems indexed by line address
      */
     typedef std::unordered_map<Addr, SnoopItem> SnoopFilterCache;
+    /* MJL_Begin */
+    typedef std::unordered_map< MemCmd::MJL_DirAttribute, SnoopFilterCache > MJL_SnoopFilterCache;
+    /* MJL_End */
+    
 
     /**
      * Simple factory methods for standard return values.
@@ -257,9 +273,15 @@ class SnoopFilter : public SimObject {
      * Removes snoop filter items which have no requesters and no holders.
      */
     void eraseIfNullEntry(SnoopFilterCache::iterator& sf_it);
+    /* MJL_Begin */
+    void MJL_eraseIfNullEntry(SnoopFilterCache::iterator& sf_it, MemCmd::MJL_DirAttribute MJL_cmdDir);
+    /* MJL_End */
 
     /** Simple hash set of cached addresses. */
     SnoopFilterCache cachedLocations;
+    /* MJL_Begin */
+    MJL_SnoopFilterCache MJL_cachedLocations;
+    /* MJL_End */
     /**
      * Iterator used to store the result from lookupRequest until we
      * call finishRequest.
@@ -277,6 +299,9 @@ class SnoopFilter : public SimObject {
     std::vector<PortID> localSlavePortIds;
     /** Cache line size. */
     const unsigned linesize;
+    /* MJL_Begin */
+    const unsigned MJL_rowWidth;
+    /* MJL_End */
     /** Latency for doing a lookup in the filter */
     const Cycles lookupLatency;
     /** Max capacity in terms of cache blocks tracked, for sanity checking */

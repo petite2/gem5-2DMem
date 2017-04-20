@@ -118,6 +118,9 @@ class SnoopFilter(SimObject):
 
     system = Param.System(Parent.any, "System that the crossbar belongs to.")
 
+    # MJL_Begin
+    MJL_row_width = Param.Int(Parent.MJL_row_width, "Size of a row in number of cachelines")
+    # MJL_End
     # Sanity check on max capacity to track, adjust if needed.
     max_capacity = Param.MemorySize('8MB', "Maximum capacity of snoop filter")
 

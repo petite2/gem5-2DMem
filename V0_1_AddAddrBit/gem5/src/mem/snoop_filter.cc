@@ -58,6 +58,18 @@ SnoopFilter::eraseIfNullEntry(SnoopFilterCache::iterator& sf_it)
                 __func__);
     }
 }
+/* MJL_Begin */
+void
+SnoopFilter::MJL_eraseIfNullEntry(SnoopFilterCache::iterator& sf_it, MemCmd::MJL_DirAttribute MJL_cmdDir)
+{
+    SnoopItem& sf_item = sf_it->second;
+    if (!(sf_item.requested | sf_item.holder)) {
+        MJL_cachedLocations[MJL_cmdDir].erase(sf_it);
+        DPRINTF(SnoopFilter, "%s:   Removed SF entry.\n",
+                __func__);
+    }
+}
+/* MJL_End */
 
 std::pair<SnoopFilter::SnoopList, Cycles>
 SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
@@ -73,8 +85,14 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         line_addr |= LineSecure;
     }
     SnoopMask req_port = portToMask(slave_port);
+    /* MJL_Begin */
+    reqLookupResult = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(line_addr);
+    bool is_hit = (reqLookupResult != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end());
+    /* MJL_End */
+    /* MJL_Comment
     reqLookupResult = cachedLocations.find(line_addr);
     bool is_hit = (reqLookupResult != cachedLocations.end());
+    */
 
     // If the snoop filter has no entry, and we should not allocate,
     // do not create a new snoop filter entry, simply return a NULL
@@ -84,7 +102,12 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
 
     // If no hit in snoop filter create a new element and update iterator
     if (!is_hit)
+        /* MJL_Begin */
+        reqLookupResult = MJL_cachedLocations[cpkt->MJL_getCmdDir()].emplace(line_addr, SnoopItem()).first;
+        /* MJL_End */
+        /* MJL_Comment
         reqLookupResult = cachedLocations.emplace(line_addr, SnoopItem()).first;
+        */
     SnoopItem& sf_item = reqLookupResult->second;
     SnoopMask interested = sf_item.holder | sf_item.requested;
 
@@ -172,6 +195,40 @@ SnoopFilter::finishRequest(bool will_retry, Addr addr, bool is_secure)
         eraseIfNullEntry(reqLookupResult);
     }
 }
+/* MJL_Begin */
+void
+SnoopFilter::MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure)
+{
+    if (reqLookupResult != MJL_cachedLocations[MJL_cmdDir].end()) {
+        // since we rely on the caller, do a basic check to ensure
+        // that finishRequest is being called following lookupRequest
+        Addr line_addr;
+        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+            line_addr = (addr & ~(Addr(linesize - 1)));
+        } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+            line_addr = (addr & ~(Addr(MJL_blkMaskColumn)));;
+        } else {
+            line_addr = (addr & ~(Addr(linesize - 1)));
+        }
+        
+        if (is_secure) {
+            line_addr |= LineSecure;
+        }
+        assert(reqLookupResult->first == line_addr);
+        if (will_retry) {
+            // Undo any changes made in lookupRequest to the snoop filter
+            // entry if the request will come again. retryItem holds
+            // the previous value of the snoopfilter entry.
+            reqLookupResult->second = retryItem;
+
+            DPRINTF(SnoopFilter, "%s:   restored SF value %x.%x\n",
+                    __func__,  retryItem.requested, retryItem.holder);
+        }
+
+        MJL_eraseIfNullEntry(reqLookupResult, MJL_cmdDir);
+    }
+}
+/* MJL_End */
 
 std::pair<SnoopFilter::SnoopList, Cycles>
 SnoopFilter::lookupSnoop(const Packet* cpkt)
@@ -184,12 +241,27 @@ SnoopFilter::lookupSnoop(const Packet* cpkt)
     if (cpkt->isSecure()) {
         line_addr |= LineSecure;
     }
+    /* MJL_Begin */
+    auto sf_it = MJL_cachedLocations[cpkt->MJL_getCmdDir].find(line_addr);
+    bool is_hit = (sf_it != MJL_cachedLocations[cpkt->MJL_getCmdDir].end());
+
+    size_t MJL_size = 0;
+    for (auto MJL_it = MJL_cachedLocations.begin(); MJL_it != MJL_cachedLocations.end(); ++MJL_it) {
+        MJL_size = MJL_size + MJL_it->second.size();
+    }
+
+    panic_if(!is_hit && (MJL_size >= maxEntryCount),
+             "snoop filter exceeded capacity of %d cache blocks\n",
+             maxEntryCount);
+    /* MJL_End */
+    /* MJL_Comment
     auto sf_it = cachedLocations.find(line_addr);
     bool is_hit = (sf_it != cachedLocations.end());
 
     panic_if(!is_hit && (cachedLocations.size() >= maxEntryCount),
              "snoop filter exceeded capacity of %d cache blocks\n",
              maxEntryCount);
+    */
 
     // If the snoop filter has no entry, simply return a NULL
     // portlist, there is no point creating an entry only to remove it
@@ -225,7 +297,12 @@ SnoopFilter::lookupSnoop(const Packet* cpkt)
         sf_item.holder = 0;
     }
 
+    /* MJL_Begin */
+    MJL_eraseIfNullEntry(sf_it, cpkt->MJL_getcmdDir());
+    /* MJL_End */
+    /* MJL_Comment
     eraseIfNullEntry(sf_it);
+    */
     DPRINTF(SnoopFilter, "%s:   new SF value %x.%x interest: %x \n",
             __func__, sf_item.requested, sf_item.holder, interested);
 
@@ -256,7 +333,12 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
     }
     SnoopMask rsp_mask = portToMask(rsp_port);
     SnoopMask req_mask = portToMask(req_port);
+    /* MJL_Begin */
+    SnoopItem& sf_item = MJL_cachedLocations[cpkt->MJL_getCmdDir()][line_addr];
+    /* MJL_End */
+    /* MJL_Comment 
     SnoopItem& sf_item = cachedLocations[line_addr];
+    */
 
     DPRINTF(SnoopFilter, "%s:   old SF value %x.%x\n",
             __func__,  sf_item.requested, sf_item.holder);
@@ -302,8 +384,14 @@ SnoopFilter::updateSnoopForward(const Packet* cpkt,
     if (cpkt->isSecure()) {
         line_addr |= LineSecure;
     }
+    /* MJL_Begin */
+    auto sf_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(line_addr);
+    bool is_hit = sf_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end();
+    /* MJL_End */
+    /* MJL_Comment 
     auto sf_it = cachedLocations.find(line_addr);
     bool is_hit = sf_it != cachedLocations.end();
+    */
 
     // Nothing to do if it is not a hit
     if (!is_hit)
@@ -322,7 +410,12 @@ SnoopFilter::updateSnoopForward(const Packet* cpkt,
     }
     DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
             __func__, sf_item.requested, sf_item.holder);
+    /* MJL_Begin */
+    MJL_eraseIfNullEntry(sf_it, cpkt->MJL_getCmdDir());
+    /* MJL_End */
+    /* MJL_Comment 
     eraseIfNullEntry(sf_it);
+    */
 
 }
 
@@ -344,8 +437,14 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     if (cpkt->isSecure()) {
         line_addr |= LineSecure;
     }
+    /* MJL_Begin */
+    auto sf_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(line_addr);
+    if (sf_it == MJL_cachedLocations[cpkt->MJL_getCmdDir()].end())
+    /* MJL_End */
+    /* MJL_Comment
     auto sf_it = cachedLocations.find(line_addr);
     if (sf_it == cachedLocations.end())
+    */
         return;
 
     SnoopMask slave_mask = portToMask(slave_port);

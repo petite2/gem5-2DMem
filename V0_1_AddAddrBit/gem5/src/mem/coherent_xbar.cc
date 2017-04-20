@@ -265,7 +265,12 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID slave_port_id)
     if (snoopFilter && !system->bypassCaches()) {
         // Let the snoop filter know about the success of the send operation
         // MJL_TODO: might need to be changed
+        /* MJL_Begin */
+        snoopFilter->MJL_finishRequest(!success, addr, pkt->MJL_getCmdDir(), pkt->isSecure());
+        /* MJL_End */
+        /* MJL_Comment
         snoopFilter->finishRequest(!success, addr, pkt->isSecure());
+        */
     }
 
     // check if we were successful in sending the packet onwards
@@ -659,7 +664,12 @@ CoherentXBar::recvAtomic(PacketPtr pkt, PortID slave_port_id)
             // operation, and do it even before sending it onwards to
             // avoid situations where atomic upward snoops sneak in
             // between and change the filter state
+            /* MJL_Begin */
+            snoopFilter->MJL_finishRequest(false, pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
+            /* MJL_End */
+            /* MJL_Comment
             snoopFilter->finishRequest(false, pkt->getAddr(), pkt->isSecure());
+            */
 
             snoop_result = forwardAtomic(pkt, slave_port_id, InvalidPortID,
                                          sf_res.first);

@@ -453,8 +453,8 @@ class Cache : public BaseCache
     Addr MJL_addOffsetAddr(Addr MJL_baseAddr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned offset) {
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             return MJL_baseAddr + Addr(offset);
-        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder
-            return MJL_baseAddr + Addr(offset);
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_temp temporary fix for column
+            return tag->MJL_swapRowColBits(tag->MJL_swapRowColBits(MJL_baseAddr) + Addr(offset));
         } else {
             return MJL_baseAddr + Addr(offset);
         }
@@ -480,7 +480,7 @@ class Cache : public BaseCache
         }
         for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {
             MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_written_addr, MJL_cacheBlkDir, offset);
-	    MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
+	        MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
             if (MJL_diffDir_blk != nullptr) {
                 if (MJL_diffDir_blk->isValid()) {
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
@@ -510,7 +510,7 @@ class Cache : public BaseCache
         }
         for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {
             MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_upgrade_addr, MJL_cacheBlkDir, offset);
-	    MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
+	        MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
             if (MJL_diffDir_blk != nullptr) {
                 if (MJL_diffDir_blk->isValid()) {
                     MJL_diffDir_blk->status &= ~BlkReadable;
