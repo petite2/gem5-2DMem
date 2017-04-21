@@ -242,8 +242,8 @@ SnoopFilter::lookupSnoop(const Packet* cpkt)
         line_addr |= LineSecure;
     }
     /* MJL_Begin */
-    auto sf_it = MJL_cachedLocations[cpkt->MJL_getCmdDir].find(line_addr);
-    bool is_hit = (sf_it != MJL_cachedLocations[cpkt->MJL_getCmdDir].end());
+    auto sf_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(line_addr);
+    bool is_hit = (sf_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end());
 
     size_t MJL_size = 0;
     for (auto MJL_it = MJL_cachedLocations.begin(); MJL_it != MJL_cachedLocations.end(); ++MJL_it) {
@@ -298,7 +298,7 @@ SnoopFilter::lookupSnoop(const Packet* cpkt)
     }
 
     /* MJL_Begin */
-    MJL_eraseIfNullEntry(sf_it, cpkt->MJL_getcmdDir());
+    MJL_eraseIfNullEntry(sf_it, cpkt->MJL_getCmdDir());
     /* MJL_End */
     /* MJL_Comment
     eraseIfNullEntry(sf_it);

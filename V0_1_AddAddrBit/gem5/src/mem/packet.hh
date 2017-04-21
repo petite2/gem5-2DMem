@@ -255,7 +255,7 @@ class MemCmd
      * Set the command's data access direction
      */
     void MJL_setCmdDir(MJL_DirAttribute in_MJL_cmdDir) { MJL_cmdDir = in_MJL_cmdDir; }
-    MJL_DirAttribute MJL_getCmdDir() { return MJL_cmdDir; }
+    MJL_DirAttribute MJL_getCmdDir() const { return MJL_cmdDir; }
 
     /** 
      * Overload the operator=(Command _cmd) and (int _cmd) so that
@@ -547,10 +547,10 @@ class Packet : public Printable
 
     /* MJL_Begin */
     int MJL_testSeq; // Used to identify packet during test
-    MemCmd::MJL_DirAttribute MJL_getCmdDir() { return cmd.MJL_getCmdDir(); }
+    MemCmd::MJL_DirAttribute MJL_getCmdDir() const { return cmd.MJL_getCmdDir(); }
     bool MJL_cmdIsRow() const           { return cmd.MJL_isRow(); }
     bool MJL_cmdIsColumn() const        { return cmd.MJL_isColumn(); }
-    MemCmd::MJL_DirAttribute MJL_getDataDir() {return MJL_dataDir; }
+    MemCmd::MJL_DirAttribute MJL_getDataDir() const {return MJL_dataDir; }
     bool MJL_dataIsRow() const          { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsRow; }
     bool MJL_dataIsColumn() const       { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsColumn; }
     bool MJL_sameCmdDataDir()           { return MJL_dataDir == cmd.MJL_getCmdDir(); }

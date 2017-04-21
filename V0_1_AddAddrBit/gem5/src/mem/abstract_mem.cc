@@ -342,19 +342,27 @@ AbstractMemory::access(PacketPtr pkt)
 
     uint8_t *hostAddr = pmemAddr + pkt->getAddr() - range.start();
 
+    // MJL_Test
+    if (!pkt->req->isInstFetch()) {
+        std::cout << this->name() << "::access() Cmd: " << pkt->cmd.toString() << ", DataDir: " << pkt->MJL_getDataDir() << ", CmdDir: " << pkt->MJL_getCmdDir() << ", Size: " << pkt->getSize() << ", addr: ";
+        std::cout << std::oct << pkt->getAddr();
+        std::cout << std::dec << ", PC: " << pkt->req->getPC() << ", time: " << pkt->req->time() << "\n";
+    }
+                    
+
     if (pkt->cmd == MemCmd::SwapReq) {
         if (pkt->isAtomicOp()) {
             if (pmemAddr) {
                 // MJL_TODO: Can we just copy?
                 /* MJL_Begin */
-                if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow){
                     memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
                 } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
                     Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
                     Addr MJL_colOff = 0;
                     for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
                         memcpy(pkt->getPtr<uint8_t>() + MJL_Offset, hostAddr + MJL_colOff, sizeof(uint64_t));
-                        MJL_colOff = MJL_incColOff;
+                        MJL_colOff = MJL_colOff + MJL_incColOff;
                     }
                 } else {
                     memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
@@ -386,7 +394,7 @@ AbstractMemory::access(PacketPtr pkt)
                 Addr MJL_colOff = 0;
                 for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
                     std::memcpy(pkt->getPtr<uint8_t>() + MJL_Offset, hostAddr + MJL_colOff, sizeof(uint64_t));
-                    MJL_colOff = MJL_incColOff;
+                    MJL_colOff = MJL_colOff + MJL_incColOff;
                 }
             } else {
                 std::memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
@@ -418,8 +426,8 @@ AbstractMemory::access(PacketPtr pkt)
                     Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
                     Addr MJL_colOff = 0;
                     for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
-                        std::memcpy(hostAddr + MJL_Offset, &overwrite_val[0] + MJL_colOff, sizeof(uint64_t));
-                        MJL_colOff = MJL_incColOff;
+                        std::memcpy(hostAddr + MJL_colOff, &overwrite_val[0] + MJL_Offset, sizeof(uint64_t));
+                        MJL_colOff = MJL_colOff + MJL_incColOff;
                     }
                 } else {
                     std::memcpy(hostAddr, &overwrite_val[0], pkt->getSize());
@@ -449,7 +457,7 @@ AbstractMemory::access(PacketPtr pkt)
                 Addr MJL_colOff = 0;
                 for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
                     memcpy(pkt->getPtr<uint8_t>() + MJL_Offset, hostAddr + MJL_colOff, sizeof(uint64_t));
-                    MJL_colOff = MJL_incColOff;
+                    MJL_colOff = MJL_colOff + MJL_incColOff;
                 }
             } else {
                 memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
@@ -481,8 +489,8 @@ AbstractMemory::access(PacketPtr pkt)
                     Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
                     Addr MJL_colOff = 0;
                     for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
-                        memcpy(hostAddr + MJL_Offset, pkt->getPtr<uint8_t>() + MJL_colOff, sizeof(uint64_t));
-                        MJL_colOff = MJL_incColOff;
+                        memcpy(hostAddr + MJL_colOff, pkt->getPtr<uint8_t>() + MJL_Offset, sizeof(uint64_t));
+                        MJL_colOff = MJL_colOff + MJL_incColOff;
                     }
                 } else {
                     memcpy(hostAddr, pkt->getPtr<uint8_t>(), pkt->getSize());
@@ -512,6 +520,9 @@ void
 AbstractMemory::functionalAccess(PacketPtr pkt)
 {
     // MJL_TODO: Same as access()
+    /* MJL_Begin */
+    assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
+    /* MJL_End */
     assert(AddrRange(pkt->getAddr(),
                      pkt->getAddr() + pkt->getSize() - 1).isSubset(range));
 

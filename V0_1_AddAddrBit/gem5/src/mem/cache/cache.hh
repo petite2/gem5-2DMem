@@ -124,18 +124,29 @@ class Cache : public BaseCache
                 } else {
                     std::cout << "NoContextId";
                 }
-                std::cout << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", Addr = " << pkt->getAddr() << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd() <<  "\n";
+                std::cout << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", Addr = ";
+                std::cout << std::oct << pkt->getAddr();
+                std::cout << std::dec << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd();
+                if (pkt->hasData()) {
+                    std::cout << ", Data = ";
+                    uint64_t MJL_data;
+                    std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+                    std::cout << std::hex << MJL_data;
+                } else {
+                    std::cout << ", noData";
+                }
+                std::cout << std::dec << "\n";
                 assert(!cache->MJL_testPktOrigParamList.empty());
                 auto PC_it = cache->MJL_testPktOrigParamList.find(pkt->req->getPC());
                 assert(PC_it != cache->MJL_testPktOrigParamList.end());
                 auto time_it = PC_it->second.find(pkt->req->time());
                 assert((time_it != PC_it->second.end()) && !time_it->second.empty());
                 assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
+                // assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
                 assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
                 pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
+                // pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
+                // pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
                 pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
                 time_it->second.erase(pkt->MJL_testSeq);
             }
@@ -454,7 +465,7 @@ class Cache : public BaseCache
         if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             return MJL_baseAddr + Addr(offset);
         } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_temp temporary fix for column
-            return tag->MJL_swapRowColBits(tag->MJL_swapRowColBits(MJL_baseAddr) + Addr(offset));
+            return tags->MJL_swapRowColBits(tags->MJL_swapRowColBits(MJL_baseAddr) + Addr(offset));
         } else {
             return MJL_baseAddr + Addr(offset);
         }

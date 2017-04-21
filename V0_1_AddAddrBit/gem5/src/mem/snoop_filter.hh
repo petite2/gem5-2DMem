@@ -47,6 +47,9 @@
 
 #include <unordered_map>
 #include <utility>
+/* MJL_Begin */
+#include <map>
+/* MJL_End */
 
 #include "mem/packet.hh"
 #include "mem/port.hh"
@@ -90,9 +93,9 @@ class SnoopFilter : public SimObject {
 
     SnoopFilter (const SnoopFilterParams *p) :
         SimObject(p), reqLookupResult(/* MJL_Begin */MJL_cachedLocations[MemCmd::MJL_DirAttribute::MJL_IsRow]/* MJL_End *//* MJL_Comment cachedLocations*/.end()), retryItem{0, 0},
-        linesize(p->system->cacheLineSize()), lookupLatency(p->lookup_latency),/* MJL_Begin */
+        linesize(p->system->cacheLineSize()), /* MJL_Begin */
         MJL_rowWidth(p->MJL_row_width),
-        /* MJL_End */
+        /* MJL_End */lookupLatency(p->lookup_latency),
         maxEntryCount(p->max_capacity / p->system->cacheLineSize())
     {
         /* MJL_Begin */
@@ -232,7 +235,7 @@ class SnoopFilter : public SimObject {
      */
     typedef std::unordered_map<Addr, SnoopItem> SnoopFilterCache;
     /* MJL_Begin */
-    typedef std::unordered_map< MemCmd::MJL_DirAttribute, SnoopFilterCache > MJL_SnoopFilterCache;
+    typedef std::map< MemCmd::MJL_DirAttribute, SnoopFilterCache > MJL_SnoopFilterCache;
     /* MJL_End */
     
 

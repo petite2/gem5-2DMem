@@ -193,7 +193,16 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) );
     /* MJL_End */
     // MJL_TODO: a use case of getOffset, I think the direction of the cmd should be used, the requested size should not exceed the blksize anyway. And different direction should only happen when the size is smaller than a word.
+    /* MJL_Begin */
+    // To avoid that the assertion fail and setting the DataDir before actually having data
+    CacheBlk::MJL_CacheBlkDir MJL_origDataDir = pkt->MJL_getDataDir();
+    pkt->MJL_setDataDir(blk->MJL_blkDir);
     assert(pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
+    pkt->MJL_setDataDir(MJL_origDataDir);
+    /* MJL_End */
+    /* MJL_Comment
+    assert(pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
+    */
 
     // Check RMW operations first since both isRead() and
     // isWrite() will be true for them
@@ -1297,6 +1306,7 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
     }
 
     /* MJL_Begin */ 
+    assert(pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
     Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
     bool is_secure = pkt->isSecure();
     CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
@@ -2889,19 +2899,22 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         } else {
             std::cout << "NoPC";
         }
-        std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
-        if (pkt->req->hasContextId()) {
-            std::cout << pkt->req->contextId();
+        std::cout << ", hasData? " << pkt->hasData() << ", ";
+        if (pkt->hasData()) {
+            std::cout << "Data = ";
+            uint64_t MJL_data;
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+            std::cout << std::hex << MJL_data;
         } else {
-            std::cout << "NoContextId";
+            std::cout << "NoData";
         }
-        std::cout << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", MemCmd: " << pkt->cmd.toString() << ", needsResponse? ";
+        std::cout << std::dec << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", MemCmd: " << pkt->cmd.toString() << ", needsResponse? ";
         if (pkt->needsResponse()) {
             std::cout << "Y";
         } else {
             std::cout << "N";
         }
-        std::cout << "\n";
+        //std::cout << "\n";
     }
     // // MJL_Test for MemCmd type, size and Dir
     // if (this->name().find("dcache") != std::string::npos) {
@@ -2957,9 +2970,14 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         }
     }
     // MJL_Test for column access
-    pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-    pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-    pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    if (this->name().find("dcache") != std::string::npos) {
+        // pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+        // pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+        // pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+        std::cout << ", addr = " ;
+        std::cout << std::oct << pkt->getAddr();
+        std::cout << std::dec << "\n";
+    }
 
     pkt->req->MJL_cachelineSize = cache->blkSize;
     pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
@@ -2998,6 +3016,12 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     /* MJL_Begin */
     pkt->req->MJL_cachelineSize = cache->blkSize;
     pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
+    // // MJL_Test for column access
+    // if (this->name().find("dcache") != std::string::npos) {
+    //     pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    //     pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    //     pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    // }
     /* MJL_End */
     return cache->recvAtomic(pkt);
 }
