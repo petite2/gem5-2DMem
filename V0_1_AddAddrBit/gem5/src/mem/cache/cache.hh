@@ -129,7 +129,7 @@ class Cache : public BaseCache
                 std::cout << std::dec << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd();
                 if (pkt->hasData()) {
                     std::cout << ", Data = ";
-                    uint64_t MJL_data;
+                    uint64_t MJL_data = 0;
                     std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
                     std::cout << std::hex << MJL_data;
                 } else {

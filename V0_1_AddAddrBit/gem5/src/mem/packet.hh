@@ -553,7 +553,7 @@ class Packet : public Printable
     MemCmd::MJL_DirAttribute MJL_getDataDir() const {return MJL_dataDir; }
     bool MJL_dataIsRow() const          { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsRow; }
     bool MJL_dataIsColumn() const       { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsColumn; }
-    bool MJL_sameCmdDataDir()           { return MJL_dataDir == cmd.MJL_getCmdDir(); }
+    bool MJL_sameCmdDataDir() const     { return MJL_dataDir == cmd.MJL_getCmdDir(); }
     void MJL_setDataDir( MemCmd::MJL_DirAttribute in_MJL_dataDir ) { MJL_dataDir = in_MJL_dataDir; }
     /* MJL_End */
     bool isRead() const              { return cmd.isRead(); }
@@ -1182,6 +1182,24 @@ class Packet : public Printable
     void
     setDataFromBlock(const uint8_t *blk_data, int blkSize)
     {
+        /* MJL_Begin */
+        // MJL_Test
+	if (req->hasPC() && !req->isInstFetch()) {
+            std::cout << "setDataFromBlock:: PC = " << req->getPC() << ",  addr = ";
+            std::cout << std::oct << getAddr() << ", offset = " << getOffset(blkSize);
+            std::cout << std::dec << ", sameCmdDataDir? " << MJL_sameCmdDataDir() << ", size = " << getSize();
+            uint64_t MJL_data = 0;
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
+                std::cout << std::hex << ", blk[" << i << "] = "<< MJL_data; 
+            }
+            setData(blk_data + getOffset(blkSize));
+            MJL_data = 0;
+            std::memcpy(&MJL_data, getConstPtr<uint8_t>(), getSize());
+            std::cout << ", data = " << MJL_data;
+            std::cout << std::dec << "\n";
+        } else
+        /* MJL_End */
         setData(blk_data + getOffset(blkSize));
     }
 
@@ -1201,6 +1219,29 @@ class Packet : public Printable
     void
     writeDataToBlock(uint8_t *blk_data, int blkSize) const
     {
+        /* MJL_Begin */
+        // MJL_Test
+        if (req->hasPC() && !req->isInstFetch()) {
+            std::cout << "writeDataToBlock:: PC = " << req->getPC() << ",  addr = ";
+            std::cout << std::oct << getAddr() << ", offset = " << getOffset(blkSize);
+            std::cout << std::dec << ", sameCmdDataDir? " << MJL_sameCmdDataDir() << ", size = " << getSize();
+            uint64_t MJL_data = 0;
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
+                std::cout << std::hex << ", b4wblk[" << i << "] = "<< MJL_data;
+            }
+            writeData(blk_data + getOffset(blkSize));
+            MJL_data = 0;
+            std::memcpy(&MJL_data, getConstPtr<uint8_t>(), getSize());
+            std::cout << ", data = " << MJL_data;
+            MJL_data = 0;
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
+                std::cout << std::hex << ", afwblk[" << i << "] = "<< MJL_data;
+            }
+            std::cout << std::dec << "\n";
+        } else
+        /* MJL_End */
         writeData(blk_data + getOffset(blkSize));
     }
 

@@ -377,7 +377,20 @@ AtomicSimpleCPU::readMem(Addr addr, uint8_t * data, unsigned size,
                 if (fastmem && system->isMemAddr(pkt.getAddr()))
                     system->getPhysMem().access(&pkt);
                 else
+                    /* MJL_Begin */
+                {
+                    // MJL_Test column access
+                    //pkt.cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    //pkt.req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    //pkt.MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    pkt.req->MJL_cachelineSize = 64;
+                    pkt.req->MJL_rowWidth = 8;
                     dcache_latency += dcachePort.sendAtomic(&pkt);
+                }
+                    /* MJL_End */
+                    /* MJL_Comment
+                    dcache_latency += dcachePort.sendAtomic(&pkt);
+                    */
             }
             dcache_access = true;
 
@@ -496,7 +509,20 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
                     if (fastmem && system->isMemAddr(pkt.getAddr()))
                         system->getPhysMem().access(&pkt);
                     else
-                        dcache_latency += dcachePort.sendAtomic(&pkt);
+                        /* MJL_Begin */
+                {
+                    // MJL_Test column access
+                    // pkt.cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    // pkt.req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    // pkt.MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    pkt.req->MJL_cachelineSize = 64;
+                    pkt.req->MJL_rowWidth = 8;
+                    dcache_latency += dcachePort.sendAtomic(&pkt);
+                }
+                    /* MJL_End */
+                    /* MJL_Comment
+                    dcache_latency += dcachePort.sendAtomic(&pkt);
+                    */
 
                     // Notify other threads on this CPU of write
                     threadSnoop(&pkt, curThread);

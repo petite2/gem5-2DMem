@@ -191,6 +191,8 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     /* MJL_Begin */
     // Packet's requested and Block data's direction should be the same, unless the requested size is less than a word sizeof(uint64_t)
     assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) );
+    // Test for L1D$
+    assert ((pkt->getSize() <= sizeof(uint64_t)));
     /* MJL_End */
     // MJL_TODO: a use case of getOffset, I think the direction of the cmd should be used, the requested size should not exceed the blksize anyway. And different direction should only happen when the size is smaller than a word.
     /* MJL_Begin */
@@ -2902,7 +2904,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         std::cout << ", hasData? " << pkt->hasData() << ", ";
         if (pkt->hasData()) {
             std::cout << "Data = ";
-            uint64_t MJL_data;
+            uint64_t MJL_data = 0;
             std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
             std::cout << std::hex << MJL_data;
         } else {
