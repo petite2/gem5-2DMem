@@ -544,6 +544,22 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         pkt->req->setExtraData(0);
         return true;
     }
+    // MJL_TODO: Testing needed, should writeback the dirty blocks of different directions before issuing the miss
+    if (blk == nullptr && pkt->isRead() && pkt->getSize() > sizeof(uint64_t)) {
+        CacheBlk *MJL_crossBlk = nullptr;
+        Addr MJL_crossBlkAddr;
+        for (unsigned MJL_offset = 0; MJL_offset < pkt->getSize(); MJL_offset = MJL_offset + sizeof(uint64_t)) {
+            MJL_crossBlkAddr= MJL_addOffsetAddr(pkt->getAddr(), pkt->MJL_getCmdDir(), MJL_offset);
+            if ( pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
+                MJL_crossBlk = tags->MJL_accessBlock(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, pkt->isSecure(), lat, id);
+            } else if ( pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
+                MJL_crossBlk = tags->MJL_accessBlock(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), lat, id);
+            }
+            if (MJL_crossBlk && MJL_crossBlk->isValid() && MJL_crossBlk->isDirty()) {
+                writebacks.push_back(writebackBlk(MJL_crossBlk));
+            }
+        }
+    }
 
     return false;
 }
@@ -2990,7 +3006,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     // MJL_Test for mode
     //std::cout << this->name() << "::recvTimingReq(PacketPtr pkt)\n";
     // MJL_Test for PC and contextID
-    if (this->name().find("dcache") != std::string::npos) {
+    if if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
         std::cout << this->name() << "::recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
         if (pkt->req->hasPC()) {
             std::cout << pkt->req->getPC();
@@ -3015,11 +3031,11 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         //std::cout << "\n";
     }
     // // MJL_Test for MemCmd type, size and Dir
-    // if (this->name().find("dcache") != std::string::npos) {
+    // if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
     //     std::cout << ", MemCmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", CmdDir: " << pkt->MJL_getCmdDir() << "\n";
     // }
 
-    // if (this->name().find("icache") != std::string::npos) {
+    // if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
     //     std::cout << this->name() << "::recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
     //     if (pkt->req->hasPC()) {
     //         std::cout << pkt->req->getPC();
@@ -3035,11 +3051,13 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     //     //std::cout << "\n";
     // }
     // // MJL_Test for MemCmd type, size and Dir
-    // if (this->name().find("icache") != std::string::npos) {
+    // if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
     //     std::cout << ", Vaddr: " << pkt->req->getVaddr() << ", Paddr: " << pkt->req->getPaddr() << "\n";
     // }
     // MJL_Test for cache functionality 
-    if (this->name().find("dcache") != std::string::npos) {
+    bool MJL_split = false;
+    PacketPtr MJL_sndPkt;
+    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
         Addr pktOrigAddr = pkt->getAddr();
         CacheBlk::MJL_CacheBlkDir pktOrigDir = pkt->MJL_getCmdDir();
         MemCmd::Command pktOrigCmd = pkt->cmd.MJL_getCmd();
@@ -3047,11 +3065,28 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         assert(pkt->req->hasPC());
         if (pkt->needsResponse()) {
             int MJL_testSeq = 0;
-            while (cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].find(MJL_testSeq) != cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].end()) {
-                MJL_testSeq++;
+            if (!MJL_sndPacketWaiting) {
+                while (cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].find(MJL_testSeq) != cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].end()) {
+                    MJL_testSeq++;
+                }
+                cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmdResp);
+                pkt->MJL_testSeq = MJL_testSeq;
             }
-            cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmdResp);
-            pkt->MJL_testSeq = MJL_testSeq;
+            Addr MJL_baseAddr = pkt->getAddr();
+            unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
+            if (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t)) {
+                MJL_split = true;
+                MJL_sndPkt = new Packet(pkt, false, true);
+                MJL_sndPkt->MJL_testSeq = MJL_testSeq;
+                MJL_sndPkt->setSize(MJL_byteOffset + pkt->getSize() - sizeof(uint64_t));
+                MJL_sndPkt->setAddr(cache->MJL_addOffsetAddr(pkt->getAddr(), pkt->MJL_getCmdDir(), sizeof(uint64_t) - MJL_byteOffset);
+                pkt->setSize(sizeof(uint64_t) - MJL_byteOffset);
+                if (!MJL_sndPacketWaiting) {
+                    cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<PacketPtr, PacketPtr> (pkt, MJL_sndPkt);
+                    cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][0] = false;
+                    cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][1] = false;
+                }
+            }
         }
         if (!(cache->MJL_testInputList.empty())) {
             // Insert test address, direction, command
@@ -3068,7 +3103,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         }
     }
     // MJL_Test for column access
-    if (this->name().find("dcache") != std::string::npos) {
+    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
         // pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         // pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         // pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
@@ -3093,12 +3128,38 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     } else if (blocked || mustSendRetry) {
         // either already committed to send a retry, or blocked
         success = false;
+    /* MJL_Begin */
+    } else if (this->name().find("dcache") && MJL_sndPacketWaiting) {
+        if (pkt->req->contextId() == MJL_retrySndPacket->req->contextId()) {
+            assert(MJL_split);
+            assert(MJL_sndPkt->req == MJL_retrySndPacket->req);
+            assert(MJL_retrySndPacket->getAddr() == MJL_sndPkt->getAddr());
+            delete MJL_sndPkt;
+            success = cache->recvTimingReq(MJL_retrySndPacket);
+            MJL_sndPacketWaiting = false;
+            assert(success == true);
+        } else {
+            success = false;
+        }
+    }
+    /* MJL_End */
     } else {
         // pass it on to the cache, and let the cache decide if we
         // have to retry or not
         success = cache->recvTimingReq(pkt);
     }
 
+    /* MJL_Begin */
+    if (MJL_split) {
+        MJL_sndPacketWaiting != success;
+        if (success) {
+            success = cache->recvTimingReq(MJL_sndPkt);
+            assert(success == true);
+        } else {
+            MJL_retrySndPacket = MJL_sndPkt;
+        }
+    } 
+    /* MJL_End */
     // remember if we have to retry
     mustSendRetry = !success;
     return success;
