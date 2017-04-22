@@ -746,6 +746,15 @@ class Packet : public Printable
         int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
         return (MJL_wordMask << MJL_colShift) | MJL_byteMask;
     }
+    // Mask out the bits that are common for both row and column
+    uint64_t MJL_commonMask(unsigned blkSize, unsigned MJL_rowWidth) const 
+    {
+        int MJL_rowShift = floorLog2(sizeof(uint64_t));
+        uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+        int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+
+        return ((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift);
+    }
     /* MJL_End */
     Addr getOffset(unsigned int blk_size) const
     {

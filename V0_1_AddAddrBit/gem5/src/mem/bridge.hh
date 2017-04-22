@@ -298,6 +298,9 @@ class Bridge : public MemObject
          * @return true if we find a match
          */
         bool checkFunctional(PacketPtr pkt);
+        /* MJL_Begin */
+        bool MJL_checkFunctional(PacketPtr pkt);
+        /* MJL_End */
 
       protected:
 

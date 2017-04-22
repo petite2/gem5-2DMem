@@ -1309,17 +1309,68 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
 
     /* MJL_Begin */ 
     assert(pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+    // functional access for same direction blocks
     Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
     bool is_secure = pkt->isSecure();
     CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
     MSHR *mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+
+    pkt->pushLabel(name());
+
+    CacheBlkPrintWrapper cbpw(blk);
+    bool have_data = blk && blk->isValid()
+        && pkt->MJL_checkFunctional(&cbpw, blk_addr, pkt->MJL_getCmdDir(), is_secure, blkSize,
+                                blk->data);
+    bool have_dirty =
+        have_data && (blk->isDirty() ||
+                    (mshr && mshr->inService && mshr->isPendingModified()));
+
+    bool done = have_dirty
+        || cpuSidePort->MJL_checkFunctional(pkt)
+        || mshrQueue.MJL_checkFunctional(pkt, blk_addr)
+        || writeBuffer.MJL_checkFunctional(pkt, blk_addr)
+        || memSidePort->MJL_checkFunctional(pkt);
+
+    DPRINTF(CacheVerbose, "%s: %s %s%s%s\n", __func__,  pkt->print(),
+            (blk && blk->isValid()) ? "valid " : "",
+            have_data ? "data " : "", done ? "done " : "");
+
+    // functional access for different direction blocks
+    bool diff_have_data = false;
+    bool diff_have_dirty = true;
+    bool diff_done = true;
+    for (Addr MJL_wordAddr = pkt->getAddr(); MJL_wordAddr < (pkt->getAddr() + pkt->getSize()); MJL_wordAddr = MJL_wordAddr + sizeof(uint64_t)) {
+        blk_addr = MJL_blockAlign(MJL_wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+        blk = tags->MJL_findBlock(MJL_wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
+        mshr = mshrQueue.MJL_findMatch(blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
+
+        CacheBlkPrintWrapper cbpw(blk);
+        diff_have_data = diff_have_data || (blk && blk->isValid()
+            && pkt->MJL_checkFunctional(&cbpw, blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, blkSize,
+                                    blk->data));
+        diff_have_dirty =
+            diff_have_dirty && (diff_have_data && (blk->isDirty() ||
+                        (mshr && mshr->inService && mshr->isPendingModified())));
+
+        diff_done = diff_done && (diff_have_dirty
+            || cpuSidePort->MJL_checkFunctional(pkt)
+            || mshrQueue.MJL_checkFunctional(pkt, blk_addr)
+            || writeBuffer.MJL_checkFunctional(pkt, blk_addr)
+            || memSidePort->MJL_checkFunctional(pkt));
+
+        DPRINTF(CacheVerbose, "%s: %s %s%s%s\n", __func__,  pkt->print(),
+                (blk && blk->isValid()) ? "valid " : "",
+                have_data ? "data " : "", done ? "done " : "");
+
+    }
+    done = done || diff_done;
     /* MJL_End */
     /* MJL_Comment 
     Addr blk_addr = blockAlign(pkt->getAddr());
     bool is_secure = pkt->isSecure();
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), is_secure);
     MSHR *mshr = mshrQueue.findMatch(blk_addr, is_secure);
-    */
+    
     
 
     pkt->pushLabel(name());
@@ -1333,11 +1384,6 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
 
     // see if we have data at all (owned or otherwise)
     bool have_data = blk && blk->isValid()
-    /* MJL_Begin 
-        && pkt->MJL_checkFunctional(&cbpw, blk_addr, pkt->MJL_getCmdDir(), is_secure, blkSize,
-                                blk->data);
-     MJL_End */
-    /* MJL_Comment */
         && pkt->checkFunctional(&cbpw, blk_addr, is_secure, blkSize,
                                 blk->data);
 
@@ -1348,22 +1394,15 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
                       (mshr && mshr->inService && mshr->isPendingModified()));
 
     bool done = have_dirty
-    /* MJL_Begin 
-        || cpuSidePort->MJL_checkFunctional(pkt)
-        || mshrQueue.MJL_checkFunctional(pkt, blk_addr)
-        || writeBuffer.MJL_checkFunctional(pkt, blk_addr)
-        || memSidePort->MJL_checkFunctional(pkt);
-     MJL_End */
-    /* MJL_Comment */
         || cpuSidePort->checkFunctional(pkt)
         || mshrQueue.checkFunctional(pkt, blk_addr)
         || writeBuffer.checkFunctional(pkt, blk_addr)
         || memSidePort->checkFunctional(pkt);
-    /* */
 
     DPRINTF(CacheVerbose, "%s: %s %s%s%s\n", __func__,  pkt->print(),
             (blk && blk->isValid()) ? "valid " : "",
             have_data ? "data " : "", done ? "done " : "");
+    */
 
     // We're leaving the cache, so pop cache->name() label
     pkt->popLabel();

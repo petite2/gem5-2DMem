@@ -296,7 +296,12 @@ NoncoherentXBar::recvFunctional(PacketPtr pkt, PortID slave_port_id)
         // if we find a response that has the data, then the
         // downstream caches/memories may be out of date, so simply stop
         // here
+        /* MJL_Begin */
+        if (p->MJL_checkFunctional(pkt)) {
+        /* MJL_End */
+        /* MJL_Comment
         if (p->checkFunctional(pkt)) {
+        */
             if (pkt->needsResponse())
                 pkt->makeResponse();
             return;

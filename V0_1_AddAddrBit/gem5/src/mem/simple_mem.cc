@@ -90,7 +90,12 @@ SimpleMemory::recvFunctional(PacketPtr pkt)
     auto p = packetQueue.begin();
     // potentially update the packets in our packet queue as well
     while (!done && p != packetQueue.end()) {
+        /* MJL_Begin */
+        done = pkt->MJL_checkFunctional(p->pkt);
+        /* MJL_End */
+        /* MJL_Comment
         done = pkt->checkFunctional(p->pkt);
+        */
         ++p;
     }
 

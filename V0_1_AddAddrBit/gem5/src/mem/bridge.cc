@@ -359,14 +359,24 @@ Bridge::BridgeSlavePort::recvFunctional(PacketPtr pkt)
 
     // check the response queue
     for (auto i = transmitList.begin();  i != transmitList.end(); ++i) {
+        /* MJL_Begin */
+        if (pkt->MJL_checkFunctional((*i).pkt)) {
+        /* MJL_End */
+        /* MJL_Comment
         if (pkt->checkFunctional((*i).pkt)) {
+        */
             pkt->makeResponse();
             return;
         }
     }
 
     // also check the master port's request queue
+    /* MJL_Begin */
+    if (masterPort.MJL_checkFunctional(pkt)) {
+    /* MJL_End */
+    /* MJL_Comment
     if (masterPort.checkFunctional(pkt)) {
+    */
         return;
     }
 
@@ -392,6 +402,24 @@ Bridge::BridgeMasterPort::checkFunctional(PacketPtr pkt)
 
     return found;
 }
+/* MJL_Begin */
+bool
+Bridge::BridgeMasterPort::MJL_checkFunctional(PacketPtr pkt)
+{
+    bool found = false;
+    auto i = transmitList.begin();
+
+    while (i != transmitList.end() && !found) {
+        if (pkt->MJL_checkFunctional((*i).pkt)) {
+            pkt->makeResponse();
+            found = true;
+        }
+        ++i;
+    }
+
+    return found;
+}
+/* MJL_End */
 
 AddrRangeList
 Bridge::BridgeSlavePort::getAddrRanges() const

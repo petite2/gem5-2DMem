@@ -95,6 +95,10 @@ class QueuedSlavePort : public SlavePort
      * functional request. */
     bool checkFunctional(PacketPtr pkt)
     { return respQueue.checkFunctional(pkt); }
+    /* MJL_Begin */
+    bool MJL_checkFunctional(PacketPtr pkt)
+    { return respQueue.MJL_checkFunctional(pkt); }
+    /* MJL_End */
 };
 
 /**
@@ -164,6 +168,13 @@ class QueuedMasterPort : public MasterPort
         return reqQueue.checkFunctional(pkt) ||
             snoopRespQueue.checkFunctional(pkt);
     }
+    /* MJL_Begin */
+    bool MJL_checkFunctional(PacketPtr pkt)
+    {
+        return reqQueue.MJL_checkFunctional(pkt) ||
+            snoopRespQueue.MJL_checkFunctional(pkt);
+    }
+    /* MJL_End */
 };
 
 #endif // __MEM_QPORT_HH__

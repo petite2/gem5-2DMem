@@ -304,7 +304,12 @@ AbstractController::functionalMemoryWrite(PacketPtr pkt)
     int num_functional_writes = 0;
 
     // Check the buffer from the controller to the memory.
+    /* MJL_Begin */
+    if (memoryPort.MJL_checkFunctional(pkt)) {
+    /* MJL_End */
+    /* MJL_Comment
     if (memoryPort.checkFunctional(pkt)) {
+    */
         num_functional_writes++;
     }
 

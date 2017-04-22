@@ -2713,7 +2713,12 @@ DRAMCtrl::MemoryPort::recvFunctional(PacketPtr pkt)
 {
     pkt->pushLabel(memory.name());
 
+    /* MJL_Begin */
+    if (!queue.MJL_checkFunctional(pkt)) {
+    /* MJL_End */
+    /* MJL_Comment
     if (!queue.checkFunctional(pkt)) {
+    */
         // Default implementation of SimpleTimingPort::recvFunctional()
         // calls recvAtomic() and throws away the latency; we can save a
         // little here by just not calculating the latency.
