@@ -199,6 +199,11 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // To avoid that the assertion fail and setting the DataDir before actually having data
     CacheBlk::MJL_CacheBlkDir MJL_origDataDir = pkt->MJL_getDataDir();
     pkt->MJL_setDataDir(blk->MJL_blkDir);
+    if (pkt->getOffset(blkSize) + pkt->getSize() > blkSize) {
+        std::cout << "MJL_AssertFailure: pkt->getOffset(blkSize) + pkt->getSize() <= blkSize, addr = ";
+        std::cout << std::oct << pkt->getAddr();
+        std::cout << std::dec  << ", dataDir = " << pkt->MJL_getDataDir() << ", cmdDir = " << pkt->MJL_getCmdDir() << ", Size = " << pkt->getSize() << "\n";
+    }
     assert(pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
     pkt->MJL_setDataDir(MJL_origDataDir);
     /* MJL_End */
@@ -1309,12 +1314,34 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
 
     /* MJL_Begin */ 
     assert(pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+    // MJL_Test
+    if (pkt->getAddr() <= 1153096 && (pkt->getAddr() + pkt->getSize() > 1153096)) {
+        std::cout << "MJL_Watch: functional with addr 4314110 in range, addr = ";
+        std::cout << std::oct << pkt->getAddr();
+        std::cout << std::dec  << ", size = " << pkt->getSize();
+        uint64_t MJL_data = 0;
+        for (int i = 0; i < pkt->getSize()/sizeof(uint64_t); ++i) {
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i*sizeof(uint64_t), std::min(sizeof(uint64_t), pkt->getSize() - i*sizeof(uint64_t)));
+            std::cout << std::hex << ", word[" << i << "] = "<< MJL_data;
+            std::cout << std::dec << "\n";
+        }
+    }
     // functional access for same direction blocks
     Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
     bool is_secure = pkt->isSecure();
     CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
     MSHR *mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
 
+    // MJL_Test
+    if (blk && blk->isValid() && (pkt->getAddr() <= 1153096 && (pkt->getAddr() + pkt->getSize() > 1153096))) {
+        std::cout << "MJL_Watch: found same direction blk, origdata";
+        uint64_t MJL_data = 0;
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            std::memcpy(&MJL_data, blk->data + i*sizeof(uint64_t), std::min(sizeof(uint64_t), pkt->getSize() - i*sizeof(uint64_t)));
+            std::cout << std::hex << ", word[" << i << "] = "<< MJL_data;
+            std::cout << std::dec << "\n";
+        }
+    }
     pkt->pushLabel(name());
 
     CacheBlkPrintWrapper cbpw(blk);
@@ -1335,6 +1362,16 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
             (blk && blk->isValid()) ? "valid " : "",
             have_data ? "data " : "", done ? "done " : "");
 
+    // MJL_Test
+    if (blk && blk->isValid() && (pkt->getAddr() <= 1153096 && (pkt->getAddr() + pkt->getSize() > 1153096))) {
+        std::cout << "MJL_Watch: found same direction blk, after checksdata";
+        uint64_t MJL_data = 0;
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            std::memcpy(&MJL_data, blk->data + i*sizeof(uint64_t), std::min(sizeof(uint64_t), pkt->getSize() - i*sizeof(uint64_t)));
+            std::cout << std::hex << ", word[" << i << "] = "<< MJL_data;
+            std::cout << std::dec << ", done? " << done << "\n";
+        }
+    }
     // functional access for different direction blocks
     bool diff_have_data = false;
     bool diff_have_dirty = true;
@@ -1344,6 +1381,16 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
         blk = tags->MJL_findBlock(MJL_wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
         mshr = mshrQueue.MJL_findMatch(blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
 
+        // MJL_Test
+        if (blk && blk->isValid() && (pkt->getAddr() <= 1153096 && (pkt->getAddr() + pkt->getSize() > 1153096))) {
+            std::cout << "MJL_Watch: found diff direction blk, blkaddr = " << blk_addr << ", origdata";
+            uint64_t MJL_data = 0;
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                std::memcpy(&MJL_data, blk->data + i*sizeof(uint64_t), std::min(sizeof(uint64_t), pkt->getSize() - i*sizeof(uint64_t)));
+                std::cout << std::hex << ", word[" << i << "] = "<< MJL_data;
+                std::cout << std::dec << "\n";
+            }
+        }
         CacheBlkPrintWrapper cbpw(blk);
         diff_have_data = diff_have_data || (blk && blk->isValid()
             && pkt->MJL_checkFunctional(&cbpw, blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, blkSize,
@@ -1361,6 +1408,16 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
         DPRINTF(CacheVerbose, "%s: %s %s%s%s\n", __func__,  pkt->print(),
                 (blk && blk->isValid()) ? "valid " : "",
                 have_data ? "data " : "", done ? "done " : "");
+         // MJL_Test
+         if (blk && blk->isValid() && (pkt->getAddr() <= 1153096 && (pkt->getAddr() + pkt->getSize() > 1153096))) {
+            std::cout << "MJL_Watch: found diff direction blk, blkaddr = " << blk_addr << ", after checksdata";
+            uint64_t MJL_data = 0;
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                std::memcpy(&MJL_data, blk->data + i*sizeof(uint64_t), std::min(sizeof(uint64_t), pkt->getSize() - i*sizeof(uint64_t)));
+                std::cout << std::hex << ", word[" << i << "] = "<< MJL_data;
+                std::cout << std::dec << "done ? " << diff_done << "\n";
+            }
+        }
 
     }
     done = done || diff_done;
@@ -3095,6 +3152,24 @@ Cache::CpuSidePort::recvFunctional(PacketPtr pkt)
     }
      MJL_End */
     /* MJL_Begin */
+   // if (this->name().find("dcache") != std::string::npos) {
+        std::cout << this->name() << "::recvFunctional: addr = ";
+        std::cout << std::oct << pkt->getAddr();
+        std::cout << std::dec  << ", size = " << pkt->getSize();
+        std::cout << ", hasData? " << pkt->hasData() << ", MemCmd: " << pkt->cmd.toString();
+        if (pkt->hasData()) {
+            uint64_t MJL_data = 0;
+            for (int i = 0; i < pkt->getSize()/sizeof(uint64_t); ++i) {
+                MJL_data = 0;
+                std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i*sizeof(uint64_t), std::min(sizeof(uint64_t), pkt->getSize() - i*sizeof(uint64_t)));
+                std::cout << std::hex << ", word[" << i << "] = "<< MJL_data;
+            }
+        } else {
+            std::cout << ", NoData";
+        }
+        std::cout << std::dec << "\n";
+    //}
+
     // MJL_TODO: to check whether there are column accesses for functional
     assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
     pkt->req->MJL_cachelineSize = cache->blkSize;

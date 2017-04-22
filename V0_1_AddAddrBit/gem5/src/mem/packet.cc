@@ -345,13 +345,13 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
     Addr val_start  = addr;
     Addr val_end    = val_start + size - 1;
     if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-        val_end = MJL_swapRowColBits(MJL_swapRowColBits(val_start, req->MJL_cachelineSize, req->MJL_rowWidth) + size - 1);
+        val_end = MJL_swapRowColBits(MJL_swapRowColBits(val_start, req->MJL_cachelineSize, req->MJL_rowWidth) + size - 1, req->MJL_cachelineSize, req->MJL_rowWidth);
     }
 
     if (is_secure != _isSecure || 
-        ((pkt->MJL_getCmdDir() == MJL_cmdDir) && (func_start > val_end)) || // same direction, but do not overlap
-        ((pkt->MJL_getCmdDir() == MJL_cmdDir) && (val_start > func_end)) ||
-        ((pkt->MJL_getCmdDir() != MJL_cmdDir) && ((val_start & ~MJL_commonMask()) != (func_start & ~MJL_commonMask())))) { // different direction, but not the same tile
+        ((MJL_getCmdDir() == MJL_cmdDir) && (func_start > val_end)) || // same direction, but do not overlap
+        ((MJL_getCmdDir() == MJL_cmdDir) && (val_start > func_end)) ||
+        ((MJL_getCmdDir() != MJL_cmdDir) && ((val_start & ~MJL_commonMask(req->MJL_cachelineSize, req->MJL_rowWidth)) != (func_start & ~MJL_commonMask(req->MJL_cachelineSize, req->MJL_rowWidth))))) { // different direction, but not the same tile
         // no intersection
         return false;
     }
@@ -369,7 +369,7 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
         return false;
     }
 
-    if (pkt->MJL_getCmdDir() == MJL_cmdDir) { // Same direction, same treatment as before
+    if (MJL_getCmdDir() == MJL_cmdDir) { // Same direction, same treatment as before
         // offset of functional request into supplied value (could be
         // negative if partial overlap)
         int offset = func_start - val_start;
@@ -467,19 +467,17 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
         Addr MJL_thisWordOffset = (val_start & Addr(req->MJL_cachelineSize - 1)) >> floorLog2(sizeof(uint64_t));
         Addr MJL_inWordOffset = (MJL_swapRowColBits(func_start, req->MJL_cachelineSize, req->MJL_rowWidth) & Addr(req->MJL_cachelineSize - 1)) >> floorLog2(sizeof(uint64_t));
         Addr MJL_rowSize = req->MJL_cachelineSize * req->MJL_rowWidth;
-        Addr MJL_func_wordStart = MJL_thisBlkAddr +  MJL_thisWordOffset * sizeof(uint64_t);
-        Addr MJL_val_wordStart = MJL_inBlkAddr + MJL_inWordOffset * MJL_rowSize;
+        Addr MJL_func_wordStart = MJL_thisBlkAddr +  (Addr)MJL_thisWordOffset * sizeof(uint64_t);
+        Addr MJL_val_wordStart = MJL_inBlkAddr + (Addr)MJL_inWordOffset * MJL_rowSize;
         int MJL_size = min(min(sizeof(uint64_t), func_end - MJL_func_wordStart), val_end - MJL_func_wordStart);
         // Should be pinpointing the same word
         assert(MJL_func_wordStart == MJL_val_wordStart);
         if ((MJL_func_wordStart > func_end) || (MJL_func_wordStart + MJL_size - 1 < func_start) || (MJL_val_wordStart > val_end) || (MJL_val_wordStart + MJL_size - 1 < val_start)) { // Crossing word is out of range, actually no intersection
             return false;
         } else {
-            uint8_t *dest;
-            uint8_t *src;
             if (isRead()) {
-                src = _data + MJL_inWordOffset * sizeof(uint64_t);
-                dest = getConstPtr<uint8_t>() + MJL_thisWordOffset * sizeof(uint64_t);
+                uint8_t *src = _data + MJL_inWordOffset * sizeof(uint64_t);
+                uint8_t *dest = getPtr<uint8_t>() + MJL_thisWordOffset * sizeof(uint64_t);
                 memcpy(dest, src, MJL_size);
                 // track if we are done filling the functional access
                 bool MJL_all_bytes_valid = true;
@@ -488,21 +486,21 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
 
                 // check up to func_offset
                 for (; MJL_all_bytes_valid && MJL_i < MJL_thisWordOffset * sizeof(uint64_t); ++MJL_i)
-                    MJL_all_bytes_valid &= bytesValid[i];
+                    MJL_all_bytes_valid &= bytesValid[MJL_i];
 
                 // update the valid bytes
                 for (MJL_i = MJL_thisWordOffset * sizeof(uint64_t); MJL_i < MJL_thisWordOffset * sizeof(uint64_t) + MJL_size; ++MJL_i)
-                    bytesValid[i] = true;
+                    bytesValid[MJL_i] = true;
 
                 // check the bit after the update we just made
-                for (; MJL_all_bytes_valid && MJL_i < getSize(); ++i)
-                    MJL_all_bytes_valid &= bytesValid[i];
+                for (; MJL_all_bytes_valid && MJL_i < getSize(); ++MJL_i)
+                    MJL_all_bytes_valid &= bytesValid[MJL_i];
 
                 return MJL_all_bytes_valid;
 
             } else if (isWrite()) {
-                src = getConstPtr<uint8_t>() + MJL_thisWordOffset * sizeof(uint64_t);
-                dest = _data + MJL_inWordOffset * sizeof(uint64_t);
+                uint8_t *src = getPtr<uint8_t>() + MJL_thisWordOffset * sizeof(uint64_t);
+                uint8_t *dest = _data + MJL_inWordOffset * sizeof(uint64_t);
                 memcpy(dest, src, MJL_size);
             } else {
                 panic("Don't know how to handle command %s\n", cmdString());
