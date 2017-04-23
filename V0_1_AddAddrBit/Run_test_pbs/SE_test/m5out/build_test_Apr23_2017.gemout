@@ -1,0 +1,31 @@
+gem5 Simulator System.  http://gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 compiled Apr 23 2017 16:55:19
+gem5 started Apr 23 2017 17:57:47
+gem5 executing on shai.cse.psu.edu, pid 45809
+command line: /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt --redirect-stdout --stdout-file=build_test_Apr23_2017.gemout --redirect-stderr --stderr-file=build_test_Apr23_2017.gemerr --stats-file=build_test_Apr23_2017.stat /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/se.py --output=build_test_Apr23_2017.appout --errout=build_test_Apr23_2017.apperr -c /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/Vector_test/testscl-bin --caches --l2cache --cpu-type=detailed --MJL_row_width=8 --MJL_PC2DirFile=test.txt --mem-size=8192MB
+
+Global frequency set at 1000000000000 ticks per second
+system.cpu.dcache.tags::MJL_rowWidth = 8
+system.cpu.dcache::MJL_rowWidth = 8
+system.cpu.dcache::MJL_PC2DirFilname = test.txt
+MJL_Error: Could not open test input file!
+After reading the file
+system.cpu.dtb_walker_cache.tags::MJL_rowWidth = 8
+system.cpu.dtb_walker_cache::MJL_rowWidth = 8
+system.cpu.dtb_walker_cache::MJL_PC2DirFilname = PC2Dir.txt
+system.cpu.icache.tags::MJL_rowWidth = 8
+system.cpu.icache::MJL_rowWidth = 8
+system.cpu.icache::MJL_PC2DirFilname = PC2Dir.txt
+system.cpu.itb_walker_cache.tags::MJL_rowWidth = 8
+system.cpu.itb_walker_cache::MJL_rowWidth = 8
+system.cpu.itb_walker_cache::MJL_PC2DirFilname = PC2Dir.txt
+system.l2.tags::MJL_rowWidth = 8
+system.l2::MJL_rowWidth = 8
+system.l2::MJL_PC2DirFilname = PC2Dir.txt
+**** REAL SIMULATION ****
+info: Entering event queue @ 0.  Starting simulation...
+system.cpu.dcache.cpu_side::recvTimingReq: hasPC? 1, PC = 4194757, addr = 4356640, hasData? 0, NoData, Size = 8, time = 91500, MemCmd: ReadReq, needsResponse? Y, addr = 4356640
+system.mem_ctrls::access() Cmd: ReadSharedReq, DataDir: 1, CmdDir: 1, Size: 64, addr: 4356600, PC: 4194757, time: 91500
+setDataFromBlock:: PC = 4194757,  addr = 4356600, sameCmdDataDir? 1, size = 64, data = 0

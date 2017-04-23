@@ -142,6 +142,7 @@ class Cache : public BaseCache
                 auto time_it = PC_it->second.find(pkt->req->time());
                 assert((time_it != PC_it->second.end()) && !time_it->second.empty());
                 bool MJL_isUnaligned = false;
+                bool MJL_isMerged = false;
                 auto unaligned_PC_it = cache->MJL_unalignedPacketList.find(pkt->req->getPC());
                 if (unaligned_PC_it != cache->MJL_unalignedPacketList.end()) {
                     auto unaligned_time_it = unaligned_PC_it->second.find(pkt->req->time());
@@ -149,18 +150,46 @@ class Cache : public BaseCache
                         auto unaligned_seq_it = unaligned_time_it->second.find(pkt->MJL_testSeq);
                         if (unaligned_seq_it != unaligned_time_it->second.end()) {
                             MJL_isUnaligned = true;
+                            std::cout << "MJL_Merge: received a packet that was split into 2, ";
                             if (pkt == std::get<0>(unaligned_seq_it->second)) {
+                                std::cout << " this is the first packet\n";
+                                unsigned MJL_byteOffset = pkt->getAddr() & (Addr)(sizeof(uint64_t) - 1);
                                 cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
+                                if (pkt->hasData()) {
+                                    cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = new uint8_t[sizeof(uint64_t) - MJL_byteOffset];
+                                    std::memcpy(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0], pkt->getConstPtr<uint8_t>(), sizeof(uint64_t) - MJL_byteOffset);
+                                }
                             } else if (pkt == std::get<1>(unaligned_seq_it->second)) {
+                                std::cout << " this is the second packet\n";
                                 cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = true;
+                                if (pkt->hasData()) {
+                                    cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = new uint8_t[pkt->getSize()];
+                                    std::memcpy(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1], pkt->getConstPtr<uint8_t>(), pkt->getSize());
+                                }
                             } else {
                                 assert((pkt == std::get<0>(unaligned_seq_it->second)) || (pkt == std::get<1>(unaligned_seq_it->second)));
                             }
                             if (cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] && cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1]) {
-                                PacketPtr MJL_origPacket = std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
-                                PacketPtr MJL_sndPacket = std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
-                                if (pkt->isRead()) {
-                                    std::memcpy(MJL_origPacket->getPtr<uint8_t>() + MJL_origPacket->getSize(), MJL_sndPacket->getConstPtr<uint8_t>(), MJL_sndPacket->getSize());
+                                MJL_isMerged = true;
+                                std::cout << "MJL_Merge: Received both packets that were previously split, ";
+                                PacketPtr MJL_origPacket = std::get<0>(unaligned_seq_it->second);
+                                std::cout << ", got Original Packet, size = " << MJL_origPacket->getSize();
+                                PacketPtr MJL_sndPacket = std::get<1>(unaligned_seq_it->second);
+                                std::cout << ", got Second Packet, size = " << MJL_sndPacket->getSize();
+                                // pkt->MJL_setSize(cache->MJL_unalignedPacketSize[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
+                                // pkt->req->MJL_setSize(pkt->getSize());
+                                // pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
+                                // pkt->req->setPaddr(pkt->getAddr());
+                                cache->MJL_unalignedPacketSize[pkt->req->getPC()][pkt->req->time()].erase(pkt->MJL_testSeq);
+                                if (pkt->hasData()) {
+                                    unsigned MJL_byteOffset = MJL_origPacket->getAddr() & (Addr)(sizeof(uint64_t) - 1);
+                                    std::memcpy(MJL_origPacket->getPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPacket->getConstPtr<uint8_t>(), MJL_sndPacket->getSize());
+                                    // pkt->deleteData();
+                                    // pkt->allocate();
+                                    // std::memcpy(pkt->getPtr<uint8_t>(), cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0], sizeof(*(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0])));
+                                    // std::memcpy(pkt->getPtr<uint8_t>() + sizeof(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0]), cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1], sizeof(*(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1])));
+                                    cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()].erase(pkt->MJL_testSeq);
+                                    std::cout << ", copying data from snd to orig";
                                 } else if (pkt->isWrite()) {
                                     MJL_origPacket->MJL_setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
                                     MJL_origPacket->req->MJL_setSize(MJL_origPacket->getSize());
@@ -169,7 +198,7 @@ class Cache : public BaseCache
                                     MJL_origPacket->headerDelay = pkt->headerDelay;
                                     MJL_origPacket->snoopDelay = pkt->snoopDelay;
                                     MJL_origPacket->payloadDelay = pkt->payloadDelay;
-                                    MJL_origPacket->senderState = pkt->senderState;
+                                    // MJL_origPacket->senderState = pkt->senderState;
                                     pkt = MJL_origPacket;
                                 }
                                 assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
@@ -181,12 +210,12 @@ class Cache : public BaseCache
                                 pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
                                 delete MJL_sndPacket;
                                 unaligned_time_it->second.erase(pkt->MJL_testSeq);
-                                time_it->second.erase(pkt->MJL_testSeq);
+                                // time_it->second.erase(pkt->MJL_testSeq);                
                             }
                         }
                     }
                 }
-                if (!MJL_isUnaligned) {
+                if (!MJL_isUnaligned || (MJL_isUnaligned && MJL_isMerged)) {
                     assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
                     // assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
                     assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
@@ -195,6 +224,10 @@ class Cache : public BaseCache
                     // pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
                     pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
                     time_it->second.erase(pkt->MJL_testSeq);
+                    
+                    return CacheSlavePort::sendTimingResp(pkt);
+                } else {
+                    return true;
                 }
             }
             return CacheSlavePort::sendTimingResp(pkt);
@@ -393,6 +426,8 @@ class Cache : public BaseCache
     std::map< Addr, std::map< Tick, std::map< int , std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > > > MJL_testPktOrigParamList;// [PC][_time][MJL_testSeq] = <addr, dir, cmd>
     std::map< Addr, std::map< Tick, std::map< int , std::tuple<PacketPtr, PacketPtr> > > > MJL_unalignedPacketList;  //[PC][_time][MJL_testSeq] = <OrigPtr, SecPtr>
     std::map< Addr, std::map< Tick, std::map< int , std::map< int, bool > > > > MJL_unalignedPacketCount;  //[PC][_time][MJL_testSeq][PacketAddrSeq] = received
+    std::map< Addr, std::map< Tick, std::map< int , unsigned > > > MJL_unalignedPacketSize;  //[PC][_time][MJL_testSeq] = size
+    std::map< Addr, std::map< Tick, std::map< int , std::map< int, uint8_t* > > > > MJL_unalignedPacketData;  //[PC][_time][MJL_testSeq][PacketAddrSeq] = data
     bool MJL_sndPacketWaiting;
     PacketPtr MJL_retrySndPacket;
 

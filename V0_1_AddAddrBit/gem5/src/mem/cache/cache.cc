@@ -202,12 +202,12 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // To avoid that the assertion fail and setting the DataDir before actually having data
     CacheBlk::MJL_CacheBlkDir MJL_origDataDir = pkt->MJL_getDataDir();
     pkt->MJL_setDataDir(blk->MJL_blkDir);
-    if (pkt->getOffset(blkSize) + pkt->getSize() > blkSize) {
+    if (pkt->isWrite() && pkt->getOffset(blkSize) + pkt->getSize() > blkSize) {
         std::cout << "MJL_AssertFailure: pkt->getOffset(blkSize) + pkt->getSize() <= blkSize, addr = ";
         std::cout << std::oct << pkt->getAddr();
         std::cout << std::dec  << ", dataDir = " << pkt->MJL_getDataDir() << ", cmdDir = " << pkt->MJL_getCmdDir() << ", Size = " << pkt->getSize() << "\n";
     }
-    assert(pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
+    assert(!pkt->isWrite() || pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
     pkt->MJL_setDataDir(MJL_origDataDir);
     /* MJL_End */
     /* MJL_Comment
@@ -2964,7 +2964,8 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         } else {
             std::cout << "NoPC";
         }
-        std::cout << ", addr = " << pkt->getAddr() <<  ", hasData? " << pkt->hasData() << ", ";
+        std::cout << std::oct << ", addr = " << pkt->getAddr();
+        std::cout << std::dec <<  ", hasData? " << pkt->hasData() << ", ";
         if (pkt->hasData()) {
             std::cout << "Data = ";
             uint64_t MJL_data = 0;
@@ -3072,7 +3073,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         }
     }
     // MJL_Test for column access
-    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {/**/
+    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {/*
         pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
@@ -3080,7 +3081,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             MJL_sndPkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
             MJL_sndPkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
             MJL_sndPkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-        }/**/
+        }*/
         std::cout << ", addr = " ;
         std::cout << std::oct << pkt->getAddr();
         std::cout << std::dec << "\n";
@@ -3247,7 +3248,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     if (this->name().find("dcache") != std::string::npos) {
         if (pkt->getAddr() == 1169192) {
             std::cout << "MJL_Watch: found packet with access to address 4353450\n";
-        }/*
+        }/**/
         pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
@@ -3255,7 +3256,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
             MJL_sndPkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
             MJL_sndPkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
             MJL_sndPkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-        }*/
+        }/**/
         // std::cout << ", addr = " ;
         // std::cout << std::oct << pkt->getAddr();
         // std::cout << std::dec << "\n";
