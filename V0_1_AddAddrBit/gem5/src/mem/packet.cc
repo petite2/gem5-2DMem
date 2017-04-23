@@ -469,39 +469,64 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
         Addr MJL_rowSize = req->MJL_cachelineSize * req->MJL_rowWidth;
         Addr MJL_func_wordStart = MJL_thisBlkAddr +  (Addr)MJL_thisWordOffset * sizeof(uint64_t);
         Addr MJL_val_wordStart = MJL_inBlkAddr + (Addr)MJL_inWordOffset * MJL_rowSize;
-        int MJL_size = min(min(sizeof(uint64_t), func_end - MJL_func_wordStart), val_end - MJL_func_wordStart);
+        int MJL_size = min(min(sizeof(uint64_t), func_end - MJL_func_wordStart + 1), val_end - MJL_func_wordStart + 1);
         // Should be pinpointing the same word
         assert(MJL_func_wordStart == MJL_val_wordStart);
         if ((MJL_func_wordStart > func_end) || (MJL_func_wordStart + MJL_size - 1 < func_start) || (MJL_val_wordStart > val_end) || (MJL_val_wordStart + MJL_size - 1 < val_start)) { // Crossing word is out of range, actually no intersection
             return false;
         } else {
+            Addr MJL_inDataOffset = MJL_swapRowColBits(MJL_val_wordStart, req->MJL_cachelineSize, req->MJL_rowWidth) - MJL_swapRowColBits(val_start, req->MJL_cachelineSize, req->MJL_rowWidth);
+            Addr MJL_thisDataOffset = MJL_val_wordStart - func_start;
+            if (val_start > MJL_func_wordStart || func_start > MJL_func_wordStart) {
+                if (val_start >= func_start) {
+                    MJL_thisDataOffset = val_start - func_start;
+                    MJL_size = MJL_func_wordStart + sizeof(uint64_t) - val_start;
+                    MJL_inDataOffset = 0;
+                } else {
+                    MJL_thisDataOffset = 0;
+                    MJL_size = MJL_func_wordStart + sizeof(uint64_t) - func_start;
+                    MJL_inDataOffset = func_start - val_start;
+                }
+            }
             if (isRead()) {
-                uint8_t *src = _data + MJL_inWordOffset * sizeof(uint64_t);
-                uint8_t *dest = getPtr<uint8_t>() + MJL_thisWordOffset * sizeof(uint64_t);
+                uint8_t *src = _data + MJL_inDataOffset;
+                uint8_t *dest = getPtr<uint8_t>() + MJL_thisDataOffset;
                 memcpy(dest, src, MJL_size);
+                
+                if (MJL_bytesValid.empty())
+                    MJL_bytesValid.resize(getSize(), false);
                 // track if we are done filling the functional access
                 bool MJL_all_bytes_valid = true;
 
                 int MJL_i = 0;
 
                 // check up to func_offset
-                for (; MJL_all_bytes_valid && MJL_i < MJL_thisWordOffset * sizeof(uint64_t); ++MJL_i)
-                    MJL_all_bytes_valid &= bytesValid[MJL_i];
+                for (; MJL_all_bytes_valid && MJL_i < MJL_thisDataOffset; ++MJL_i)
+                    MJL_all_bytes_valid &= MJL_bytesValid[MJL_i];
 
                 // update the valid bytes
-                for (MJL_i = MJL_thisWordOffset * sizeof(uint64_t); MJL_i < MJL_thisWordOffset * sizeof(uint64_t) + MJL_size; ++MJL_i)
-                    bytesValid[MJL_i] = true;
+                for (MJL_i = MJL_thisDataOffset; MJL_i < MJL_thisDataOffset + MJL_size; ++MJL_i)
+                    MJL_bytesValid[MJL_i] = true;
 
                 // check the bit after the update we just made
                 for (; MJL_all_bytes_valid && MJL_i < getSize(); ++MJL_i)
-                    MJL_all_bytes_valid &= bytesValid[MJL_i];
+                    MJL_all_bytes_valid &= MJL_bytesValid[MJL_i];
 
                 return MJL_all_bytes_valid;
 
             } else if (isWrite()) {
-                uint8_t *src = getPtr<uint8_t>() + MJL_thisWordOffset * sizeof(uint64_t);
-                uint8_t *dest = _data + MJL_inWordOffset * sizeof(uint64_t);
+                uint8_t *src = getPtr<uint8_t>() + MJL_thisDataOffset;
+                uint8_t *dest = _data + MJL_inDataOffset;
                 memcpy(dest, src, MJL_size);
+                if (getAddr() == 1169168) {
+                    std::cout << "MJL_Watch: Functional write to addr 4353420, ";
+                    std::cout << std::oct << "cross directional block addr = " << addr;
+                    std::cout << std::dec << ", write data from packet's " << MJL_thisWordOffset << "th word to block's " << MJL_inWordOffset << "th word, size = " << MJL_size << ", data = ";
+                    uint64_t MJL_Data = 0;
+                    memcpy(&MJL_Data, src, MJL_size); 
+                    std::cout << std::hex << MJL_Data;
+                    std::cout << std::dec << "\n";
+                }
             } else {
                 panic("Don't know how to handle command %s\n", cmdString());
             }

@@ -380,9 +380,9 @@ AtomicSimpleCPU::readMem(Addr addr, uint8_t * data, unsigned size,
                     /* MJL_Begin */
                 {
                     // MJL_Test column access
-                    pkt.cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-                    pkt.req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-                    pkt.MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    //pkt.cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    //pkt.req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    //pkt.MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
                     pkt.req->MJL_cachelineSize = 64;
                     pkt.req->MJL_rowWidth = 8;
                     dcache_latency += dcachePort.sendAtomic(&pkt);
@@ -512,9 +512,9 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
                         /* MJL_Begin */
                 {
                     // MJL_Test column access
-                    pkt.cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-                    pkt.req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-                    pkt.MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    //pkt.cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    //pkt.req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    //pkt.MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
                     pkt.req->MJL_cachelineSize = 64;
                     pkt.req->MJL_rowWidth = 8;
                     dcache_latency += dcachePort.sendAtomic(&pkt);

@@ -595,6 +595,14 @@ class Request
         assert(privateFlags.isSet(VALID_SIZE));
         return _size;
     }
+    /* MJL_Begin */
+    void
+    MJL_setSize(unsigned in_size)
+    {
+        assert(privateFlags.isSet(VALID_SIZE));
+        _size = in_size;
+    }
+    /* MJL_End */
 
     /** Accessor for time. */
     Tick

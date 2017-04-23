@@ -150,19 +150,21 @@ class Cache : public BaseCache
                         if (unaligned_seq_it != unaligned_time_it->second.end()) {
                             MJL_isUnaligned = true;
                             if (pkt == std::get<0>(unaligned_seq_it->second)) {
-                                MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
+                                cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
                             } else if (pkt == std::get<1>(unaligned_seq_it->second)) {
-                                MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = true;
+                                cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = true;
                             } else {
                                 assert((pkt == std::get<0>(unaligned_seq_it->second)) || (pkt == std::get<1>(unaligned_seq_it->second)));
                             }
-                            if (MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] && MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1]) {
-                                PacketPtr *MJL_origPacket = std::get<0>(MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
-                                PacketPtr *MJL_sndPacket = std::get<1>(MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
+                            if (cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] && cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1]) {
+                                PacketPtr MJL_origPacket = std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
+                                PacketPtr MJL_sndPacket = std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
                                 if (pkt->isRead()) {
                                     std::memcpy(MJL_origPacket->getPtr<uint8_t>() + MJL_origPacket->getSize(), MJL_sndPacket->getConstPtr<uint8_t>(), MJL_sndPacket->getSize());
+                                } else if (pkt->isWrite()) {
+                                    MJL_origPacket->MJL_setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
+                                    MJL_origPacket->req->MJL_setSize(MJL_origPacket->getSize());
                                 }
-                                MJL_origPacket->setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
                                 if (pkt != MJL_origPacket) {
                                     MJL_origPacket->headerDelay = pkt->headerDelay;
                                     MJL_origPacket->snoopDelay = pkt->snoopDelay;

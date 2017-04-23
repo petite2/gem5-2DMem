@@ -373,6 +373,9 @@ class Packet : public Printable
      * Track the bytes found that satisfy a functional read.
      */
     std::vector<bool> bytesValid;
+    /* MJL_Begin */
+    std::vector<bool> MJL_bytesValid;
+    /* MJL_End */
 
   public:
 
@@ -893,7 +896,9 @@ class Packet : public Printable
         :  cmd(pkt->cmd), req(pkt->req),
            data(nullptr),
            addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir())/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
-           bytesValid(pkt->bytesValid),
+           bytesValid(pkt->bytesValid),/* MJL_Begin */
+           MJL_bytesValid(pkt->MJL_bytesValid),
+           /* MJL_End */
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
            payloadDelay(pkt->payloadDelay),
@@ -1035,6 +1040,15 @@ class Packet : public Printable
         this->size = size;
         flags.set(VALID_SIZE);
     }
+    /* MJL_Begin */
+    void
+    MJL_setSize(unsigned size)
+    {
+        assert(flags.isSet(VALID_SIZE));
+
+        this->size = size;
+    }
+    /* MJL_End */
 
 
   public:
@@ -1195,17 +1209,17 @@ class Packet : public Printable
         // MJL_Test
 	if (req->hasPC() && !req->isInstFetch()) {
             std::cout << "setDataFromBlock:: PC = " << req->getPC() << ",  addr = ";
-            std::cout << std::oct << getAddr() << ", offset = " << getOffset(blkSize);
+            std::cout << std::oct << getAddr();// << ", offset = " << getOffset(blkSize);
             std::cout << std::dec << ", sameCmdDataDir? " << MJL_sameCmdDataDir() << ", size = " << getSize();
             uint64_t MJL_data = 0;
-            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
-                std::cout << std::hex << ", blk[" << i << "] = "<< MJL_data; 
-            }
+            // for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            //     std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
+            //     std::cout << std::hex << ", blk[" << i << "] = "<< MJL_data; 
+            // }
             setData(blk_data + getOffset(blkSize));
             MJL_data = 0;
             std::memcpy(&MJL_data, getConstPtr<uint8_t>(), getSize());
-            std::cout << ", data = " << MJL_data;
+            std::cout << std::hex <<  ", data = " << MJL_data;
             std::cout << std::dec << "\n";
         } else
         /* MJL_End */
@@ -1232,22 +1246,22 @@ class Packet : public Printable
         // MJL_Test
         if (req->hasPC() && !req->isInstFetch()) {
             std::cout << "writeDataToBlock:: PC = " << req->getPC() << ",  addr = ";
-            std::cout << std::oct << getAddr() << ", offset = " << getOffset(blkSize);
+            std::cout << std::oct << getAddr();// << ", offset = " << getOffset(blkSize);
             std::cout << std::dec << ", sameCmdDataDir? " << MJL_sameCmdDataDir() << ", size = " << getSize();
             uint64_t MJL_data = 0;
-            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
-                std::cout << std::hex << ", b4wblk[" << i << "] = "<< MJL_data;
-            }
+            // for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            //     std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
+            //     std::cout << std::hex << ", b4wblk[" << i << "] = "<< MJL_data;
+            // }
             writeData(blk_data + getOffset(blkSize));
             MJL_data = 0;
             std::memcpy(&MJL_data, getConstPtr<uint8_t>(), getSize());
-            std::cout << ", data = " << MJL_data;
-            MJL_data = 0;
-            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
-                std::cout << std::hex << ", afwblk[" << i << "] = "<< MJL_data;
-            }
+            std::cout << std::hex << ", data = " << MJL_data;
+            // MJL_data = 0;
+            // for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            //     std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
+            //     std::cout << std::hex << ", afwblk[" << i << "] = "<< MJL_data;
+            // }
             std::cout << std::dec << "\n";
         } else
         /* MJL_End */
