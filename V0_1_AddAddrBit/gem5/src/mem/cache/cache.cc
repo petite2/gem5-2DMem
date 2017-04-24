@@ -3073,7 +3073,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         }
     }
     // MJL_Test for column access
-    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {/*
+    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {/**/
         pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
@@ -3081,7 +3081,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             MJL_sndPkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
             MJL_sndPkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
             MJL_sndPkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-        }*/
+        }/**/
         std::cout << ", addr = " ;
         std::cout << std::oct << pkt->getAddr();
         std::cout << std::dec << "\n";

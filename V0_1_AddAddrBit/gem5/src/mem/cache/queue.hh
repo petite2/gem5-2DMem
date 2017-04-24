@@ -207,7 +207,7 @@ class Queue : public Drainable
     {
         pkt->pushLabel(label);
         for (const auto& entry : allocatedList) {
-            if (entry->blkAddr == blk_addr && entry->MJL_qEntryDir == MJL_queue_entry_dir, entry->MJL_checkFunctional(pkt)) {
+            if (entry->blkAddr == blk_addr && entry->MJL_qEntryDir == MJL_queue_entry_dir && entry->MJL_checkFunctional(pkt)) {
                 pkt->popLabel();
                 return true;
             }
