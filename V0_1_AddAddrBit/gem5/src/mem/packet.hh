@@ -1333,7 +1333,7 @@ class Packet : public Printable
     {
         // all packets that are carrying a payload should have a valid
         // data pointer
-        return MJL_checkFunctional(other, other->getAddr(), other->MJL_getCmdDir(), other->isSecure(),
+        return MJL_checkFunctional(other, other->getAddr(), other->MJL_getDataDir(), other->isSecure(),
                                other->getSize(),
                                other->hasData() ?
                                other->getPtr<uint8_t>() : NULL);

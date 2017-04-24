@@ -1351,8 +1351,8 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
 
     bool done = have_dirty
         || cpuSidePort->MJL_checkFunctional(pkt)
-        || mshrQueue.MJL_checkFunctional(pkt, blk_addr)
-        || writeBuffer.MJL_checkFunctional(pkt, blk_addr)
+        || mshrQueue.MJL_checkFunctional(pkt, blk_addr, pkt->MJL_getDataDir())
+        || writeBuffer.MJL_checkFunctional(pkt, blk_addr, pkt->MJL_getDataDir())
         || memSidePort->MJL_checkFunctional(pkt);
 
     DPRINTF(CacheVerbose, "%s: %s %s%s%s\n", __func__,  pkt->print(),
@@ -1378,8 +1378,8 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
 
         diff_done = diff_done && (diff_have_dirty
             || cpuSidePort->MJL_checkFunctional(pkt)
-            || mshrQueue.MJL_checkFunctional(pkt, blk_addr)
-            || writeBuffer.MJL_checkFunctional(pkt, blk_addr)
+            || mshrQueue.MJL_checkFunctional(pkt, blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn)
+            || writeBuffer.MJL_checkFunctional(pkt, blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn)
             || memSidePort->MJL_checkFunctional(pkt));
 
         DPRINTF(CacheVerbose, "%s: %s %s%s%s\n", __func__,  pkt->print(),
