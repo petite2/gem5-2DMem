@@ -980,7 +980,14 @@ BaseDynInst<Impl>::splitRequest(RequestPtr req, RequestPtr &sreqLow,
     // Check to see if the request crosses the next level block boundary.
     unsigned block_size = cpu->cacheLineSize();
     Addr addr = req->getVaddr();
+    /* MJL_Begin */
+    // Really not sure what this would do
+    assert(req->getSize() <= sizeof(uint64_t));
+    Addr split_addr = roundDown(addr + req->getSize() - 1, sizeof(uint64_t));
+    /* MJL_End */
+    /* MJL_Comment
     Addr split_addr = roundDown(addr + req->getSize() - 1, block_size);
+    */
     assert(split_addr <= addr || split_addr - addr < block_size);
 
     // Spans two blocks.

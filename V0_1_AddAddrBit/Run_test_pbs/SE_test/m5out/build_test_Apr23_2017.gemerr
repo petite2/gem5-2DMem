@@ -1,9 +1,2 @@
 0: system.remote_gdb.listener: listening for remote gdb #0 on port 7000
 warn: ClockedObject: More than one power state change request encountered within the same simulation tick
-gem5 has encountered a segmentation fault!
-
---- BEGIN LIBC BACKTRACE ---
-/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x6e9175]
-/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt[0x6fb4bd]
-/lib64/libpthread.so.0[0x347080f7e0]
---- END LIBC BACKTRACE ---
