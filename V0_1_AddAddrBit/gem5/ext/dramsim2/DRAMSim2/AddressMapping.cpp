@@ -353,7 +353,6 @@ void MJL_addressMapping(uint64_t physicalAddress, MJL_TransDir MJL_transDir, uns
 	// For example: cowLowBits = log2(64bytes) - 3 bits = 3 bits 
 	unsigned colLowBitWidth = COL_LOW_BIT_WIDTH;
 
-	assert(byteOffsetWidth = dramsim_log2(sizeof(uint64_t)));
 	unsigned MJL_colBitWidth = dramsim_log2(MJL_colSize) + colLowBitWidth;
 	// Adjusting alignment to decouple memory size from data size
 	if (colBitWidth > MJL_colBitWidth) {

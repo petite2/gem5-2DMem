@@ -73,7 +73,7 @@ class MultiChannelMemorySystem : public SimulatorObject
 	std::ofstream visDataOut;
 	ofstream dramsim_log; 
 	/* MJL_Begin */
-	void MJL_setColSize(unsigned in_MJL_colSize) { MJL_colSize = in_MJL_colSize }
+	void MJL_setColSize(unsigned in_MJL_colSize) { MJL_colSize = in_MJL_colSize; }
 	/* MJL_End */
 
 	private:

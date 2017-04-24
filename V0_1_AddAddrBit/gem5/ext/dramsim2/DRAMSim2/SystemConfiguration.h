@@ -196,7 +196,7 @@ extern QueuingStructure queuingStructure;
 
 /* MJL_Begin */
 
-unsigned MJL_colSize;
+extern unsigned MJL_colSize;
 
 // Define the row/column direction 
 enum MJL_TransDir
@@ -207,7 +207,7 @@ enum MJL_TransDir
 	MJL_NUM_COMMAND_DIRATTRIBUTES
 };
 
-MJL_TransDir MJL_getTransDir(unsigned MJL_CmdDir) {
+inline MJL_TransDir MJL_getTransDir(unsigned MJL_CmdDir) {
 	MJL_TransDir MJL_transDir = MJL_TransDir::MJL_IsRow;
 	switch (MJL_CmdDir) {
 		case 1: MJL_transDir = MJL_TransDir::MJL_IsRow; break;
@@ -218,7 +218,7 @@ MJL_TransDir MJL_getTransDir(unsigned MJL_CmdDir) {
 	return MJL_transDir;
 }
 
-char MJL_getCharDir(MJL_TransDir MJL_transDir) {
+inline char MJL_getCharDir(MJL_TransDir MJL_transDir) {
 	char MJL_charDir = 'R';
 	switch (MJL_transDir) {
 		case MJL_TransDir::MJL_IsRow: MJL_charDir = 'R'; break;

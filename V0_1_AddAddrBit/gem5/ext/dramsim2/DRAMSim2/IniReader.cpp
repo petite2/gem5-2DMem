@@ -134,7 +134,9 @@ RowBufferPolicy rowBufferPolicy;
 SchedulingPolicy schedulingPolicy;
 AddressMappingScheme addressMappingScheme;
 QueuingStructure queuingStructure;
-
+/* MJL_Begin */
+unsigned MJL_colSize;
+/* MJL_End */
 
 //Map the string names to the variables they set
 static ConfigMap configMap[] =

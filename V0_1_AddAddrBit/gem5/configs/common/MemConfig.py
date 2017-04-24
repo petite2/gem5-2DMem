@@ -109,7 +109,7 @@ def create_mem_ctrl(cls, r, i, nbr_mem_ctrls, intlv_bits, intlv_size):
 
     # Create an instance so we can figure out the address
     # mapping and row-buffer size
-    ctrl = cls()
+    ctrl = cls() 
 
     # Only do this for DRAMs
     if issubclass(cls, m5.objects.DRAMCtrl):
@@ -206,6 +206,10 @@ def config_mem(options, system):
         for i in xrange(nbr_mem_ctrls):
             mem_ctrl = create_mem_ctrl(cls, r, i, nbr_mem_ctrls, intlv_bits,
                                        intlv_size)
+            # MJL_Begin
+            mem_ctrl.MJL_row_width = system.MJL_row_width
+            # MJL_End
+
             # Set the number of ranks based on the command-line
             # options if it was explicitly set
             if issubclass(cls, m5.objects.DRAMCtrl) and \
