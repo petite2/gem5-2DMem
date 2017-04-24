@@ -193,6 +193,25 @@ bool MemorySystem::addTransaction(bool isWrite, uint64_t addr)
 		return true;
 	}
 }
+/* MJL_Begin */
+bool MemorySystem::MJL_addTransaction(bool isWrite, uint64_t addr, MJL_TransDir MJL_transDir)
+{
+	TransactionType type = isWrite ? DATA_WRITE : DATA_READ;
+	Transaction *trans = new Transaction(type,addr,MJL_transDir,NULL);
+	// push_back in memoryController will make a copy of this during
+	// addTransaction so it's kosher for the reference to be local 
+
+	if (memoryController->WillAcceptTransaction()) 
+	{
+		return memoryController->addTransaction(trans);
+	}
+	else
+	{
+		pendingTransactions.push_back(trans);
+		return true;
+	}
+}
+/* MJL_End */
 
 bool MemorySystem::addTransaction(Transaction *trans)
 {

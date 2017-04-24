@@ -49,7 +49,7 @@ DRAMSim2::DRAMSim2(const Params* p) :
     AbstractMemory(p),
     port(name() + ".port", *this),
     wrapper(p->deviceConfigFile, p->systemConfigFile, p->filePath,
-            p->traceFile, p->range.size() / 1024 / 1024, p->enableDebug),
+            p->traceFile, p->range.size() / 1024 / 1024, p->enableDebug/* MJL_Begin */, p->MJL_row_width/* MJL_End */),
     retryReq(false), retryResp(false), startTick(0),
     nbrOutstandingReads(0), nbrOutstandingWrites(0),
     sendResponseEvent(this), tickEvent(this)
@@ -58,12 +58,22 @@ DRAMSim2::DRAMSim2(const Params* p) :
             "Instantiated DRAMSim2 with clock %d ns and queue size %d\n",
             wrapper.clockPeriod(), wrapper.queueSize());
 
+    /* MJL_Begin */
+    DRAMSim::TransactionCompleteCB* read_cb =
+        new DRAMSim::MJL_Callback<DRAMSim2, void, unsigned, uint64_t, uint64_t, unsigned>(
+            this, &DRAMSim2::MJL_readComplete);
+    DRAMSim::TransactionCompleteCB* write_cb =
+        new DRAMSim::MJL_Callback<DRAMSim2, void, unsigned, uint64_t, uint64_t, unsigned>(
+            this, &DRAMSim2::MJL_writeComplete);
+    /* MJL_End */
+    /* MJL_Comment
     DRAMSim::TransactionCompleteCB* read_cb =
         new DRAMSim::Callback<DRAMSim2, void, unsigned, uint64_t, uint64_t>(
             this, &DRAMSim2::readComplete);
     DRAMSim::TransactionCompleteCB* write_cb =
         new DRAMSim::Callback<DRAMSim2, void, unsigned, uint64_t, uint64_t>(
             this, &DRAMSim2::writeComplete);
+    */
     wrapper.setCallbacks(read_cb, write_cb);
 
     // Register a callback to compensate for the destructor not
@@ -199,8 +209,12 @@ DRAMSim2::recvTimingReq(PacketPtr pkt)
     // keep track of the transaction
     if (pkt->isRead()) {
         if (can_accept) {
-            // MJL_TODO: depending on the use case of outstandingReads and outstandingWrites, might need to change
+            /* MJL_Begin */
+            MJL_outstandingReads[pkt->MJL_getDataDir()][pkt->getAddr()].push(pkt);
+            /* MJL_End */
+            /* MJL_Comment
             outstandingReads[pkt->getAddr()].push(pkt);
+            */
 
             // we count a transaction as outstanding until it has left the
             // queue in the controller, and the response has been sent
@@ -209,7 +223,12 @@ DRAMSim2::recvTimingReq(PacketPtr pkt)
         }
     } else if (pkt->isWrite()) {
         if (can_accept) {
+            /* MJL_Begin */
+            MJL_outstandingWrites[pkt->MJL_getDataDir()][pkt->getAddr()].push(pkt);
+            /* MJL_End */
+            /* MJL_Comment
             outstandingWrites[pkt->getAddr()].push(pkt);
+            */
 
             ++nbrOutstandingWrites;
 
@@ -232,8 +251,12 @@ DRAMSim2::recvTimingReq(PacketPtr pkt)
         // @todo what about the granularity here, implicit assumption that
         // a transaction matches the burst size of the memory (which we
         // cannot determine without parsing the ini file ourselves)
-        // MJL_TODO: should be changed so that the direction can be passed down.
+        /* MJL_Begin */
+        wrapper.MJL_enqueue(pkt->isWrite(), pkt->getAddr(), pkt->MJL_getDataDir());
+        /* MJL_End */
+        /* MJL_Comment 
         wrapper.enqueue(pkt->isWrite(), pkt->getAddr());
+        */
 
         return true;
     } else {
@@ -316,6 +339,35 @@ void DRAMSim2::readComplete(unsigned id, uint64_t addr, uint64_t cycle)
     // perform the actual memory access
     accessAndRespond(pkt);
 }
+/* MJL_Begin */
+void DRAMSim2::MJL_readComplete(unsigned id, uint64_t addr, uint64_t cycle, unsigned MJL_dataDir)
+{
+    assert(cycle == divCeil(curTick() - startTick,
+                            wrapper.clockPeriod() * SimClock::Int::ns));
+
+    DPRINTF(DRAMSim2, "Read to address %lld complete\n", addr);
+
+    // get the outstanding reads for the address in question
+    auto p = MJL_outstandingReads[MJL_dataDir].find(addr);
+    assert(p != MJL_outstandingReads[MJL_dataDir].end());
+
+    // first in first out, which is not necessarily true, but it is
+    // the best we can do at this point
+    PacketPtr pkt = p->second.front();
+    p->second.pop();
+
+    if (p->second.empty())
+        MJL_outstandingReads[MJL_dataDir].erase(p);
+
+    // no need to check for drain here as the next call will add a
+    // response to the response queue straight away
+    assert(nbrOutstandingReads != 0);
+    --nbrOutstandingReads;
+
+    // perform the actual memory access
+    accessAndRespond(pkt);
+}
+/* MJL_End */
 
 void DRAMSim2::writeComplete(unsigned id, uint64_t addr, uint64_t cycle)
 {
@@ -340,6 +392,31 @@ void DRAMSim2::writeComplete(unsigned id, uint64_t addr, uint64_t cycle)
     if (nbrOutstanding() == 0)
         signalDrainDone();
 }
+/* MJL_Begin */
+void DRAMSim2::MJL_writeComplete(unsigned id, uint64_t addr, uint64_t cycle, unsigned MJL_dataDir)
+{
+    assert(cycle == divCeil(curTick() - startTick,
+                            wrapper.clockPeriod() * SimClock::Int::ns));
+
+    DPRINTF(DRAMSim2, "Write to address %lld complete\n", addr);
+
+    // get the outstanding reads for the address in question
+    auto p = MJL_outstandingWrites[MJL_dataDir].find(addr);
+    assert(p != MJL_outstandingWrites[MJL_dataDir].end());
+
+    // we have already responded, and this is only to keep track of
+    // what is outstanding
+    p->second.pop();
+    if (p->second.empty())
+        MJL_outstandingWrites[MJL_dataDir].erase(p);
+
+    assert(nbrOutstandingWrites != 0);
+    --nbrOutstandingWrites;
+
+    if (nbrOutstanding() == 0)
+        signalDrainDone();
+}
+/* MJL_End */
 
 BaseSlavePort&
 DRAMSim2::getSlavePort(const std::string &if_name, PortID idx)

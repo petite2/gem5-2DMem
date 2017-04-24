@@ -109,6 +109,8 @@ void MultiChannelMemorySystem::setCPUClockSpeed(uint64_t cpuClkFreqHz)
 	uint64_t dramsimClkFreqHz = (uint64_t)(1.0/(tCK*1e-9));
 	clockDomainCrosser.clock1 = dramsimClkFreqHz; 
 	clockDomainCrosser.clock2 = (cpuClkFreqHz == 0) ? dramsimClkFreqHz : cpuClkFreqHz; 
+	// MJL_Test to see if MJL_colSize has been passed in
+	std::cout << "MJL_colSize = " << MJL_colSize << "\n" ;
 }
 
 bool fileExists(string &path)
@@ -425,6 +427,36 @@ unsigned MultiChannelMemorySystem::findChannelNumber(uint64_t addr)
 	return channelNumber;
 
 }
+/* MJL_Begin */
+unsigned MultiChannelMemorySystem::MJL_findChannelNumber(uint64_t addr, unsigned MJL_transDir)
+{
+	// Single channel case is a trivial shortcut case 
+	if (NUM_CHANS == 1)
+	{
+		return 0; 
+	}
+
+	if (!isPowerOfTwo(NUM_CHANS))
+	{
+		ERROR("We can only support power of two # of channels.\n" <<
+				"I don't know what Intel was thinking, but trying to address map half a bit is a neat trick that we're not sure how to do"); 
+		abort(); 
+	}
+
+	// only chan is used from this set 
+	unsigned channelNumber,rank,bank,row,col;
+	MJL_addressMapping(addr, MJL_getTransDir(MJL_transDir), channelNumber, rank, bank, row, col); 
+	if (channelNumber >= NUM_CHANS)
+	{
+		ERROR("Got channel index "<<channelNumber<<" but only "<<NUM_CHANS<<" exist"); 
+		abort();
+	}
+	//DEBUG("Channel idx = "<<channelNumber<<" totalbits="<<totalBits<<" channelbits="<<channelBits); 
+
+	return channelNumber;
+
+}
+/* MJL_End */
 ostream &MultiChannelMemorySystem::getLogFile()
 {
 	return dramsim_log; 
@@ -437,7 +469,12 @@ bool MultiChannelMemorySystem::addTransaction(const Transaction &trans)
 
 bool MultiChannelMemorySystem::addTransaction(Transaction *trans)
 {
+	/* MJL_Begin */
+	unsigned channelNumber = MJL_findChannelNumber(trans->address, trans->MJL_transDir); 
+	/* MJL_End */
+	/* MJL_Comment
 	unsigned channelNumber = findChannelNumber(trans->address); 
+	*/
 	return channels[channelNumber]->addTransaction(trans); 
 }
 
@@ -446,6 +483,13 @@ bool MultiChannelMemorySystem::addTransaction(bool isWrite, uint64_t addr)
 	unsigned channelNumber = findChannelNumber(addr); 
 	return channels[channelNumber]->addTransaction(isWrite, addr); 
 }
+/* MJL_Begin */
+bool MultiChannelMemorySystem::MJL_addTransaction(bool isWrite, uint64_t addr, unsigned MJL_CmdDir)
+{
+	unsigned channelNumber = MJL_findChannelNumber(addr, MJL_CmdDir); 
+	return channels[channelNumber]->MJL_addTransaction(isWrite, addr, MJL_getTransDir(MJL_CmdDir)); 
+}
+/* MJL_End */
 
 /*
 	This function has two flavors: one with and without the address. 
@@ -462,6 +506,15 @@ bool MultiChannelMemorySystem::willAcceptTransaction(uint64_t addr)
 	addressMapping(addr, chan, rank, bank, row, col); 
 	return channels[chan]->WillAcceptTransaction(); 
 }
+/* MJL_Begin */
+bool MultiChannelMemorySystem::MJL_willAcceptTransaction(uint64_t addr, unsigned MJL_transDir)
+{
+	unsigned chan, rank,bank,row,col; 
+	MJL_addressMapping(addr, MJL_getTransDir(MJL_transDir), chan, rank, bank, row, col); 
+	return channels[chan]->WillAcceptTransaction(); 
+}
+
+/* MJL_End */
 
 bool MultiChannelMemorySystem::willAcceptTransaction()
 {

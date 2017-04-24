@@ -47,9 +47,13 @@ class MultiChannelMemorySystem : public SimulatorObject
 		virtual ~MultiChannelMemorySystem();
 			bool addTransaction(Transaction *trans);
 			bool addTransaction(const Transaction &trans);
-			bool addTransaction(bool isWrite, uint64_t addr);
+			bool addTransaction(bool isWrite, uint64_t addr);/* MJL_Begin */
+			bool MJL_addTransaction(bool isWrite, uint64_t addr, unsigned MJL_CmdDir);
+			/* MJL_End */
 			bool willAcceptTransaction(); 
-			bool willAcceptTransaction(uint64_t addr); 
+			bool willAcceptTransaction(uint64_t addr); /* MJL_Begin */
+			bool MJL_willAcceptTransaction(uint64_t addr, unsigned MJL_CmdDir);
+			/* MJL_End */
 			void update();
 			void printStats(bool finalStats=false);
 			ostream &getLogFile();
@@ -68,9 +72,14 @@ class MultiChannelMemorySystem : public SimulatorObject
 	//output file
 	std::ofstream visDataOut;
 	ofstream dramsim_log; 
+	/* MJL_Begin */
+	void MJL_setColSize(unsigned in_MJL_colSize) { MJL_colSize = in_MJL_colSize }
+	/* MJL_End */
 
 	private:
-		unsigned findChannelNumber(uint64_t addr);
+		unsigned findChannelNumber(uint64_t addr);/* MJL_Begin */
+		unsigned MJL_findChannelNumber(uint64_t addr, unsigned MJL_transDir);
+		/* MJL_End */
 		void actual_update(); 
 		vector<MemorySystem*> channels; 
 		unsigned megsOfMemory; 

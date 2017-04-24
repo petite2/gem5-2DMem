@@ -37,7 +37,30 @@
 
 namespace DRAMSim
 {
+/* MJL_Begin */
+template <typename ReturnT, typename Param1T, typename Param2T,
+typename Param3T, typename Param4T>
+class MJL_CallbackBase
+{
+public:
+	virtual ~MJL_CallbackBase() = 0;
+	virtual ReturnT operator()(Param1T, Param2T, Param3T, Param4T) {}
+};
+template <typename Return, typename Param1T, typename Param2T, typename Param3T, typename Param4T>
+DRAMSim::MJL_CallbackBase<Return,Param1T,Param2T,Param3T,Param4T>::~MJL_CallbackBase() {}
 
+template <typename ReturnT, typename Param1T, typename Param2T,
+typename Param3T>
+class CallbackBase : public MJL_CallbackBase<ReturnT, Param1T, Param2T,
+Param3T, unsigned>
+{
+public:
+	virtual ~CallbackBase() = 0;
+	virtual ReturnT operator()(Param1T, Param2T, Param3T) = 0;
+	virtual ReturnT operator()(Param1T, Param2T, Param3T, unsigned) {}
+};
+/* MJL_End */
+/* MJL_Comment
 template <typename ReturnT, typename Param1T, typename Param2T,
 typename Param3T>
 class CallbackBase
@@ -46,6 +69,7 @@ public:
 	virtual ~CallbackBase() = 0;
 	virtual ReturnT operator()(Param1T, Param2T, Param3T) = 0;
 };
+*/
 
 template <typename Return, typename Param1T, typename Param2T, typename Param3T>
 DRAMSim::CallbackBase<Return,Param1T,Param2T,Param3T>::~CallbackBase() {}
@@ -81,6 +105,43 @@ private:
 };
 
 typedef CallbackBase <void, unsigned, uint64_t, uint64_t> TransactionCompleteCB;
+/* MJL_Begin */
+template <typename ConsumerT, typename ReturnT,
+typename Param1T, typename Param2T, typename Param3T, typename Param4T >
+class MJL_Callback: public CallbackBase<ReturnT,Param1T,Param2T,Param3T>
+{
+private:
+	typedef ReturnT (ConsumerT::*PtrMember)(Param1T,Param2T,Param3T,Param4T);
+
+public:
+	MJL_Callback( ConsumerT* const object, PtrMember member) :
+			object(object), member(member)
+	{
+	}
+
+	MJL_Callback( const MJL_Callback<ConsumerT,ReturnT,Param1T,Param2T,Param3T,Param4T>& e ) :
+			object(e.object), member(e.member)
+	{
+	}
+
+	ReturnT operator()(Param1T param1, Param2T param2, Param3T param3, Param4T param4)
+	{
+		return (const_cast<ConsumerT*>(object)->*member)
+		       (param1,param2,param3,param4);
+	}
+
+	ReturnT operator()(Param1T param1, Param2T param2, Param3T param3)
+	{
+		return (const_cast<ConsumerT*>(object)->*member)
+		       (param1,param2,param3,1);
+	}
+
+private:
+
+	ConsumerT* const object;
+	const PtrMember  member;
+};
+/* MJL_End */
 } // namespace DRAMSim
 
 #endif

@@ -52,6 +52,9 @@ class AbstractMemory(MemObject):
     range = Param.AddrRange('128MB', "Address range (potentially interleaved)")
     null = Param.Bool(False, "Do not store data, always return zero")
 
+    # MJL_Begin
+    MJL_row_width = Param.Int(Parent.MJL_row_width, "The size of a row in cachelines")
+    # MJL_End
     # All memories are passed to the global physical memory, and
     # certain memories may be excluded from the global address map,
     # e.g. by the testers that use shadow memories as a reference

@@ -67,15 +67,18 @@ DRAMSim2Wrapper::DRAMSim2Wrapper(const std::string& config_file,
                                  const std::string& working_dir,
                                  const std::string& trace_file,
                                  unsigned int memory_size_mb,
-                                 bool enable_debug) :
+                                 bool enable_debug/* MJL_Begin */, unsigned MJL_rowWidth/* MJL_End */) :
     dramsim(new DRAMSim::MultiChannelMemorySystem(config_file, system_file,
                                                   working_dir, trace_file,
                                                   memory_size_mb, NULL, NULL)),
     _clockPeriod(0.0), _queueSize(0), _burstSize(0)
 {
+    /* MJL_Begin */
+    dramsim->MJL_setColSize(MJL_rowWidth);
+    /* MJL_End */
     // tell DRAMSim2 to ignore its internal notion of a CPU frequency
     dramsim->setCPUClockSpeed(0);
-
+    
     // switch on debug output if requested
     if (enable_debug)
         SHOW_SIM_OUTPUT = 1;
@@ -173,6 +176,14 @@ DRAMSim2Wrapper::enqueue(bool is_write, uint64_t addr)
     bool success M5_VAR_USED = dramsim->addTransaction(is_write, addr);
     assert(success);
 }
+/* MJL_Begin */
+void
+DRAMSim2Wrapper::MJL_enqueue(bool is_write, uint64_t addr, unsigned MJL_CmdDir)
+{
+    bool success M5_VAR_USED = dramsim->MJL_addTransaction(is_write, addr, MJL_CmdDir);
+    assert(success);
+}
+/* MJL_End */
 
 double
 DRAMSim2Wrapper::clockPeriod() const

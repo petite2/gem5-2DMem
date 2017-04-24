@@ -32,6 +32,9 @@
 namespace DRAMSim
 {
 	void addressMapping(uint64_t physicalAddress, unsigned &channel, unsigned &rank, unsigned &bank, unsigned &row, unsigned &col);
+	/* MJL_Begin */
+	void MJL_addressMapping(uint64_t physicalAddress, MJL_TransDir MJL_transDir, unsigned &channel, unsigned &rank, unsigned &bank, unsigned &row, unsigned &col);
+	/* MJL_End */
 }
 
 #endif

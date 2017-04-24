@@ -101,7 +101,7 @@ class DRAMSim2Wrapper
                     const std::string& working_dir,
                     const std::string& trace_file,
                     unsigned int memory_size_mb,
-                    bool enable_debug);
+                    bool enable_debug/* MJL_Begin */, unsigned MJL_rowWidth/* MJL_End */);
     ~DRAMSim2Wrapper();
 
     /**
@@ -131,6 +131,9 @@ class DRAMSim2Wrapper
      * @param pkt Packet to turn into a DRAMSim2 transaction
      */
     void enqueue(bool is_write, uint64_t addr);
+    /* MJL_Begin */
+    void MJL_enqueue(bool is_write, uint64_t addr, unsigned MJL_CmdDir);
+    /* MJL_End */
 
     /**
      * Get the internal clock period used by DRAMSim2, specified in

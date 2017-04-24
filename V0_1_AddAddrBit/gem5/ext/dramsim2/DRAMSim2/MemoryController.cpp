@@ -127,7 +127,7 @@ void MemoryController::receiveFromBus(BusPacket *bpacket)
 	}
 
 	//add to return read data queue
-	returnTransaction.push_back(new Transaction(RETURN_DATA, bpacket->physicalAddress, bpacket->data));
+	returnTransaction.push_back(new Transaction(RETURN_DATA, bpacket->physicalAddress/* MJL_Begin */, bpacket->MJL_bpDir/* MJL_End */, bpacket->data));
 	totalReadsPerBank[SEQUENTIAL(bpacket->rank,bpacket->bank)]++;
 
 	// this delete statement saves a mindboggling amount of memory
@@ -139,7 +139,7 @@ void MemoryController::returnReadData(const Transaction *trans)
 {
 	if (parentMemorySystem->ReturnReadData!=NULL)
 	{
-		(*parentMemorySystem->ReturnReadData)(parentMemorySystem->systemID, trans->address, currentClockCycle);
+		(*parentMemorySystem->ReturnReadData)(parentMemorySystem->systemID, trans->address, currentClockCycle/* MJL_Begin */, trans->MJL_transDir/* MJL_End */);
 	}
 }
 
@@ -211,7 +211,7 @@ void MemoryController::update()
 			//inform upper levels that a write is done
 			if (parentMemorySystem->WriteDataDone!=NULL)
 			{
-				(*parentMemorySystem->WriteDataDone)(parentMemorySystem->systemID,outgoingDataPacket->physicalAddress, currentClockCycle);
+				(*parentMemorySystem->WriteDataDone)(parentMemorySystem->systemID,outgoingDataPacket->physicalAddress, currentClockCycle/* MJL_Begin */, outgoingDataPacket->MJL_bpDir/* MJL_End */);
 			}
 
 			(*ranks)[outgoingDataPacket->rank]->receiveFromBus(outgoingDataPacket);
@@ -286,7 +286,8 @@ void MemoryController::update()
 		if (poppedBusPacket->busPacketType == WRITE || poppedBusPacket->busPacketType == WRITE_P)
 		{
 
-			writeDataToSend.push_back(new BusPacket(DATA, poppedBusPacket->physicalAddress, poppedBusPacket->column,
+			writeDataToSend.push_back(new BusPacket(DATA, poppedBusPacket->physicalAddress, /* MJL_Begin */
+			                                    poppedBusPacket->MJL_bpDir/* MJL_End */poppedBusPacket->column,
 			                                    poppedBusPacket->row, poppedBusPacket->rank, poppedBusPacket->bank,
 			                                    poppedBusPacket->data, dramsim_log));
 			writeDataCountdown.push_back(WL);
@@ -501,7 +502,12 @@ void MemoryController::update()
 		unsigned newTransactionChan, newTransactionRank, newTransactionBank, newTransactionRow, newTransactionColumn;
 
 		// pass these in as references so they get set by the addressMapping function
+		/* MJL_Begin */
+		MJL_addressMapping(transaction->address, transaction->MJL_transDir, newTransactionChan, newTransactionRank, newTransactionBank, newTransactionRow, newTransactionColumn);
+		/* MJL_End */
+		/* MJL_Comment
 		addressMapping(transaction->address, newTransactionChan, newTransactionRank, newTransactionBank, newTransactionRow, newTransactionColumn);
+		*/
 
 		//if we have room, break up the transaction into the appropriate commands
 		//and add them to the command queue
@@ -530,13 +536,15 @@ void MemoryController::update()
 			transactionQueue.erase(transactionQueue.begin()+i);
 
 			//create activate command to the row we just translated
-			BusPacket *ACTcommand = new BusPacket(ACTIVATE, transaction->address,
+			BusPacket *ACTcommand = new BusPacket(ACTIVATE, transaction->address,/* MJL_Begin */
+					transaction->MJL_transDir,/* MJL_End */
 					newTransactionColumn, newTransactionRow, newTransactionRank,
 					newTransactionBank, 0, dramsim_log);
 
 			//create read or write command and enqueue it
 			BusPacketType bpType = transaction->getBusPacketType();
-			BusPacket *command = new BusPacket(bpType, transaction->address,
+			BusPacket *command = new BusPacket(bpType, transaction->address,/* MJL_Begin */
+					transaction->MJL_transDir,/* MJL_End */
 					newTransactionColumn, newTransactionRow, newTransactionRank,
 					newTransactionBank, transaction->data, dramsim_log);
 
@@ -679,7 +687,12 @@ void MemoryController::update()
 				//		exit(0);
 				//	}
 				unsigned chan,rank,bank,row,col;
+				/* MJL_Begin */
+				MJL_addressMapping(returnTransaction[0]->address, returnTransaction[0]->MJL_transDir,chan,rank,bank,row,col);
+				/* MJL_End */
+				/* MJL_Comment
 				addressMapping(returnTransaction[0]->address,chan,rank,bank,row,col);
+				*/
 				insertHistogram(currentClockCycle-pendingReadTransactions[i]->timeAdded,rank,bank);
 				//return latency
 				returnReadData(pendingReadTransactions[i]);

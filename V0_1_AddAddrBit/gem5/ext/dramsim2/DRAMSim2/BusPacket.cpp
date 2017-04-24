@@ -54,9 +54,27 @@ BusPacket::BusPacket(BusPacketType packtype, uint64_t physicalAddr,
 	row(rw),
 	bank(b),
 	rank(r),
-	physicalAddress(physicalAddr),
+	physicalAddress(physicalAddr),/* MJL_Begin */
+	MJL_bpDir(MJL_TransDir::MJL_IsRow),
+	/* MJL_End */
 	data(dat)
 {}
+/* MJL_Begin */
+BusPacket::BusPacket(BusPacketType packtype, uint64_t physicalAddr, 
+		MJL_TransDir MJL_bpDir, unsigned col, unsigned rw, unsigned r, unsigned b, void *dat, 
+		ostream &dramsim_log_) :
+	dramsim_log(dramsim_log_),
+	busPacketType(packtype),
+	column(col),
+	row(rw),
+	bank(b),
+	rank(r),
+	physicalAddress(physicalAddr),/* MJL_Begin */
+	MJL_bpDir(MJL_bpDir),
+	/* MJL_End */
+	data(dat)
+{}
+/* MJL_End */
 
 void BusPacket::print(uint64_t currentClockCycle, bool dataStart)
 {
@@ -69,6 +87,33 @@ void BusPacket::print(uint64_t currentClockCycle, bool dataStart)
 	{
 		switch (busPacketType)
 		{
+		/* MJL_Begin */
+		case READ:
+			cmd_verify_out << currentClockCycle << ": read " << MJL_getCharDir(MJL_bpDir) << " ("<<rank<<","<<bank<<","<<column<<",0);"<<endl;
+			break;
+		case READ_P:
+			cmd_verify_out << currentClockCycle << ": read " << MJL_getCharDir(MJL_bpDir) << " ("<<rank<<","<<bank<<","<<column<<",1);"<<endl;
+			break;
+		case WRITE:
+			cmd_verify_out << currentClockCycle << ": write " << MJL_getCharDir(MJL_bpDir) << " ("<<rank<<","<<bank<<","<<column<<",0 , 0, 'h0);"<<endl;
+			break;
+		case WRITE_P:
+			cmd_verify_out << currentClockCycle << ": write " << MJL_getCharDir(MJL_bpDir) << " ("<<rank<<","<<bank<<","<<column<<",1, 0, 'h0);"<<endl;
+			break;
+		case ACTIVATE:
+			cmd_verify_out << currentClockCycle <<": activate " << MJL_getCharDir(MJL_bpDir) << " (" << rank << "," << bank << "," << row <<");"<<endl;
+			break;
+		case PRECHARGE:
+			cmd_verify_out << currentClockCycle <<": precharge " << MJL_getCharDir(MJL_bpDir) << " (" << rank << "," << bank << "," << row <<");"<<endl;
+			break;
+		case REFRESH:
+			cmd_verify_out << currentClockCycle <<": refresh " << MJL_getCharDir(MJL_bpDir) << " (" << rank << ");"<<endl;
+			break;
+		case DATA:
+			//TODO: data verification?
+			break;
+		/* MJL_End */
+		/* MJL_Comment
 		case READ:
 			cmd_verify_out << currentClockCycle << ": read ("<<rank<<","<<bank<<","<<column<<",0);"<<endl;
 			break;
@@ -93,6 +138,7 @@ void BusPacket::print(uint64_t currentClockCycle, bool dataStart)
 		case DATA:
 			//TODO: data verification?
 			break;
+		*/
 		default:
 			ERROR("Trying to print unknown kind of bus packet");
 			exit(-1);
@@ -109,6 +155,35 @@ void BusPacket::print()
 	{
 		switch (busPacketType)
 		{
+		/* MJL_Begin */
+		case READ:
+			PRINT("BP [READ] " << MJL_getCharDir(MJL_bpDir) << " pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case READ_P:
+			PRINT("BP [READ_P] " << MJL_getCharDir(MJL_bpDir) << " pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case WRITE:
+			PRINT("BP [WRITE] " << MJL_getCharDir(MJL_bpDir) << " pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case WRITE_P:
+			PRINT("BP [WRITE_P] " << MJL_getCharDir(MJL_bpDir) << " pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case ACTIVATE:
+			PRINT("BP [ACT] " << MJL_getCharDir(MJL_bpDir) << " pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case PRECHARGE:
+			PRINT("BP [PRE] " << MJL_getCharDir(MJL_bpDir) << " pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case REFRESH:
+			PRINT("BP [REF] " << MJL_getCharDir(MJL_bpDir) << " pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case DATA:
+			PRINTN("BP [DATA] " << MJL_getCharDir(MJL_bpDir) << " pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"] data["<<data<<"]=");
+			printData();
+			PRINT("");
+			break;
+		/* MJL_End */
+		/* MJL_Comment 
 		case READ:
 			PRINT("BP [READ] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
 			break;
@@ -135,6 +210,7 @@ void BusPacket::print()
 			printData();
 			PRINT("");
 			break;
+		*/	
 		default:
 			ERROR("Trying to print unknown kind of bus packet");
 			exit(-1);

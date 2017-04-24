@@ -45,13 +45,26 @@ namespace DRAMSim {
 
 Transaction::Transaction(TransactionType transType, uint64_t addr, void *dat) :
 	transactionType(transType),
-	address(addr),
+	address(addr),/* MJL_Begin */
+	MJL_transDir(MJL_TransDir::MJL_IsRow), // 1 for Row
+	/* MJL_End */
 	data(dat)
 {}
+/* MJL_Begin */
+Transaction::Transaction(TransactionType transType, uint64_t addr, MJL_TransDir MJL_transDir, void *dat) :
+	transactionType(transType),
+	address(addr),/* MJL_Begin */
+	MJL_transDir(MJL_transDir), // 1 for Row
+	/* MJL_End */
+	data(dat)
+{}
+/* MJL_End */
 
 Transaction::Transaction(const Transaction &t)
 	: transactionType(t.transactionType)
-	  , address(t.address)
+	  , address(t.address)/* MJL_Begin */
+	  , MJL_transDir(t.MJL_transDir)
+	  /* MJL_End */
 	  , data(NULL)
 	  , timeAdded(t.timeAdded)
 	  , timeReturned(t.timeReturned)
@@ -64,6 +77,22 @@ Transaction::Transaction(const Transaction &t)
 
 ostream &operator<<(ostream &os, const Transaction &t)
 {
+	/* MJL_Begin */
+	char MJL_charDir = MJL_getCharDir(t.MJL_transDir);
+	if (t.transactionType == DATA_READ)
+	{
+		os<<"T [Read] " << MJL_charDir << " [0x" << hex << t.address << "]" << dec <<endl;
+	}
+	else if (t.transactionType == DATA_WRITE)
+	{
+		os<<"T [Write] " << MJL_charDir << " [0x" << hex << t.address << "] [" << dec << t.data << "]" <<endl;
+	}
+	else if (t.transactionType == RETURN_DATA)
+	{
+		os<<"T [Data] " << MJL_charDir << " [0x" << hex << t.address << "] [" << dec << t.data << "]" <<endl;
+	}
+	/* MJL_End */
+	/* MJL_Comment
 	if (t.transactionType == DATA_READ)
 	{
 		os<<"T [Read] [0x" << hex << t.address << "]" << dec <<endl;
@@ -76,6 +105,7 @@ ostream &operator<<(ostream &os, const Transaction &t)
 	{
 		os<<"T [Data] [0x" << hex << t.address << "] [" << dec << t.data << "]" <<endl;
 	}
+	*/
 	return os; 
 }
 }

@@ -116,6 +116,10 @@ class DRAMSim2 : public AbstractMemory
      */
     std::unordered_map<Addr, std::queue<PacketPtr> > outstandingReads;
     std::unordered_map<Addr, std::queue<PacketPtr> > outstandingWrites;
+    /* MJL_Begin */
+    std::map<unsigned, std::unordered_map<Addr, std::queue<PacketPtr> > > MJL_outstandingReads;
+    std::map<unsigned, std::unordered_map<Addr, std::queue<PacketPtr> > > MJL_outstandingWrites;
+    /* MJL_End */
 
     /**
      * Count the number of outstanding transactions so that we can
@@ -179,6 +183,9 @@ class DRAMSim2 : public AbstractMemory
      * @param cycle Internal cycle count of DRAMSim2
      */
     void readComplete(unsigned id, uint64_t addr, uint64_t cycle);
+    /* MJL_Begin */
+    void MJL_readComplete(unsigned id, uint64_t addr, uint64_t cycle, unsigned MJL_dataDir);
+    /* MJL_End */
 
     /**
      * Write completion callback.
@@ -188,6 +195,9 @@ class DRAMSim2 : public AbstractMemory
      * @param cycle Internal cycle count of DRAMSim2
      */
     void writeComplete(unsigned id, uint64_t addr, uint64_t cycle);
+    /* MJL_Begin */
+    void MJL_writeComplete(unsigned id, uint64_t addr, uint64_t cycle, unsigned MJL_dataDir);
+    /* MJL_End */
 
     DrainState drain() override;
 

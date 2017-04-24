@@ -193,6 +193,41 @@ extern RowBufferPolicy rowBufferPolicy;
 extern SchedulingPolicy schedulingPolicy;
 extern AddressMappingScheme addressMappingScheme;
 extern QueuingStructure queuingStructure;
+
+/* MJL_Begin */
+
+unsigned MJL_colSize;
+
+// Define the row/column direction 
+enum MJL_TransDir
+{
+	MJL_IsInvalid,  //!< Requested direction is invalid
+	MJL_IsRow,      //!< Requested direction is row
+	MJL_IsColumn,   //!< Requested direction is column
+	MJL_NUM_COMMAND_DIRATTRIBUTES
+};
+
+MJL_TransDir MJL_getTransDir(unsigned MJL_CmdDir) {
+	MJL_TransDir MJL_transDir = MJL_TransDir::MJL_IsRow;
+	switch (MJL_CmdDir) {
+		case 1: MJL_transDir = MJL_TransDir::MJL_IsRow; break;
+		case 2: MJL_transDir = MJL_TransDir::MJL_IsColumn; break;
+		case 0: 
+		default: MJL_transDir = MJL_TransDir::MJL_IsInvalid;
+	}
+	return MJL_transDir;
+}
+
+char MJL_getCharDir(MJL_TransDir MJL_transDir) {
+	char MJL_charDir = 'R';
+	switch (MJL_transDir) {
+		case MJL_TransDir::MJL_IsRow: MJL_charDir = 'R'; break;
+		case MJL_TransDir::MJL_IsColumn: MJL_charDir = 'C'; break;
+		default: MJL_charDir = 'I';
+	}
+	return MJL_charDir;
+}
+/* MJL_End */
 //
 //FUNCTIONS
 //

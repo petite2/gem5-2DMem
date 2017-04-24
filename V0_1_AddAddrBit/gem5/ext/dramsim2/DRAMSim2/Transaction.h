@@ -56,15 +56,21 @@ public:
 	//fields
 	TransactionType transactionType;
 	uint64_t address;
+	/* MJL_Begin */
+	MJL_TransDir MJL_transDir;
+	/* MJL_End */
 	void *data;
 	uint64_t timeAdded;
 	uint64_t timeReturned;
-
+	
 
 	friend ostream &operator<<(ostream &os, const Transaction &t);
 	//functions
 	Transaction(TransactionType transType, uint64_t addr, void *data);
 	Transaction(const Transaction &t);
+	/* MJL_Begin */
+	Transaction(TransactionType transType, uint64_t addr, MJL_TransDir MJL_CmdDir, void *data);
+	/* MJL_End */
 
 	BusPacketType getBusPacketType()
 	{
