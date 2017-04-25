@@ -54,6 +54,7 @@ class BaseCache(MemObject):
     assoc = Param.Unsigned("Associativity")
     # MJL_Begin
     MJL_row_width = Param.Int(Parent.MJL_row_width, "Row size in number of cachelines")
+    MJL_default_column = Param.Bool(Parent.MJL_default_column, "Set default preference of all data accesses to column")
     # MJL_End 
 
     tag_latency = Param.Cycles("Tag lookup latency")

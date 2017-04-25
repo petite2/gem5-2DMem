@@ -180,6 +180,7 @@ system = System(cpu = [CPUClass(cpu_id=i) for i in xrange(np)],
                 cache_line_size = options.cacheline_size\
                 # MJL_Begin
                 , MJL_row_width = options.MJL_row_width\
+                , MJL_default_column = options.MJL_default_column\
                 # MJL_End
                 )
 

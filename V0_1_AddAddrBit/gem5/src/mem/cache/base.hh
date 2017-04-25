@@ -260,6 +260,7 @@ class BaseCache : public MemObject
     /* MJL_Begin */
     /** Row size of this memory system in number of cachelines */
     const unsigned MJL_rowWidth;
+    const bool MJL_defaultColumn;
     /* MJL_End */
 
     /**

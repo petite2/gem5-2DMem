@@ -73,6 +73,7 @@ class System(MemObject):
     cache_line_size = Param.Unsigned(64, "Cache line size in bytes")
     # MJL_Begin
     MJL_row_width = Param.Unsigned(512, "Row size in number of cache lines")
+    MJL_default_column = Param.Bool(False, "Set default preference of all data accesses to column")
     # MJL_End
 
     exit_on_work_items = Param.Bool(False, "Exit from the simulation loop when "
