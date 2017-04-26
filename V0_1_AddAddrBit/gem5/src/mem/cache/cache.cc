@@ -1361,8 +1361,8 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
 
     // functional access for different direction blocks
     bool diff_have_data = false;
-    bool diff_have_dirty = true;
-    bool diff_done = true;
+    bool diff_have_dirty = false;
+    bool diff_done = false;
     for (Addr MJL_wordAddr = pkt->getAddr(); MJL_wordAddr < (pkt->getAddr() + pkt->getSize()); MJL_wordAddr = MJL_wordAddr + sizeof(uint64_t)) {
         blk_addr = MJL_blockAlign(MJL_wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
         blk = tags->MJL_findBlock(MJL_wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
@@ -1373,10 +1373,10 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
             && pkt->MJL_checkFunctional(&cbpw, blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, blkSize,
                                     blk->data));
         diff_have_dirty =
-            diff_have_dirty && (diff_have_data && (blk->isDirty() ||
+            diff_have_dirty || (diff_have_data && (blk->isDirty() ||
                         (mshr && mshr->inService && mshr->isPendingModified())));
 
-        diff_done = diff_done && (diff_have_dirty
+        diff_done = diff_done || (diff_have_dirty
             || cpuSidePort->MJL_checkFunctional(pkt)
             || mshrQueue.MJL_checkFunctional(pkt, blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn)
             || writeBuffer.MJL_checkFunctional(pkt, blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn)
