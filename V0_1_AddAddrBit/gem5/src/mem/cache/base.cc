@@ -74,7 +74,7 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
       blkSize(blk_size),
       /* MJL_Begin */
       MJL_rowWidth(p->MJL_row_width),
-      MJL_defaultColumn(p->MJL_defaultColumn),
+      MJL_defaultColumn(p->MJL_default_column),
       /* MJL_End */
       lookupLatency(p->tag_latency),
       dataLatency(p->data_latency),
