@@ -536,6 +536,64 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
     // keep going with request by default
     return false;
 }
+
+bool MJL_setHaveDirty(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure, int size,
+                        uint8_t *_data) {
+    Addr func_start = getAddr();
+    Addr func_end   = getAddr() + getSize() - 1;
+    Addr val_start  = addr;
+    Addr val_end    = MJL_swapRowColBits(MJL_swapRowColBits(val_start, req->MJL_cachelineSize, req->MJL_rowWidth) + size - 1, req->MJL_cachelineSize, req->MJL_rowWidth);
+    // Should only be used when checking for different directions
+    assert(MJL_getCmdDir() != MJL_cmdDir);
+    if (((val_start & ~MJL_commonMask(req->MJL_cachelineSize, req->MJL_rowWidth)) != (func_start & ~MJL_commonMask(req->MJL_cachelineSize, req->MJL_rowWidth))) || isPrint() || (is_secure != _isSecure) || (!_data)) {
+        return false;
+    }
+
+    if (isRead()) {
+        Addr MJL_thisBlkAddr = getBlockAddr(req->MJL_cachelineSize);
+        Addr MJL_thisWordOffset = (val_start & Addr(req->MJL_cachelineSize - 1)) >> floorLog2(sizeof(uint64_t));
+        Addr MJL_func_wordStart = MJL_thisBlkAddr +  (Addr)MJL_thisWordOffset * sizeof(uint64_t);
+        int MJL_size = min(min(sizeof(uint64_t), func_end - MJL_func_wordStart + 1), val_end - MJL_func_wordStart + 1);
+        // Should be pinpointing the same word
+        if ((MJL_func_wordStart > func_end) || (MJL_func_wordStart + MJL_size - 1 < func_start) || (MJL_func_wordStart > val_end) || (MJL_func_wordStart + MJL_size - 1 < val_start)) { // Crossing word is out of range, actually no intersection
+            return false;
+        } else {
+            Addr MJL_thisDataOffset = MJL_func_wordStart - func_start;
+            if (val_start > MJL_func_wordStart || func_start > MJL_func_wordStart) {
+                if (val_start >= func_start) {
+                    MJL_thisDataOffset = val_start - func_start;
+                    MJL_size = MJL_func_wordStart + sizeof(uint64_t) - val_start;
+                } else {
+                    MJL_thisDataOffset = 0;
+                    MJL_size = MJL_func_wordStart + sizeof(uint64_t) - func_start;
+                }
+            }
+            
+            if (MJL_bytesDirty.empty())
+                MJL_bytesDirty.resize(getSize(), false);
+            // track if we are done filling the functional access
+            bool MJL_all_bytes_dirty = true;
+
+            int MJL_i = 0;
+
+            // check up to func_offset
+            for (; MJL_all_bytes_dirty && MJL_i < MJL_thisDataOffset; ++MJL_i)
+                MJL_all_bytes_dirty &= MJL_bytesDirty[MJL_i];
+
+            // update the valid bytes
+            for (MJL_i = MJL_thisDataOffset; MJL_i < MJL_thisDataOffset + MJL_size; ++MJL_i)
+                MJL_bytesDirty[MJL_i] = true;
+
+            // check the bit after the update we just made
+            for (; MJL_all_bytes_dirty && MJL_i < getSize(); ++MJL_i)
+                MJL_all_bytes_dirty &= MJL_bytesDirty[MJL_i];
+
+            return MJL_all_bytes_dirty;
+        }
+    }
+
+    return false;
+}
 /* MJL_End */
 
 void

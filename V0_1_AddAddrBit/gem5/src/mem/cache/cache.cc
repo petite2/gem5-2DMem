@@ -1372,9 +1372,12 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
         diff_have_data = diff_have_data || (blk && blk->isValid()
             && pkt->MJL_checkFunctional(&cbpw, blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, blkSize,
                                     blk->data));
-        diff_have_dirty =
-            diff_have_dirty || (diff_have_data && (blk->isDirty() ||
-                        (mshr && mshr->inService && mshr->isPendingModified())));
+
+        if (blk && blk->isValid() && (blk->isDirty() ||
+                        (mshr && mshr->inService && mshr->isPendingModified()))) {
+            diff_have_dirty = diff_have_dirty || packet->MJL_setHaveDirty(blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, blkSize,
+                        blk->data);
+        }
 
         diff_done = diff_done || (diff_have_dirty
             || cpuSidePort->MJL_checkFunctional(pkt)

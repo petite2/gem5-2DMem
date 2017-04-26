@@ -375,6 +375,7 @@ class Packet : public Printable
     std::vector<bool> bytesValid;
     /* MJL_Begin */
     std::vector<bool> MJL_bytesValid;
+    std::vector<bool> MJL_bytesDirty;
     /* MJL_End */
 
   public:
@@ -1382,6 +1383,12 @@ class Packet : public Printable
     /* MJL_Begin */
     bool
     MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure, int size,
+                        uint8_t *_data);
+    /**
+     * Used in the cross directional check to record if bytes are in have dirty status
+     * Return true when all bytes are in have dirty status
+     */
+    bool MJL_setHaveDirty(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure, int size,
                         uint8_t *_data);
     /* MJL_End */
 
