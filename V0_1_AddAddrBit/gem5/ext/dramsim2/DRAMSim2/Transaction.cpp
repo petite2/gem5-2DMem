@@ -46,7 +46,7 @@ namespace DRAMSim {
 Transaction::Transaction(TransactionType transType, uint64_t addr, void *dat) :
 	transactionType(transType),
 	address(addr),/* MJL_Begin */
-	MJL_transDir(MJL_TransDir::MJL_IsRow), // 1 for Row
+	MJL_transDir(MJL_IsRow), // 1 for Row
 	/* MJL_End */
 	data(dat)
 {}

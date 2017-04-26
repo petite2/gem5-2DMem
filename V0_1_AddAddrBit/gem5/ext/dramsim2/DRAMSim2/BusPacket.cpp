@@ -55,7 +55,7 @@ BusPacket::BusPacket(BusPacketType packtype, uint64_t physicalAddr,
 	bank(b),
 	rank(r),
 	physicalAddress(physicalAddr),/* MJL_Begin */
-	MJL_bpDir(MJL_TransDir::MJL_IsRow),
+	MJL_bpDir(MJL_IsRow),
 	/* MJL_End */
 	data(dat)
 {}

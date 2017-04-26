@@ -109,6 +109,32 @@ class TransactionReceiver
 			pendingReadRequests[address].pop_front();
 			cout << "Read Callback:  0x"<< std::hex << address << std::dec << " latency="<<latency<<"cycles ("<< done_cycle<< "->"<<added_cycle<<")"<<endl;
 		}
+		/* MJL_Begin */
+		void MJL_read_complete(unsigned id, uint64_t address, uint64_t done_cycle, unsigned MJL_transDir)
+		{
+			map<uint64_t, list<uint64_t> >::iterator it;
+			it = pendingReadRequests.find(address); 
+			if (it == pendingReadRequests.end())
+			{
+				ERROR("Cant find a pending read for this one"); 
+				exit(-1);
+			}
+			else
+			{
+				if (it->second.size() == 0)
+				{
+					ERROR("Nothing here, either"); 
+					exit(-1); 
+				}
+			}
+
+			uint64_t added_cycle = pendingReadRequests[address].front();
+			uint64_t latency = done_cycle - added_cycle;
+
+			pendingReadRequests[address].pop_front();
+			cout << "Read Callback:  0x"<< std::hex << address << std::dec << " " << MJL_transDir " latency="<<latency<<"cycles ("<< done_cycle<< "->"<<added_cycle<<")"<<endl;
+		}
+		/* MJL_End */
 		void write_complete(unsigned id, uint64_t address, uint64_t done_cycle)
 		{
 			map<uint64_t, list<uint64_t> >::iterator it;
@@ -133,6 +159,32 @@ class TransactionReceiver
 			pendingWriteRequests[address].pop_front();
 			cout << "Write Callback: 0x"<< std::hex << address << std::dec << " latency="<<latency<<"cycles ("<< done_cycle<< "->"<<added_cycle<<")"<<endl;
 		}
+		/* MJL_Begin */
+		void MJL_write_complete(unsigned id, uint64_t address, uint64_t done_cycle, unsigned MJL_transDir)
+		{
+			map<uint64_t, list<uint64_t> >::iterator it;
+			it = pendingWriteRequests.find(address); 
+			if (it == pendingWriteRequests.end())
+			{
+				ERROR("Cant find a pending read for this one"); 
+				exit(-1);
+			}
+			else
+			{
+				if (it->second.size() == 0)
+				{
+					ERROR("Nothing here, either"); 
+					exit(-1); 
+				}
+			}
+
+			uint64_t added_cycle = pendingWriteRequests[address].front();
+			uint64_t latency = done_cycle - added_cycle;
+
+			pendingWriteRequests[address].pop_front();
+			cout << "Write Callback: 0x"<< std::hex << address << std::dec << " " << MJL_transDir << " latency="<<latency<<"cycles ("<< done_cycle<< "->"<<added_cycle<<")"<<endl;
+		}
+		/* MJL_End */
 };
 #endif
 
@@ -321,6 +373,195 @@ void *parseTraceFileLine(string &line, uint64_t &addr, enum TransactionType &tra
 	}
 	return dataBuffer;
 }
+/* MJL_Begin */
+void *MJL_parseTraceFileLine(string &line, uint64_t &addr, unsigned &MJL_transDir, enum TransactionType &transType, uint64_t &clockCycle, TraceType type, bool useClockCycle)
+{
+	size_t previousIndex=0;
+	size_t spaceIndex=0;
+	uint64_t *dataBuffer = NULL;
+	string addressStr="", MJL_transDirStr="", cmdStr="", dataStr="", ccStr="";
+
+	switch (type)
+	{
+	case k6:
+	{
+		spaceIndex = line.find_first_of(" ", 0);
+
+		addressStr = line.substr(0, spaceIndex);
+		previousIndex = spaceIndex;
+
+		spaceIndex = line.find_first_not_of(" ", previousIndex);
+		cmdStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+		previousIndex = line.find_first_of(" ", spaceIndex);
+
+		spaceIndex = line.find_first_not_of(" ", previousIndex);
+		ccStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+		previousIndex = line.find_first_of(" ", spaceIndex);
+
+		if ((previousIndex != string::npos) && (line.find_first_not_of(" ", previousIndex) != string::npos)) {
+			spaceIndex = line.find_first_not_of(" ", previousIndex);
+			MJL_transDirStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+			istringstream(MJL_transDirStr) >> MJL_transDir;
+		} else {
+			MJL_transDir = 1; // Default to row
+		}
+
+		if (cmdStr.compare("P_MEM_WR")==0 ||
+		        cmdStr.compare("BOFF")==0)
+		{
+			transType = DATA_WRITE;
+		}
+		else if (cmdStr.compare("P_FETCH")==0 ||
+		         cmdStr.compare("P_MEM_RD")==0 ||
+		         cmdStr.compare("P_LOCK_RD")==0 ||
+		         cmdStr.compare("P_LOCK_WR")==0)
+		{
+			transType = DATA_READ;
+		}
+		else
+		{
+			ERROR("== Unknown Command : "<<cmdStr);
+			exit(0);
+		}
+
+		istringstream a(addressStr.substr(2));//gets rid of 0x
+		a>>hex>>addr;
+
+		//if this is set to false, clockCycle will remain at 0, and every line read from the trace
+		//  will be allowed to be issued
+		if (useClockCycle)
+		{
+			istringstream b(ccStr);
+			b>>clockCycle;
+		}
+		break;
+	}
+	case mase:
+	{
+		spaceIndex = line.find_first_of(" ", 0);
+
+		addressStr = line.substr(0, spaceIndex);
+		previousIndex = spaceIndex;
+
+		spaceIndex = line.find_first_not_of(" ", previousIndex);
+		cmdStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+		previousIndex = line.find_first_of(" ", spaceIndex);
+
+		spaceIndex = line.find_first_not_of(" ", previousIndex);
+		ccStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+		previousIndex = line.find_first_of(" ", spaceIndex);
+
+		if ((previousIndex != string::npos) && (line.find_first_not_of(" ", previousIndex) != string::npos)) {
+			spaceIndex = line.find_first_not_of(" ", previousIndex);
+			MJL_transDirStr = line.substr(spaceIndex, line.find_first_of(" ", spaceIndex) - spaceIndex);
+			istringstream(MJL_transDirStr) >> MJL_transDir;
+		} else {
+			MJL_transDir = 1; // Default to row
+		}
+		
+
+		if (cmdStr.compare("IFETCH")==0||
+		        cmdStr.compare("READ")==0)
+		{
+			transType = DATA_READ;
+		}
+		else if (cmdStr.compare("WRITE")==0)
+		{
+			transType = DATA_WRITE;
+		}
+		else
+		{
+			ERROR("== Unknown command in tracefile : "<<cmdStr);
+		}
+
+		istringstream a(addressStr.substr(2));//gets rid of 0x
+		a>>hex>>addr;
+
+		//if this is set to false, clockCycle will remain at 0, and every line read from the trace
+		//  will be allowed to be issued
+		if (useClockCycle)
+		{
+			istringstream b(ccStr);
+			b>>clockCycle;
+		}
+
+		break;
+	}
+	case misc:
+		spaceIndex = line.find_first_of(" ", spaceIndex+1);
+		if (spaceIndex == string::npos)
+		{
+			ERROR("Malformed line: '"<< line <<"'");
+		}
+
+		addressStr = line.substr(previousIndex,spaceIndex);
+		previousIndex=spaceIndex;
+
+		spaceIndex = line.find_first_of(" ", spaceIndex+1);
+		if (spaceIndex == string::npos)
+		{
+			cmdStr = line.substr(previousIndex+1);
+		}
+		else
+		{
+			cmdStr = line.substr(previousIndex+1,spaceIndex-previousIndex-1);
+			dataStr = line.substr(spaceIndex+1);
+		}
+
+		//convert address string -> number
+		istringstream b(addressStr.substr(2)); //substr(2) chops off 0x characters
+		b >>hex>> addr;
+
+		// parse command
+		if (cmdStr.compare("read") == 0)
+		{
+			transType=DATA_READ;
+		}
+		else if (cmdStr.compare("write") == 0)
+		{
+			transType=DATA_WRITE;
+		}
+		else
+		{
+			ERROR("INVALID COMMAND '"<<cmdStr<<"'");
+			exit(-1);
+		}
+		if (SHOW_SIM_OUTPUT)
+		{
+			DEBUGN("ADDR='"<<hex<<addr<<dec<<"',CMD='"<<transType<<"'");//',DATA='"<<dataBuffer[0]<<"'");
+		}
+
+		//parse data
+		//if we are running in a no storage mode, don't allocate space, just return NULL
+#ifndef NO_STORAGE
+		if (dataStr.size() > 0 && transType == DATA_WRITE)
+		{
+			// 32 bytes of data per transaction
+			dataBuffer = (uint64_t *)calloc(sizeof(uint64_t),4);
+			size_t strlen = dataStr.size();
+			for (int i=0; i < 4; i++)
+			{
+				size_t startIndex = i*16;
+				if (startIndex > strlen)
+				{
+					break;
+				}
+				size_t charsLeft = min(((size_t)16), strlen - startIndex + 1);
+				string piece = dataStr.substr(i*16,charsLeft);
+				istringstream iss(piece);
+				iss >> hex >> dataBuffer[i];
+			}
+			PRINTN("\tDATA=");
+			BusPacket::printData(dataBuffer);
+		}
+
+		PRINT("");
+#endif
+		break;
+	}
+	return dataBuffer;
+}
+/* MJL_Begin */
 
 #ifndef _SIM_
 
@@ -518,13 +759,22 @@ int main(int argc, char **argv)
 #ifdef RETURN_TRANSACTIONS
 	TransactionReceiver transactionReceiver; 
 	/* create and register our callback functions */
+	/* MJL_Begin */
+	Callback_t *read_cb = new Callback<TransactionReceiver, void, unsigned, uint64_t, uint64_t>(&transactionReceiver, &TransactionReceiver::MJL_read_complete);
+	Callback_t *write_cb = new Callback<TransactionReceiver, void, unsigned, uint64_t, uint64_t>(&transactionReceiver, &TransactionReceiver::MJL_write_complete);
+	/* MJL_End */
+	/* MJL_Comment
 	Callback_t *read_cb = new Callback<TransactionReceiver, void, unsigned, uint64_t, uint64_t>(&transactionReceiver, &TransactionReceiver::read_complete);
 	Callback_t *write_cb = new Callback<TransactionReceiver, void, unsigned, uint64_t, uint64_t>(&transactionReceiver, &TransactionReceiver::write_complete);
+	*/
 	memorySystem->RegisterCallbacks(read_cb, write_cb, NULL);
 #endif
 
 
 	uint64_t addr;
+	/* MJL_Begin */
+	unsigned MJL_transDir;
+	/* MJL_End */
 	uint64_t clockCycle=0;
 	enum TransactionType transType;
 
@@ -551,8 +801,14 @@ int main(int argc, char **argv)
 
 				if (line.size() > 0)
 				{
+					/* MJL_Begin */
+					data = MJL_parseTraceFileLine(line, addr, MJL_transDir, transType,clockCycle, traceType,useClockCycle);
+					trans = new Transaction(transType, addr, MJL_getTransDir(MJL_transDir), data);
+					/* MJL_End */
+					/* MJL_Comment
 					data = parseTraceFileLine(line, addr, transType,clockCycle, traceType,useClockCycle);
 					trans = new Transaction(transType, addr, data);
+					*/
 					alignTransactionAddress(*trans); 
 
 					if (i>=clockCycle)

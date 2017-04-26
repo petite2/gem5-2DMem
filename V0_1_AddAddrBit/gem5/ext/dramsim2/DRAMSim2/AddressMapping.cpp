@@ -369,7 +369,7 @@ void MJL_addressMapping(uint64_t physicalAddress, MJL_TransDir MJL_transDir, uns
 		physicalAddress = MJL_sameHigh | MJL_shiftLeft | MJL_shiftRight | MJL_sameLow;
 	}
 	// Swapping row and column bits
-	if (MJL_transDir == MJL_TransDir::MJL_IsColumn) {
+	if (MJL_transDir == MJL_IsColumn) {
 		uint64_t MJL_newRow = (physicalAddress & ((1 << colBitWidth) - 1)) << colBitWidth;
 		uint64_t MJL_newColumn = (physicalAddress >> colBitWidth) & ((1 << colBitWidth) - 1);
 		uint64_t MJL_sameHigh = physicalAddress & ~((1 << (2 * colBitWidth)) - 1);
