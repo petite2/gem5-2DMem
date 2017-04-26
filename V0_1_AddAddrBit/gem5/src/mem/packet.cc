@@ -537,7 +537,7 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
     return false;
 }
 
-bool MJL_setHaveDirty(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure, int size,
+bool Packet::MJL_setHaveDirty(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure, int size,
                         uint8_t *_data) {
     Addr func_start = getAddr();
     Addr func_end   = getAddr() + getSize() - 1;

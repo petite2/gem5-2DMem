@@ -1375,7 +1375,7 @@ Cache::functionalAccess(PacketPtr pkt, bool fromCpuSide)
 
         if (blk && blk->isValid() && (blk->isDirty() ||
                         (mshr && mshr->inService && mshr->isPendingModified()))) {
-            diff_have_dirty = diff_have_dirty || packet->MJL_setHaveDirty(blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, blkSize,
+            diff_have_dirty = diff_have_dirty || pkt->MJL_setHaveDirty(blk_addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, blkSize,
                         blk->data);
         }
 
