@@ -458,6 +458,14 @@ class BaseCache : public MemObject
     Stats::Formula avgMshrUncacheableLatency[MemCmd::NUM_MEM_CMDS];
     /** The average overall latency of an MSHR miss. */
     Stats::Formula overallAvgMshrUncacheableLatency;
+    /* MJL_Begin */
+    Stats::Scalar MJL_overallRowMisses;
+    Stats::Scalar MJL_overallColumnMisses;
+    Stats::Scalar MJL_overallRowHits;
+    Stats::Scalar MJL_overallColumnHits;
+    Stats::Formula MJL_overallRowAccesses;
+    Stats::Formula MJL_overallColumnAccesses;
+    /* MJL_End */
 
     /**
      * @}

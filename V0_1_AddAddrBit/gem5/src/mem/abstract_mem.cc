@@ -344,7 +344,7 @@ AbstractMemory::access(PacketPtr pkt)
 
     // MJL_Test
     if (!pkt->req->isInstFetch()) {
-        std::cout << this->name() << "::access() Cmd: " << pkt->cmd.toString() << ", DataDir: " << pkt->MJL_getDataDir() << ", CmdDir: " << pkt->MJL_getCmdDir() << ", Size: " << pkt->getSize() << ", addr: ";
+        std::cout << this->name() << "::access() Cmd: " << pkt->cmd.toString()", Size: " << pkt->getSize() << ", addr: ";
         std::cout << std::oct << pkt->getAddr();
         std::cout << std::dec << ", PC: ";
         if (pkt->req->hasPC()) {

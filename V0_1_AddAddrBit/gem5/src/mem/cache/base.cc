@@ -766,5 +766,44 @@ BaseCache::regStats()
     for (int i = 0; i < system->maxMasters(); i++) {
         overallAvgMshrUncacheableLatency.subname(i, system->getMasterName(i));
     }
+    /* MJL_Begin */
+    MJL_overallRowMisses
+        .name(name() + ".MJL_overallRowMisses")
+        .desc("number of overall misses with row preference")
+        .flags(nozero)
+        ;
+
+    MJL_overallColumnMisses
+        .name(name() + ".MJL_overallColumnMisses")
+        .desc("number of overall misses with column preference")
+        .flags(nozero)
+        ;
+
+    MJL_overallRowHits
+        .name(name() + ".MJL_overallRowHits")
+        .desc("number of overall hits with row preference")
+        .flags(nozero)
+        ;
+
+    MJL_overallColumnHits
+        .name(name() + ".MJL_overallColumnHits")
+        .desc("number of overall hits with column preference")
+        .flags(nozero)
+        ;
+
+    MJL_overallRowAccesses
+        .name(name() + ".MJL_overallRowAccesses")
+        .desc("number of overall accesses with row preference")
+        .flags(total | nozero | nonan)
+        ;
+    MJL_overallRowAccesses = MJL_overallRowHits + MJL_overallRowMisses;
+
+    MJL_overallColumnAccesses
+        .name(name() + ".MJL_overallColumnAccesses")
+        .desc("number of overall accesses with column preference")
+        .flags(total | nozero | nonan)
+        ;
+    MJL_overallColumnAccesses = MJL_overallColumnHits + MJL_overallColumnMisses;
+    /* MJL_End */
 
 }

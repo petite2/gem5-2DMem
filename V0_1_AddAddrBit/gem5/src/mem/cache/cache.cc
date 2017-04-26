@@ -484,6 +484,13 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             if (blk == nullptr) {
                 // no replaceable block available: give up, fwd to next level.
                 incMissCount(pkt);
+                /* MJL_Begin */
+                if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    MJL_overallRowMisses++;
+                } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    MJL_overallColumnMisses++;
+                }
+                /* MJL_End */
                 return false;
             }
             tags->insertBlock(pkt, blk);
@@ -513,6 +520,13 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
         DPRINTF(Cache, "%s new state is %s\n", __func__, blk->print());
         incHitCount(pkt);
+        /* MJL_Begin */
+        if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+            MJL_overallRowHits++;
+        } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+            MJL_overallColumnHits++;
+        }
+        /* MJL_End */
         return true;
     } else if (pkt->cmd == MemCmd::CleanEvict) {
         if (blk != nullptr) {
@@ -531,6 +545,13 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                        blk->isReadable())) {
         // OK to satisfy access
         incHitCount(pkt);
+        /* MJL_Begin */
+        if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+            MJL_overallRowHits++;
+        } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+            MJL_overallColumnHits++;
+        }
+        /* MJL_End */
         satisfyRequest(pkt, blk);
         maintainClusivity(pkt->fromCache(), blk);
 
@@ -541,6 +562,13 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     // or have block but need writable
 
     incMissCount(pkt);
+    /* MJL_Begin */
+    if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+        MJL_overallRowMisses++;
+    } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        MJL_overallColumnMisses++;
+    }
+    /* MJL_End */
 
     if (blk == nullptr && pkt->isLLSC() && pkt->isWrite()) {
         // complete miss on store conditional... just give up now
