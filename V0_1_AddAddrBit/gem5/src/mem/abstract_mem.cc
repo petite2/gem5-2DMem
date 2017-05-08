@@ -352,6 +352,17 @@ AbstractMemory::access(PacketPtr pkt)
         } else {
              std::cout << "NoPC";
         }
+        if ((pkt->cmd.toString()).find("WritebackDirty") != std::string::npos) {
+            std::cout << ", DataDir: " << pkt->MJL_getDataDir() << ", CmdDir: " << pkt->MJL_getCmdDir();
+            uint64_t MJL_data = 0;
+            std::cout << std::hex << ", Data:";
+            for (unsigned i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                MJL_data = 0;
+                std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
+                std::cout << "word[" << i/sizeof(uint64_t) << "] = " <<  MJL_data << ", ";
+            }
+            std::cout << std::dec;
+        }
         std::cout << ", time: " << pkt->req->time() << "\n";
     }
                     
@@ -528,6 +539,15 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
     // MJL_TODO: Same as access()
     /* MJL_Begin */
     assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
+    std::cout << this->name() << "::functionalAccess() Cmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", addr: ";
+    std::cout << std::oct << pkt->getAddr();
+    std::cout << std::dec << ", PC: ";
+    if (pkt->req->hasPC()) {
+         std::cout << pkt->req->getPC();
+    } else {
+         std::cout << "NoPC";
+    }
+    std::cout << ", time: " << pkt->req->time() << "\n";
     /* MJL_End */
     assert(AddrRange(pkt->getAddr(),
                      pkt->getAddr() + pkt->getSize() - 1).isSubset(range));
@@ -536,7 +556,18 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
 
     if (pkt->isRead()) {
         if (pmemAddr)
+        /* MJL_Begin */
+        {
+            for (int i = 0; i < pkt->getSize(); ++i) {
+                if (!pkt->MJL_hasDirty(i)) {
+                    memcpy(pkt->getPtr<uint8_t>() + i, hostAddr + i, 1);
+                }
+            }
+        }
+        /* MJL_End */
+        /* MJL_Comment
             memcpy(pkt->getPtr<uint8_t>(), hostAddr, pkt->getSize());
+        */
         TRACE_PACKET("Read");
         pkt->makeResponse();
     } else if (pkt->isWrite()) {
