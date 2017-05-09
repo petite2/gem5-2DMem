@@ -491,7 +491,7 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
             if (isRead()) {
                 uint8_t *src = _data + MJL_inDataOffset;
                 uint8_t *dest = getPtr<uint8_t>() + MJL_thisDataOffset;
-                memcpy(dest, src, MJL_size);
+                //memcpy(dest, src, MJL_size);
                 
                 if (MJL_bytesValid.empty())
                     MJL_bytesValid.resize(getSize(), false);
@@ -499,20 +499,36 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
                 bool MJL_all_bytes_valid = true;
 
                 int MJL_i = 0;
+                
+                bool MJL_word_dirty = true;
+                if (!MJL_bytesDirty.empty()) {
+                    for (int i = MJL_thisDataOffset; i < MJL_thisDataOffset + MJL_size; ++i) {
+                        MJL_word_dirty &= MJL_bytesDirty[i];
+                    }
+                } else {
+                    MJL_word_dirty = false;
+                }
+          
+                if (!MJL_word_dirty) {
+                    memcpy(dest, src, MJL_size);
+                    // check up to func_offset
+                    for (; MJL_all_bytes_valid && MJL_i < MJL_thisDataOffset; ++MJL_i)
+                        MJL_all_bytes_valid &= MJL_bytesValid[MJL_i];
 
-                // check up to func_offset
-                for (; MJL_all_bytes_valid && MJL_i < MJL_thisDataOffset; ++MJL_i)
-                    MJL_all_bytes_valid &= MJL_bytesValid[MJL_i];
+                    // update the valid bytes
+                    for (MJL_i = MJL_thisDataOffset; MJL_i < MJL_thisDataOffset + MJL_size; ++MJL_i)
+                        MJL_bytesValid[MJL_i] = true;
 
-                // update the valid bytes
-                for (MJL_i = MJL_thisDataOffset; MJL_i < MJL_thisDataOffset + MJL_size; ++MJL_i)
-                    MJL_bytesValid[MJL_i] = true;
-
-                // check the bit after the update we just made
-                for (; MJL_all_bytes_valid && MJL_i < getSize(); ++MJL_i)
-                    MJL_all_bytes_valid &= MJL_bytesValid[MJL_i];
+                    // check the bit after the update we just made
+                    for (; MJL_all_bytes_valid && MJL_i < getSize(); ++MJL_i)
+                        MJL_all_bytes_valid &= MJL_bytesValid[MJL_i];
+ 
+                } else {
+                    MJL_all_bytes_valid = false;
+                }
 
                 return MJL_all_bytes_valid;
+
 
             } else if (isWrite()) {
                 uint8_t *src = getPtr<uint8_t>() + MJL_thisDataOffset;
