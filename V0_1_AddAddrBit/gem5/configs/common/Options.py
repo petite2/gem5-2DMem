@@ -135,6 +135,12 @@ def addNoISAOptions(parser):
 def addCommonOptions(parser):
     # start by adding the base options that do not assume an ISA
     addNoISAOptions(parser)
+    
+    # Check for extra nvmain configuration override options
+   for arg in sys.argv:
+       if arg[:9] == "--nvmain-":
+           parser.add_option(arg, type="string", default="NULL",
+                      help="Set NVMain configuration value for a parameter")
 
     # system options
     parser.add_option("--list-cpu-types",
