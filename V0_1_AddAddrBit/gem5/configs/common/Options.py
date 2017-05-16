@@ -137,9 +137,9 @@ def addCommonOptions(parser):
     addNoISAOptions(parser)
     
     # Check for extra nvmain configuration override options
-   for arg in sys.argv:
-       if arg[:9] == "--nvmain-":
-           parser.add_option(arg, type="string", default="NULL",
+    for arg in sys.argv:
+        if arg[:9] == "--nvmain-":
+            parser.add_option(arg, type="string", default="NULL",
                       help="Set NVMain configuration value for a parameter")
 
     # system options
