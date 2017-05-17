@@ -559,7 +559,11 @@ class Packet : public Printable
     bool MJL_dataIsColumn() const       { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsColumn; }
     bool MJL_sameCmdDataDir() const     { return MJL_dataDir == cmd.MJL_getCmdDir(); }
     void MJL_setDataDir( MemCmd::MJL_DirAttribute in_MJL_dataDir ) { MJL_dataDir = in_MJL_dataDir; }
-    bool MJL_hasDirty(int MJL_byte) const { return MJL_bytesDirty[MJL_byte]; }
+    bool MJL_hasDirty(int MJL_byte) {
+        if (MJL_bytesDirty.empty())
+            MJL_bytesDirty.resize(getSize(), false);
+        return MJL_bytesDirty[MJL_byte];
+    }
     /* MJL_End */
     bool isRead() const              { return cmd.isRead(); }
     bool isWrite() const             { return cmd.isWrite(); }

@@ -538,7 +538,6 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
 {
     // MJL_TODO: Same as access()
     /* MJL_Begin */
-    assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
     std::cout << this->name() << "::functionalAccess() Cmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", addr: ";
     std::cout << std::oct << pkt->getAddr();
     std::cout << std::dec << ", PC: ";
@@ -558,9 +557,28 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
         if (pmemAddr)
         /* MJL_Begin */
         {
-            for (int i = 0; i < pkt->getSize(); ++i) {
-                if (!pkt->MJL_hasDirty(i)) {
-                    memcpy(pkt->getPtr<uint8_t>() + i, hostAddr + i, 1);
+            if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                for (int i = 0; i < pkt->getSize(); ++i) {
+                    if (!pkt->MJL_hasDirty(i)) {
+                        memcpy(pkt->getPtr<uint8_t>() + i, hostAddr + i, 1);
+                    }
+                }
+            } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
+                Addr MJL_colOff = 0;
+                for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
+                    for (int i = 0; i < std::min(sizeof(uint64_t), pkt->getSize() - MJL_Offset); ++i) {
+                        if (!pkt->MJL_hasDirty(MJL_Offset + i)) {
+                            memcpy(pkt->getPtr<uint8_t>() + MJL_Offset + i, hostAddr + MJL_colOff + i, 1);
+                        }
+                    }
+                    MJL_colOff = MJL_colOff + MJL_incColOff;
+                }
+            } else {
+                for (int i = 0; i < pkt->getSize(); ++i) {
+                    if (!pkt->MJL_hasDirty(i)) {
+                        memcpy(pkt->getPtr<uint8_t>() + i, hostAddr + i, 1);
+                    }
                 }
             }
         }
@@ -572,7 +590,25 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
         pkt->makeResponse();
     } else if (pkt->isWrite()) {
         if (pmemAddr)
+        /* MJL_Begin */
+        {
+            if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                memcpy(hostAddr, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+            } else if (pkt->MJL_getDataDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                Addr MJL_incColOff = (Addr)(1 << (floorLog2(pkt->req->MJL_rowWidth) + floorLog2(pkt->req->MJL_cachelineSize)));
+                Addr MJL_colOff = 0;
+                for (Addr MJL_Offset = 0; MJL_Offset < pkt->getSize(); MJL_Offset = MJL_Offset + sizeof(uint64_t)) {
+                    memcpy(hostAddr + MJL_colOff, pkt->getPtr<uint8_t>() + MJL_Offset, std::min(sizeof(uint64_t), pkt->getSize() - MJL_Offset));
+                    MJL_colOff = MJL_colOff + MJL_incColOff;
+                }
+            } else {
+                memcpy(hostAddr, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+            }
+        }
+        /* MJL_End */
+        /* MJL_Comment
             memcpy(hostAddr, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+        */
         TRACE_PACKET("Write");
         pkt->makeResponse();
     } else if (pkt->isPrint()) {
