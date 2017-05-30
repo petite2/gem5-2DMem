@@ -20,6 +20,8 @@ A tutorial for editing readme.
 
 Follow the documentations of gem5 at http://gem5.org/Documentation.
 
+To get DRAMSim2 support, the "filePath" variable in DRAMSim2.py should be changed to your path that points to the DRAMSim2 source file (absolute path is recommended, a relative path is relative to where the executable is launched).
+
 #### Dependencies
 
 Follow the documentations of gem5 at http://gem5.org/Dependencies. Most important ones are "scons" and "swig" to build gem5.
