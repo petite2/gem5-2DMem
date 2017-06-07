@@ -1264,6 +1264,12 @@ DefaultCommit<Impl>::commitHead(DynInstPtr &head_inst, unsigned inst_num)
     }
     DPRINTF(Commit, "Committing instruction with [sn:%lli] PC %s\n",
             head_inst->seqNum, head_inst->pcState());
+    /* MJL_Begin */
+    // Trying to get the PC to binary line mapping.
+    std::string MJL_inst_dump;
+    head_inst->dump(MJL_inst_dump);
+    std::cout << "MJL_Commit_inst: " << MJL_inst_dump << "\n";
+    /* MJL_End */
     if (head_inst->traceData) {
         head_inst->traceData->setFetchSeq(head_inst->seqNum);
         head_inst->traceData->setCPSeq(thread[tid]->numOp);

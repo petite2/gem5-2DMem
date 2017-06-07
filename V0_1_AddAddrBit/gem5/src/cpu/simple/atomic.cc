@@ -667,6 +667,10 @@ AtomicSimpleCPU::tick()
                 }
 
                 postExecute();
+                /* MJL_Begin */
+                // Trying to get the PC to binary line mapping.
+                std::cout << "MJL_Commit_inst: PC " << pcState.instAddr() << ", " << curStaticInst->disassemble(pcState.instAddr()) << "\n";
+                /* MJL_End */
             }
 
             // @todo remove me after debugging with legion done
