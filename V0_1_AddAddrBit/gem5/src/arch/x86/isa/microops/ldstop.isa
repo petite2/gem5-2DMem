@@ -574,6 +574,10 @@ let {{
                            '(StoreCheck << FlagShift) | Request::LOCKED_RMW',
                            nonSpec=True)
 
+    # MJL_Begin
+    defineMicroLoadSplitOp('LdfpVec', code)
+    # MJL_End
+
     def defineMicroStoreOp(mnemonic, code, completeCode="", mem_flags="0"):
         global header_output
         global decoder_output
