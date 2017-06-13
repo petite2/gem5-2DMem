@@ -118,6 +118,10 @@ def operands {{
         'FpSrcReg2':     floatReg('src2', 21),
         'FpDestReg':     floatReg('dest', 22),
         'FpData':        floatReg('data', 23),
+        # MJL_Begin
+        'FpDataLow':     floatReg('fpDataLow', 23),
+        'FpDataHi':      floatReg('fpDataHi', 23),
+        # MJL_End
         'RIP':           ('PCState', 'uqw', 'pc',
                           (None, None, 'IsControl'), 50),
         'NRIP':          ('PCState', 'uqw', 'npc',

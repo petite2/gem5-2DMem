@@ -385,6 +385,10 @@ AtomicSimpleCPU::readMem(Addr addr, uint8_t * data, unsigned size,
                     //pkt.MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
                     pkt.req->MJL_cachelineSize = 64;
                     pkt.req->MJL_rowWidth = 8;
+                    std::string MJL_inst_mnemonic(curStaticInst->disassemble(thread->pcState().instAddr()));
+                    if ((MJL_inst_mnemonic.find("mjl") != std::string::npos) && (MJL_inst_mnemonic.find("vec") != std::string::npos)) {
+                        pkt.req->MJL_setVec();
+                    }
                     dcache_latency += dcachePort.sendAtomic(&pkt);
                 }
                     /* MJL_End */
@@ -517,6 +521,10 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
                     //pkt.MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
                     pkt.req->MJL_cachelineSize = 64;
                     pkt.req->MJL_rowWidth = 8;
+                    std::string MJL_inst_mnemonic(curStaticInst->disassemble(thread->pcState().instAddr()));
+                    if ((MJL_inst_mnemonic.find("mjl") != std::string::npos) && (MJL_inst_mnemonic.find("vec") != std::string::npos)) {
+                        pkt.req->MJL_setVec();
+                    }
                     dcache_latency += dcachePort.sendAtomic(&pkt);
                 }
                     /* MJL_End */

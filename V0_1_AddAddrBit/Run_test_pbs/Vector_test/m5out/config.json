@@ -39,6 +39,7 @@
                 "name": "snoop_filter", 
                 "system": "system", 
                 "max_capacity": 8388608, 
+                "MJL_row_width": 8, 
                 "eventq_index": 0, 
                 "cxx_class": "SnoopFilter", 
                 "path": "system.membus.snoop_filter", 
@@ -54,11 +55,12 @@
         }, 
         "symbolfile": "", 
         "readfile": "", 
-        "thermal_model": null, 
+        "MJL_row_width": 8, 
         "cxx_class": "System", 
         "work_begin_cpu_id_exit": -1, 
         "load_offset": 0, 
         "work_begin_exit_count": 0, 
+        "MJL_default_column": false, 
         "p_state_clk_gate_min": 1000, 
         "memories": [
             "system.mem_ctrls"
@@ -78,7 +80,7 @@
             "domain_id": -1
         }, 
         "mem_ranges": [
-            "0:536870911:0:0:0:0"
+            "0:8589934591:0:0:0:0"
         ], 
         "eventq_index": 0, 
         "default_p_state": "UNDEFINED", 
@@ -162,6 +164,7 @@
                 "name": "snoop_filter", 
                 "system": "system", 
                 "max_capacity": 8388608, 
+                "MJL_row_width": 8, 
                 "eventq_index": 0, 
                 "cxx_class": "SnoopFilter", 
                 "path": "system.tol2bus.snoop_filter", 
@@ -181,6 +184,7 @@
         "init_param": 0, 
         "p_state_clk_gate_bins": 20, 
         "load_addr_mask": 1099511627775, 
+        "thermal_model": null, 
         "cpu": [
             {
                 "SQEntries": 32, 
@@ -251,10 +255,10 @@
                         "cmd": [
                             "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/Vector_test/test_vec-bin"
                         ], 
-                        "errout": "buildvec_test_Apr11_2017.apperr", 
+                        "errout": "build_test_Jun13_2017.apperr", 
                         "useArchPT": false, 
                         "egid": 100, 
-                        "output": "buildvec_test_Apr11_2017.appout"
+                        "output": "build_test_Jun13_2017.appout"
                     }
                 ], 
                 "name": "cpu", 
@@ -788,12 +792,14 @@
                     "clusivity": "mostly_incl", 
                     "prefetcher": null, 
                     "system": "system", 
+                    "MJL_row_width": 8, 
                     "write_buffers": 8, 
                     "response_latency": 2, 
                     "cxx_class": "Cache", 
                     "size": 32768, 
-                    "type": "Cache", 
+                    "MJL_default_column": false, 
                     "clk_domain": "system.cpu_clk_domain", 
+                    "type": "Cache", 
                     "max_miss_count": 0, 
                     "eventq_index": 0, 
                     "default_p_state": "UNDEFINED", 
@@ -812,6 +818,7 @@
                         "p_state_clk_gate_min": 1000, 
                         "eventq_index": 0, 
                         "p_state_clk_gate_bins": 20, 
+                        "MJL_rowWidth": 8, 
                         "default_p_state": "UNDEFINED", 
                         "clk_domain": "system.cpu_clk_domain", 
                         "power_model": null, 
@@ -830,15 +837,16 @@
                     "addr_ranges": [
                         "0:18446744073709551615:0:0:0:0"
                     ], 
-                    "is_read_only": true, 
+                    "assoc": 2, 
                     "prefetch_on_access": false, 
                     "path": "system.cpu.icache", 
                     "data_latency": 2, 
                     "tag_latency": 2, 
                     "name": "icache", 
+                    "MJL_PC2DirFile": "PC2Dir.txt", 
                     "p_state_clk_gate_bins": 20, 
                     "sequential_access": false, 
-                    "assoc": 2
+                    "is_read_only": true
                 }, 
                 "path": "system.cpu", 
                 "numRobs": 1, 
@@ -898,12 +906,14 @@
                     "clusivity": "mostly_incl", 
                     "prefetcher": null, 
                     "system": "system", 
+                    "MJL_row_width": 8, 
                     "write_buffers": 8, 
                     "response_latency": 2, 
                     "cxx_class": "Cache", 
                     "size": 1024, 
-                    "type": "Cache", 
+                    "MJL_default_column": false, 
                     "clk_domain": "system.cpu_clk_domain", 
+                    "type": "Cache", 
                     "max_miss_count": 0, 
                     "eventq_index": 0, 
                     "default_p_state": "UNDEFINED", 
@@ -922,6 +932,7 @@
                         "p_state_clk_gate_min": 1000, 
                         "eventq_index": 0, 
                         "p_state_clk_gate_bins": 20, 
+                        "MJL_rowWidth": 8, 
                         "default_p_state": "UNDEFINED", 
                         "clk_domain": "system.cpu_clk_domain", 
                         "power_model": null, 
@@ -940,15 +951,16 @@
                     "addr_ranges": [
                         "0:18446744073709551615:0:0:0:0"
                     ], 
-                    "is_read_only": false, 
+                    "assoc": 2, 
                     "prefetch_on_access": false, 
                     "path": "system.cpu.dtb_walker_cache", 
                     "data_latency": 2, 
                     "tag_latency": 2, 
                     "name": "dtb_walker_cache", 
+                    "MJL_PC2DirFile": "PC2Dir.txt", 
                     "p_state_clk_gate_bins": 20, 
                     "sequential_access": false, 
-                    "assoc": 2
+                    "is_read_only": false
                 }, 
                 "dcache": {
                     "cpu_side": {
@@ -958,12 +970,14 @@
                     "clusivity": "mostly_incl", 
                     "prefetcher": null, 
                     "system": "system", 
+                    "MJL_row_width": 8, 
                     "write_buffers": 8, 
                     "response_latency": 2, 
                     "cxx_class": "Cache", 
                     "size": 65536, 
-                    "type": "Cache", 
+                    "MJL_default_column": false, 
                     "clk_domain": "system.cpu_clk_domain", 
+                    "type": "Cache", 
                     "max_miss_count": 0, 
                     "eventq_index": 0, 
                     "default_p_state": "UNDEFINED", 
@@ -982,6 +996,7 @@
                         "p_state_clk_gate_min": 1000, 
                         "eventq_index": 0, 
                         "p_state_clk_gate_bins": 20, 
+                        "MJL_rowWidth": 8, 
                         "default_p_state": "UNDEFINED", 
                         "clk_domain": "system.cpu_clk_domain", 
                         "power_model": null, 
@@ -1000,15 +1015,16 @@
                     "addr_ranges": [
                         "0:18446744073709551615:0:0:0:0"
                     ], 
-                    "is_read_only": false, 
+                    "assoc": 2, 
                     "prefetch_on_access": false, 
                     "path": "system.cpu.dcache", 
                     "data_latency": 2, 
                     "tag_latency": 2, 
                     "name": "dcache", 
+                    "MJL_PC2DirFile": "test.txt", 
                     "p_state_clk_gate_bins": 20, 
                     "sequential_access": false, 
-                    "assoc": 2
+                    "is_read_only": false
                 }, 
                 "commitToDecodeDelay": 1, 
                 "smtIQPolicy": "Partitioned", 
@@ -1023,12 +1039,14 @@
                     "clusivity": "mostly_incl", 
                     "prefetcher": null, 
                     "system": "system", 
+                    "MJL_row_width": 8, 
                     "write_buffers": 8, 
                     "response_latency": 2, 
                     "cxx_class": "Cache", 
                     "size": 1024, 
-                    "type": "Cache", 
+                    "MJL_default_column": false, 
                     "clk_domain": "system.cpu_clk_domain", 
+                    "type": "Cache", 
                     "max_miss_count": 0, 
                     "eventq_index": 0, 
                     "default_p_state": "UNDEFINED", 
@@ -1047,6 +1065,7 @@
                         "p_state_clk_gate_min": 1000, 
                         "eventq_index": 0, 
                         "p_state_clk_gate_bins": 20, 
+                        "MJL_rowWidth": 8, 
                         "default_p_state": "UNDEFINED", 
                         "clk_domain": "system.cpu_clk_domain", 
                         "power_model": null, 
@@ -1065,15 +1084,16 @@
                     "addr_ranges": [
                         "0:18446744073709551615:0:0:0:0"
                     ], 
-                    "is_read_only": false, 
+                    "assoc": 2, 
                     "prefetch_on_access": false, 
                     "path": "system.cpu.itb_walker_cache", 
                     "data_latency": 2, 
                     "tag_latency": 2, 
                     "name": "itb_walker_cache", 
+                    "MJL_PC2DirFile": "PC2Dir.txt", 
                     "p_state_clk_gate_bins": 20, 
                     "sequential_access": false, 
-                    "assoc": 2
+                    "is_read_only": false
                 }, 
                 "system": "system", 
                 "checker": null, 
@@ -1191,12 +1211,14 @@
             "clusivity": "mostly_incl", 
             "prefetcher": null, 
             "system": "system", 
+            "MJL_row_width": 8, 
             "write_buffers": 8, 
             "response_latency": 20, 
             "cxx_class": "Cache", 
             "size": 2097152, 
-            "type": "Cache", 
+            "MJL_default_column": false, 
             "clk_domain": "system.cpu_clk_domain", 
+            "type": "Cache", 
             "max_miss_count": 0, 
             "eventq_index": 0, 
             "default_p_state": "UNDEFINED", 
@@ -1215,6 +1237,7 @@
                 "p_state_clk_gate_min": 1000, 
                 "eventq_index": 0, 
                 "p_state_clk_gate_bins": 20, 
+                "MJL_rowWidth": 8, 
                 "default_p_state": "UNDEFINED", 
                 "clk_domain": "system.cpu_clk_domain", 
                 "power_model": null, 
@@ -1233,15 +1256,16 @@
             "addr_ranges": [
                 "0:18446744073709551615:0:0:0:0"
             ], 
-            "is_read_only": false, 
+            "assoc": 8, 
             "prefetch_on_access": false, 
             "path": "system.l2", 
             "data_latency": 20, 
             "tag_latency": 20, 
             "name": "l2", 
+            "MJL_PC2DirFile": "PC2Dir.txt", 
             "p_state_clk_gate_bins": 20, 
             "sequential_access": false, 
-            "assoc": 8
+            "is_read_only": false
         }, 
         "cpu_voltage_domain": {
             "name": "cpu_voltage_domain", 
@@ -1264,6 +1288,7 @@
                 "IDD52": "0.0", 
                 "clk_domain": "system.clk_domain", 
                 "channels": 1, 
+                "MJL_row_width": 8, 
                 "write_buffer_size": 64, 
                 "device_bus_width": 8, 
                 "VDD": "1.5", 
@@ -1331,7 +1356,7 @@
                 "dll": true, 
                 "tXAW": 30000, 
                 "write_low_thresh_perc": 50, 
-                "range": "0:536870911:6:19:0:0", 
+                "range": "0:8589934591:6:19:0:0", 
                 "VDD2": "0.0", 
                 "IDD2P12": "0.0", 
                 "p_state_clk_gate_bins": 20, 
@@ -1344,9 +1369,9 @@
                 "tREFI": 7800000
             }
         ], 
-        "exit_on_work_items": false, 
+        "num_work_ids": 16, 
         "work_item_id": -1, 
-        "num_work_ids": 16
+        "exit_on_work_items": false
     }, 
     "time_sync_period": 100000000000, 
     "eventq_index": 0, 

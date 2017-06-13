@@ -892,6 +892,13 @@ BaseDynInst<Impl>::initiateMemRead(Addr addr, unsigned size,
 
         req->taskId(cpu->taskId());
 
+        /* MJL_Begin */
+        std::string MJL_inst_dump;
+        this->dump(MJL_inst_dump);
+        if ((MJL_inst_dump.find("mjl") != std::string::npos) && (MJL_inst_dump.find("vec") != std::string::npos)) {
+            req->MJL_setVec();
+        }
+        /* MJL_End */
         // Only split the request if the ISA supports unaligned accesses.
         if (TheISA::HasUnalignedMemAcc) {
             splitRequest(req, sreqLow, sreqHigh);
@@ -948,6 +955,13 @@ BaseDynInst<Impl>::writeMem(uint8_t *data, unsigned size, Addr addr,
 
         req->taskId(cpu->taskId());
 
+        /* MJL_Begin */
+        std::string MJL_inst_dump;
+        this->dump(MJL_inst_dump);
+        if ((MJL_inst_dump.find("mjl") != std::string::npos) && (MJL_inst_dump.find("vec") != std::string::npos)) {
+            req->MJL_setVec();
+        }
+        /* MJL_End */
         // Only split the request if the ISA supports unaligned accesses.
         if (TheISA::HasUnalignedMemAcc) {
             splitRequest(req, sreqLow, sreqHigh);
@@ -982,8 +996,13 @@ BaseDynInst<Impl>::splitRequest(RequestPtr req, RequestPtr &sreqLow,
     Addr addr = req->getVaddr();
     /* MJL_Begin */
     // Really not sure what this would do
-    assert(req->getSize() <= sizeof(uint64_t));
-    Addr split_addr = roundDown(addr + req->getSize() - 1, sizeof(uint64_t));
+    assert(req->MJL_isVec() || req->getSize() <= sizeof(uint64_t));
+    Addr split_addr;
+    if (req->MJL_isVec()) {
+        split_addr = roundDown(addr + req->getSize() - 1, block_size);
+    } else {
+        split_addr = roundDown(addr + req->getSize() - 1, sizeof(uint64_t));
+    }
     /* MJL_End */
     /* MJL_Comment
     Addr split_addr = roundDown(addr + req->getSize() - 1, block_size);

@@ -76,4 +76,27 @@ namespace X86ISA
                 addressSize, false);
         return response.str();
     }
+    /* MJL_Begin */
+    std::string LdStVecOp::generateDisassembly(Addr pc,
+            const SymbolTable *symtab) const
+    {
+        std::stringstream response;
+
+        printMnemonic(response, instMnem, mnemonic);
+        response << "[";
+        if (flags[IsLoad]) {
+            printDestReg(response, 0, dataSize);
+            response << ", ";
+            printDestReg(response, 1, dataSize);
+        } else {
+            printSrcReg(response, 2, dataSize);
+            response << ", ";
+            printSrcReg(response, 3, dataSize);
+        }
+        response << "], ";
+        printMem(response, segment, scale, index, base, disp,
+                addressSize, false);
+        return response.str();
+    }
+    /* MJL_End */
 }

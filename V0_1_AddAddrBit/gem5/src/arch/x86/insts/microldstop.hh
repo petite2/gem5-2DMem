@@ -151,6 +151,38 @@ namespace X86ISA
         std::string generateDisassembly(Addr pc,
             const SymbolTable *symtab) const;
     };
+
+    /* MJL_Begin */
+    class LdStVecOp : public MemOp
+    {
+      protected:
+        const RegIndex fpDataLow;
+        const RegIndex fpDataHi;
+
+        //Constructor
+        LdStVecOp(ExtMachInst _machInst,
+                const char * mnem, const char * _instMnem,
+                uint64_t setFlags,
+                uint8_t _scale, InstRegIndex _index, InstRegIndex _base,
+                uint64_t _disp, InstRegIndex _segment,
+                InstRegIndex _fpDataLow, InstRegIndex _fpDataHi,
+                uint8_t _dataSize, uint8_t _addressSize,
+                Request::FlagsType _memFlags,
+                OpClass __opClass) :
+        MemOp(_machInst, mnem, _instMnem, setFlags,
+                _scale, _index, _base, _disp, _segment,
+                _dataSize, _addressSize, _memFlags,
+                __opClass),
+                fpDataLow(_fpDataLow.idx),
+                fpDataHi(_fpDataHi.idx)
+        {
+        }
+
+        std::string generateDisassembly(Addr pc,
+            const SymbolTable *symtab) const;
+    };
+    /* MJL_End */
+
 }
 
 #endif //__ARCH_X86_INSTS_MICROLDSTOP_HH__

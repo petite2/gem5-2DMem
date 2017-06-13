@@ -10,8 +10,8 @@ void foo0(int n, int *a)
 }
 
 int main() {
-    int a[64];
-    int n = 64;
+    int a[128];
+    int n = 128;
     for (int i = 0; i < n; ++i) {
         a[i] = i;
     }

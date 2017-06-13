@@ -193,9 +193,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // Packet's requested and Block data's direction should be the same, unless the requested size is less than a word sizeof(uint64_t)
     assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) );
     // Test for L1D$
-    if (this->name().find("dcache") != std::string::npos) {
-        assert ((pkt->getSize() <= sizeof(uint64_t)));
-    }
+    //if (this->name().find("dcache") != std::string::npos) {
+    //    assert ((pkt->getSize() <= sizeof(uint64_t)));
+    //}
     /* MJL_End */
     // MJL_TODO: a use case of getOffset, I think the direction of the cmd should be used, the requested size should not exceed the blksize anyway. And different direction should only happen when the size is smaller than a word.
     /* MJL_Begin */
@@ -3057,7 +3057,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             }
             Addr MJL_baseAddr = pkt->getAddr();
             unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
-            if (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t)) {
+            if ((!pkt->req->MJL_isVec()) && (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t))) {
                 MJL_split = true;
                 std::cout << "MJL_Split: splitting one packet into 2, ";
                 RequestPtr MJL_sndReq = new Request(*pkt->req);
@@ -3226,7 +3226,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
             }
             Addr MJL_baseAddr = pkt->getAddr();
             unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
-            if (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t)) {
+            if ((!pkt->req->MJL_isVec()) && (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t))) {
                 MJL_split = true;
                 std::cout << "MJL_Split: splitting one packet into 2, ";
                 RequestPtr MJL_sndReq = new Request(*pkt->req);
