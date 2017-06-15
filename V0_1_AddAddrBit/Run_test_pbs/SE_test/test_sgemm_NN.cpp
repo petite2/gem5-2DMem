@@ -7,6 +7,12 @@
 
 void SGEMM_NN(int M, int N, int K, double ALPHA, double* A, int LDA, double* B, int LDB, double BETA, double* C, int LDC);
 
+void print_addr(double* A, double* B, double* C, int i, int j, int width) {
+    std::cout << "address_A[" << i << "," << j << "]: " << &A[i*width + j] << std::endl;
+    std::cout << "address_B[" << i << "," << j << "]: " << &B[i*width + j] << std::endl;
+    std::cout << "address_C[" << i << "," << j << "]: " << &C[i*width + j] << std::endl;
+}
+
 int main(int argc,char *argv[])
 {
     double *matrix_A,*matrix_B, *matrix_C;
@@ -14,6 +20,7 @@ int main(int argc,char *argv[])
 	int width,height;
 	width=height=atoi(argv[1]);
 	int size=width*height;
+	int align_size = std::max(width, 8) * sizeof(double); // Bytes
 	
     int size_M_height_A_C = height;
     int size_N_width_B_C = width;
@@ -24,9 +31,26 @@ int main(int argc,char *argv[])
     double coeff_BETA = 0.0;
     int size_LDC = std::max(1, size_M_height_A_C);
 
-    matrix_A = (double *)memalign(getpagesize(),sizeof(double)*size);
-    matrix_B = (double *)memalign(getpagesize(),sizeof(double)*size);
-    matrix_C = (double *)memalign(getpagesize(),sizeof(double)*size);
+    int fault;
+    fault = posix_memalign((void**)&matrix_A, align_size, sizeof(double)*size);
+    fault = fault + posix_memalign((void**)&matrix_B, align_size, sizeof(double)*size);
+    fault = fault + posix_memalign((void**)&matrix_C, align_size, sizeof(double)*size);
+    
+    int index_i, index_j;
+    index_i = 0;
+    index_j = 0;
+    print_addr(matrix_A, matrix_B, matrix_C, index_i, index_j, width);
+    
+    if (fault) {
+        std::cout << "Error: Error on memory allocation!" << std::endl;
+        return 0;
+    }
+    // matrix_A = (double *)memalign(getpagesize(),sizeof(double)*size);
+    // matrix_B = (double *)memalign(getpagesize(),sizeof(double)*size);
+    // matrix_C = (double *)memalign(getpagesize(),sizeof(double)*size);
+//     matrix_A = (double *)malloc(sizeof(double)*size);
+//   	matrix_B = (double *)malloc(sizeof(double)*size);
+//     matrix_C = (double *)malloc(sizeof(double)*size);
     
     for (int i = 0; i < width; ++i) {
         for (int j = 0; j < width; ++j) {
@@ -38,17 +62,17 @@ int main(int argc,char *argv[])
 
     SGEMM_NN(size_M_height_A_C, size_N_width_B_C, size_K_width_A_height_B, coeff_ALPHA, matrix_A, size_LDA, matrix_B, size_LDB, coeff_BETA, matrix_C, size_LDC);
 
-    // MJL_Test output
     // for (int i = 0; i < width; ++i) {
     //     for (int j = 0; j < width; ++j) {
     //         std::cout << " " << matrix_C[i * width + j];
     //     }
     //     std::cout << std::endl;
     // }
-
     free(matrix_A);
     free(matrix_B);
     free(matrix_C);
+    
+    return 0;
 }
 
 void SGEMM_NN(int M, int N, int K, double ALPHA, double* A, int LDA, double* B, int LDB, double BETA, double* C, int LDC) {
@@ -73,11 +97,11 @@ void SGEMM_NN(int M, int N, int K, double ALPHA, double* A, int LDA, double* B, 
 
     //Form  C := alpha*A*B + beta*C.
     for (I = 0; I < M; ++I) {
-        if (BETA == 0) {
+        if (BETA == 0.0) {
             for (J = 0; J < N; ++J) {
                 C[I * N + J] = 0;
             }
-        } else if (BETA != 1) {
+        } else if (BETA != 1.0) {
             for (J = 0; J < N; ++J) {
                 C[I * N + J] = BETA*C[I * N + J];
             }
@@ -91,7 +115,6 @@ void SGEMM_NN(int M, int N, int K, double ALPHA, double* A, int LDA, double* B, 
             }
         }
 
-        // MJL_Comment original implementation
         // for (L = 0; L < K; ++L) {
         //     TEMP = ALPHA * A[I * N + L];
         //     for (J = 0; J < N; ++J) {

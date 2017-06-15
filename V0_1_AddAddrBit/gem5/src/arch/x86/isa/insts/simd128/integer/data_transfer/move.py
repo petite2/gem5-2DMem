@@ -63,7 +63,7 @@ def macroop MOVQ_P_XMM {
 };
 
 def macroop MOVDQ2Q_MMX_XMM {
-    movfp mmx, xmmlm, dataSize=8
+    movfp mmx, xmml, dataSize=8
 };
 
 def macroop MOVQ2DQ_XMM_MMX {
