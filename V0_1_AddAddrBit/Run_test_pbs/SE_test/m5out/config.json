@@ -444,7 +444,7 @@
                         "pid": 100, 
                         "kvmInSE": false, 
                         "cxx_class": "LiveProcess", 
-                        "executable": "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/Vector_test/test_vec-bin", 
+                        "executable": "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/test_sgemm_NN-bin", 
                         "drivers": [], 
                         "system": "system", 
                         "gid": 100, 
@@ -460,12 +460,13 @@
                         "max_stack_size": 67108864, 
                         "name": "workload", 
                         "cmd": [
-                            "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/Vector_test/test_vec-bin"
+                            "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/test_sgemm_NN-bin", 
+                            "16"
                         ], 
-                        "errout": "build_test_Jun13_2017.apperr", 
+                        "errout": "build_test_Jun15_2017.apperr", 
                         "useArchPT": false, 
                         "egid": 100, 
-                        "output": "build_test_Jun13_2017.appout"
+                        "output": "build_test_Jun15_2017.appout"
                     }
                 ], 
                 "name": "cpu", 
