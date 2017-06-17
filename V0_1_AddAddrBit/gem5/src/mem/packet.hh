@@ -1212,26 +1212,34 @@ class Packet : public Printable
     setDataFromBlock(const uint8_t *blk_data, int blkSize)
     {
         /* MJL_Begin */
-        // MJL_Test
-	if (req->hasPC() && !req->isInstFetch()) {
-            std::cout << "setDataFromBlock:: PC = " << req->getPC() << ",  addr = ";
-            std::cout << std::oct << getAddr();// << ", offset = " << getOffset(blkSize);
-            std::cout << std::dec << ", sameCmdDataDir? " << MJL_sameCmdDataDir() << ", size = " << getSize();
-            uint64_t MJL_data = 0;
-            // for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-            //     std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
-            //     std::cout << std::hex << ", blk[" << i << "] = "<< MJL_data; 
-            // }
+        /* MJL_Test: read from cache information output */
+	    if (req->hasPC() && !req->isInstFetch()) {
+            std::cout << "setDataFromBlock";
+            std::cout << ": PC(hex) = " << std::hex << req->getPC() << std::dec;
+            std::cout << ", Addr(oct) = " << std::oct << getAddr() << std::dec;
+            std::cout << ", CmdDir = " << MJL_getCmdDir();
+            std::cout << ", SameCmdDataDir = ";
+            if (MJL_sameCmdDataDir()) {
+                std::cout << ", 1 ";
+            } else {
+                std::cout << ", 0 ";
+            }
+            std::cout << ", Size = " << getSize();
+            
             setData(blk_data + getOffset(blkSize));
             
-            std::cout << std::hex << ", data = ";
-            for (unsigned i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
+            std::cout << ", Data(hex) = " << std::hex;
+            uint64_t MJL_data = 0;
+            std::memcpy(&MJL_data, getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), getSize()));
+            std::cout << "word[0] " <<  MJL_data;
+            for (unsigned i = sizeof(uint64_t); i < getSize(); i = i + sizeof(uint64_t)) {
                 MJL_data = 0;
                 std::memcpy(&MJL_data, getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), getSize() - (Addr)i));
-                std::cout << "word[" << i/sizeof(uint64_t) << "] = " <<  MJL_data << ", ";
+                std::cout << " | word[" << i/sizeof(uint64_t) << "] " <<  MJL_data;
             }
-            std::cout << std::dec << "\n";
+            std::cout << std::dec << std::endl;
         } else
+        /* */
         /* MJL_End */
         setData(blk_data + getOffset(blkSize));
     }
@@ -1253,31 +1261,34 @@ class Packet : public Printable
     writeDataToBlock(uint8_t *blk_data, int blkSize) const
     {
         /* MJL_Begin */
-        // MJL_Test
+        /* MJL_Test: write to cache information output*/
         if (req->hasPC() && !req->isInstFetch()) {
-            std::cout << "writeDataToBlock:: PC = " << req->getPC() << ",  addr = ";
-            std::cout << std::oct << getAddr();// << ", offset = " << getOffset(blkSize);
-            std::cout << std::dec << ", sameCmdDataDir? " << MJL_sameCmdDataDir() << ", size = " << getSize();
-            uint64_t MJL_data = 0;
-            // for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-            //     std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
-            //     std::cout << std::hex << ", b4wblk[" << i << "] = "<< MJL_data;
-            // }
+            std::cout << "writeDataToBlock:";
+            std::cout << ": PC(hex) = " << std::hex << req->getPC() << std::dec;
+            std::cout << ", Addr(oct) = " << std::oct << getAddr() << std::dec;
+            std::cout << ", CmdDir = " << MJL_getCmdDir();
+            std::cout << ", SameCmdDataDir = ";
+            if (MJL_sameCmdDataDir()) {
+                std::cout << ", 1 ";
+            } else {
+                std::cout << ", 0 ";
+            }
+            std::cout << ", Size = " << getSize();
+            
             writeData(blk_data + getOffset(blkSize));
-            MJL_data = 0;
-            std::cout << std::hex << ", data = ";
-            for (unsigned i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
+            
+            std::cout << ", Data(hex) = " << std::hex;
+            uint64_t MJL_data = 0;
+            std::memcpy(&MJL_data, getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), getSize()));
+            std::cout << "word[0] " <<  MJL_data;
+            for (unsigned i = sizeof(uint64_t); i < getSize(); i = i + sizeof(uint64_t)) {
                 MJL_data = 0;
                 std::memcpy(&MJL_data, getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), getSize() - (Addr)i));
-                std::cout << "word[" << i/sizeof(uint64_t) << "] = " <<  MJL_data << ", ";
+                std::cout << " | word[" << i/sizeof(uint64_t) << "] = " <<  MJL_data;
             }
-            // MJL_data = 0;
-            // for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-            //     std::memcpy(&MJL_data, blk_data + i*sizeof(uint64_t), sizeof(uint64_t));
-            //     std::cout << std::hex << ", afwblk[" << i << "] = "<< MJL_data;
-            // }
-            std::cout << std::dec << "\n";
+            std::cout << std::dec << std::endl;
         } else
+        /* */
         /* MJL_End */
         writeData(blk_data + getOffset(blkSize));
     }

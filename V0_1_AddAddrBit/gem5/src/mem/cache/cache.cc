@@ -90,21 +90,8 @@ Cache::Cache(const CacheParams *p)
         prefetcher->setCache(this);
 
     /* MJL_Begin */
-    // MJL_Test for names
-    // L1D$:    Cache:system.cpu.dcache	cpuPort:system.cpu.dcache.cpu_side	memPort:system.cpu.dcache.mem_side	tags:system.cpu.dcache.tags
-    // Data TLB:    Cache:system.cpu.dtb_walker_cache	cpuPort:system.cpu.dtb_walker_cache.cpu_side	memPort:system.cpu.dtb_walker_cache.mem_side	tags:system.cpu.dtb_walker_cache.tags
-    // L1I$:    Cache:system.cpu.icache	cpuPort:system.cpu.icache.cpu_side	memPort:system.cpu.icache.mem_side	tags:system.cpu.icache.tags
-    // Instruction TLB$:    Cache:system.cpu.itb_walker_cache	cpuPort:system.cpu.itb_walker_cache.cpu_side	memPort:system.cpu.itb_walker_cache.mem_side	tags:system.cpu.itb_walker_cache.tags
-    // L2D$:    Cache:system.l2	cpuPort:system.l2.cpu_side	memPort:system.l2.mem_side	tags:system.l2.tags
-    // std::cout << "Cache:" << this->name() << "\t";
-    // std::cout << "cpuPort:"  << cpuSidePort->name() << "\t";
-    // std::cout << "memPort:"  << memSidePort->name() << "\t";
-    // std::cout << "tags:"  << tags->name() << "\n";
-    // MJL_Test for input file name passing
-    std::cout << this->name() << "::MJL_PC2DirFilname = " << MJL_PC2DirFilename << "\n";
-    // MJL_Test for cache function
     if (this->name().find("dcache") != std::string::npos) {
-        MJL_readTestInput();
+        MJL_readPC2DirMap();
     }
     MJL_sndPacketWaiting = false;
     /* MJL_End */
@@ -193,12 +180,10 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // Packet's requested and Block data's direction should be the same, unless the requested size is less than a word sizeof(uint64_t)
     assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) );
     // Test for L1D$
-    //if (this->name().find("dcache") != std::string::npos) {
-    //    assert ((pkt->getSize() <= sizeof(uint64_t)));
-    //}
-    /* MJL_End */
+    if (this->name().find("dcache") != std::string::npos) {
+       assert ((pkt->req->MJL_isVec()) || (pkt->getSize() <= sizeof(uint64_t)));
+    }
     // MJL_TODO: a use case of getOffset, I think the direction of the cmd should be used, the requested size should not exceed the blksize anyway. And different direction should only happen when the size is smaller than a word.
-    /* MJL_Begin */
     // To avoid that the assertion fail and setting the DataDir before actually having data
     CacheBlk::MJL_CacheBlkDir MJL_origDataDir = pkt->MJL_getDataDir();
     pkt->MJL_setDataDir(blk->MJL_blkDir);
@@ -2985,125 +2970,108 @@ bool
 Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
 {
     /* MJL_Begin */ 
-    // MJL_Test for mode
-    //std::cout << this->name() << "::recvTimingReq(PacketPtr pkt)\n";
-    // MJL_Test for PC and contextID
+    // Assign direction preference to packet based on PC at L1D$
+    if ((pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos)
+        && (cache->MJL_PC2DirMap.find(pkt->req->getPC()) != cache->MJL_PC2DirMap.end())) {
+        CacheBlk::MJL_CacheBlkDir InputDir = cache->MJL_PC2DirMap.find(pkt->req->getPC())->second;
+        pkt->cmd.MJL_setCmdDir(InputDir);
+        pkt->req->MJL_setReqDir(InputDir);
+        pkt->MJL_setDataDir(InputDir);
+    }
+
+    /* MJL_Test: Packet information output */
     if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
-        std::cout << this->name() << "::recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
+        std::cout << this->name() << "::recvTimingReq"
+        std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
-            std::cout << pkt->req->getPC();
+            std::cout << std::hex << pkt->req->getPC() << std::dec;
         } else {
-            std::cout << "NoPC";
+            std::cout << "noPC";
         }
-        std::cout << std::oct << ", addr = " << pkt->getAddr();
-        std::cout << std::dec <<  ", hasData? " << pkt->hasData() << ", ";
+        std::cout << ", MemCmd = " << pkt->cmd.toString();
+        std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+        std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+        std::cout << ", Size = " << pkt->getSize();
+        std::cout << ", Data(hex) = " << std::hex;
         if (pkt->hasData()) {
-            std::cout << "Data = ";
             uint64_t MJL_data = 0;
             std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
-            std::cout << std::hex << MJL_data;
+            std::cout << "word[0] " << std::hex << MJL_data << std::dec;
+            for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                MJL_data = 0;
+                std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
+                std::cout << " | word[" << i/sizeof(uint64_t) << "] " <<  MJL_data;
+            }         
         } else {
-            std::cout << "NoData";
+            std::cout << "noData";
         }
-        std::cout << std::dec << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", MemCmd: " << pkt->cmd.toString() << ", needsResponse? ";
-        if (pkt->needsResponse()) {
-            std::cout << "Y";
-        } else {
-            std::cout << "N";
-        }
-        std::cout << "\n";
+        std::cout << std::dec;
+        std::cout << ", Time = " << pkt->req->time();
+        std::cout << std::endl;
     }
-    // // MJL_Test for MemCmd type, size and Dir
-    // if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
-    //     std::cout << ", MemCmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", CmdDir: " << pkt->MJL_getCmdDir() << "\n";
-    // }
-
-    // if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
-    //     std::cout << this->name() << "::recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
-    //     if (pkt->req->hasPC()) {
-    //         std::cout << pkt->req->getPC();
-    //     } else {
-    //         std::cout << "NoPC";
-    //     }
-    //     std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
-    //     if (pkt->req->hasContextId()) {
-    //         std::cout << pkt->req->contextId();
-    //     } else {
-    //         std::cout << "NoContextId";
-    //     }
-    //     //std::cout << "\n";
-    // }
-    // // MJL_Test for MemCmd type, size and Dir
-    // if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
-    //     std::cout << ", Vaddr: " << pkt->req->getVaddr() << ", Paddr: " << pkt->req->getPaddr() << "\n";
-    // }
-    // MJL_Test for cache functionality 
+    /* */
+    
+    // Split packet if the access is not word aligned (despite changes in "splitRequest()")
     bool MJL_split = false;
     PacketPtr MJL_sndPkt = pkt;
-    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
-        Addr pktOrigAddr = pkt->getAddr();
+
+    if ((this->name().find("dcache") != std::string::npos) // Only split for L1D$
+        && !blocked // When the cache is not blocked
+        && !mustSendRetry // Or committed to a retry
+        && pkt->needsResponse() // Read and Writes needs response, otherwise don't care (should not recv writeback or evict requests at this point either)
+        && !cache->MJL_sndPacketWaiting // Do not assign new sequence number to the second half of a split packet
+        && !pkt->req->MJL_isVec() // Only split on non-vector accesses
+        && (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t))) { // that are not word aligned
+
+        MJL_split = true;
+
+        // Extract basic information about the packet
+        Addr MJL_baseAddr = pkt->getAddr();
         CacheBlk::MJL_CacheBlkDir pktOrigDir = pkt->MJL_getCmdDir();
-        MemCmd::Command pktOrigCmd = pkt->cmd.MJL_getCmd();
-        MemCmd::Command pktOrigCmdResp = pkt->cmd.responseCommand();
         assert(pkt->req->hasPC());
-        if (pkt->needsResponse()) {
-            int MJL_testSeq = 0;
-            if (!cache->MJL_sndPacketWaiting) {
-                while (cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].find(MJL_testSeq) != cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].end()) {
-                    MJL_testSeq++;
-                }
-                cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmdResp);
-                pkt->MJL_testSeq = MJL_testSeq;
-            }
-            Addr MJL_baseAddr = pkt->getAddr();
-            unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
-            if ((!pkt->req->MJL_isVec()) && (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t))) {
-                MJL_split = true;
-                std::cout << "MJL_Split: splitting one packet into 2, ";
-                RequestPtr MJL_sndReq = new Request(*pkt->req);
-                std::cout << "New Packet created, ";
-                MJL_sndReq->MJL_setSize(MJL_byteOffset + pkt->getSize() - sizeof(uint64_t));
-                std::cout << "New Request size set, ";
-                MJL_sndReq->setPaddr(pkt->getAddr() + sizeof(uint64_t) - MJL_byteOffset);
-                std::cout << "New Packet address set, ";
-                MJL_sndPkt = new Packet(MJL_sndReq, pkt->cmd);
-                std::cout << "New Packet created\n";
-                MJL_sndPkt->MJL_testSeq = MJL_testSeq;
-                MJL_sndPkt->allocate();
-                if (!cache->MJL_sndPacketWaiting) {
-                    cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<PacketPtr, PacketPtr> (pkt, MJL_sndPkt);
-                    cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][0] = false;
-                    cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][1] = false;
-                    if (pkt->hasData()) {
-                        memcpy(MJL_sndPkt->getPtr<uint8_t>(), pkt->getConstPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPkt->getSize());
-                    }
-                    if (pkt->isWrite()) {
-                        pkt->req->MJL_setSize(sizeof(uint64_t) - MJL_byteOffset);
-                        pkt->MJL_setSize(sizeof(uint64_t) - MJL_byteOffset);
-                    }
-                }
-            }
+
+        // Set a unique sequence number to each packet that has the same PC and request time to identify the packet
+        int MJL_testSeq = 0;
+        while (cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()].find(MJL_testSeq) != cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()].end()) {
+            // Find the next sequence number
+            MJL_testSeq++;
         }
-        if (!(cache->MJL_testInputList.empty())) {
-            // Insert test address, direction, command
-            //pkt->setAddr(std::get<0>(cache->MJL_testInputList.front()));
-            //pkt->cmd = std::get<2>(cache->MJL_testInputList.front());
-            pkt->cmd.MJL_setCmdDir(std::get<1>(cache->MJL_testInputList.front()));
-            pkt->req->MJL_setReqDir(std::get<1>(cache->MJL_testInputList.front()));
-            pkt->MJL_setDataDir(std::get<1>(cache->MJL_testInputList.front()));
-            if (MJL_split) {
-                MJL_sndPkt->cmd.MJL_setCmdDir(std::get<1>(cache->MJL_testInputList.front()));
-                MJL_sndPkt->req->MJL_setReqDir(std::get<1>(cache->MJL_testInputList.front()));
-                MJL_sndPkt->MJL_setDataDir(std::get<1>(cache->MJL_testInputList.front()));
-            }
-            std::cout << "Packet's [Addr, Dir, Cmd]: [" << pktOrigAddr << ", " << pktOrigDir << ", " << pktOrigCmd << "] --> ["  << pkt->getAddr() << ", " << pkt->cmd.MJL_getCmdDir() << ", " << pkt->cmd.MJL_getCmd() << "]\n";
-            cache->MJL_testInputList.pop_front();
-            if (cache->MJL_testInputList.empty()) {
-                std::cout << "End of test packet modification.\n";
-            }
+        // Assign the sequence number
+        pkt->MJL_testSeq = MJL_testSeq;
+
+        // Extract the byte offset of the access
+        unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
+        
+        // Accesses designed to be column direction should never be unaligned
+        assert(pktOrigDir == MemCmd::MJL_DirAttribute::MJL_IsRow);
+
+        std::cout << "MJL_Split: splitting one packet into 2, ";
+        RequestPtr MJL_sndReq = new Request(*pkt->req);
+        std::cout << "New Request created, ";
+        MJL_sndReq->MJL_setSize(MJL_byteOffset + pkt->getSize() - sizeof(uint64_t));
+        std::cout << "New Request size set, ";
+        MJL_sndReq->setPaddr(pkt->getAddr() + sizeof(uint64_t) - MJL_byteOffset);
+        std::cout << "New Request address set, ";
+        MJL_sndPkt = new Packet(MJL_sndReq, pkt->cmd);
+        std::cout << "New Packet created." << std::endl;
+        MJL_sndPkt->MJL_testSeq = MJL_testSeq;
+        MJL_sndPkt->allocate();
+
+        // Register the split packet pair 
+        cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<PacketPtr, PacketPtr> (pkt, MJL_sndPkt);
+        cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][0] = false;
+        cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][1] = false;
+        if (pkt->hasData()) {
+            memcpy(MJL_sndPkt->getPtr<uint8_t>(), pkt->getConstPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPkt->getSize());
+        }
+        if (pkt->isWrite()) {
+            pkt->req->MJL_setSize(sizeof(uint64_t) - MJL_byteOffset);
+            pkt->MJL_setSize(sizeof(uint64_t) - MJL_byteOffset);
         }
     }
-    // MJL_Test for column access
+
+    // Assign column preference for default column access
     if ((this->name().find("dcache") != std::string::npos) && cache->MJL_defaultColumn && !blocked && !mustSendRetry) {
         pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
@@ -3115,6 +3083,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         }
     }
 
+    // Set common system information to propagate the information everywhere
     pkt->req->MJL_cachelineSize = cache->blkSize;
     pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     if (MJL_split) {
@@ -3136,18 +3105,17 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         // either already committed to send a retry, or blocked
         success = false;
     /* MJL_Begin */
+    // Sending mechanism on the second half of the split packets
     } else if (this->name().find("dcache") && cache->MJL_sndPacketWaiting) {
+        // Wait till the second half of the split packets is sent to accept new packets
         if (pkt->req->contextId() == cache->MJL_retrySndPacket->req->contextId()) {
             assert(MJL_split);
             MJL_split = false;
-            assert(MJL_sndPkt->req->getPC() == cache->MJL_retrySndPacket->req->getPC());
-            assert(MJL_sndPkt->req->time() == cache->MJL_retrySndPacket->req->time());
-            assert(cache->MJL_retrySndPacket->getAddr() == MJL_sndPkt->getAddr());
-            delete MJL_sndPkt;
             success = cache->recvTimingReq(cache->MJL_retrySndPacket);
             if (success) {
                 cache->MJL_sndPacketWaiting = false;
             }
+            // Should pass (it seems that the function only returns true...)
             assert(success == true);
         } else {
             success = false;
@@ -3161,10 +3129,14 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
 
     /* MJL_Begin */
     if (MJL_split) {
+        // Only wait when the first packet is not sent successfully
         cache->MJL_sndPacketWaiting = !success;
+        // Try sending the second packet if the first was sent successfully
         if (success) {
             success = cache->recvTimingReq(MJL_sndPkt);
+            // Should pass as well (it seems that the function only returns true...)
             assert(success == true);
+        // The second packet needs to wait for the first packet's retry'
         } else {
             cache->MJL_retrySndPacket = MJL_sndPkt;
         }
@@ -3178,101 +3150,101 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
 Tick
 Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
 {
-    /* MJL_Begin 
-    // MJL_Test for mode
-    std::cout << this->name() << "::recvAtomic(PacketPtr pkt)\n";
-     MJL_End */
     /* MJL_Begin */
-    // if (this->name().find("dcache") != std::string::npos) {
-    //     std::cout << this->name() << "::recvTimingReq: hasPC? " << pkt->req->hasPC() << ", PC = ";
-    //     if (pkt->req->hasPC()) {
-    //         std::cout << pkt->req->getPC();
-    //     } else {
-    //         std::cout << "NoPC";
-    //     }
-    //     std::cout << ", addr = " << pkt->getAddr() <<  ", hasData? " << pkt->hasData() << ", ";
-    //     if (pkt->hasData()) {
-    //         std::cout << "Data = ";
-    //         uint64_t MJL_data = 0;
-    //         std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
-    //         std::cout << std::hex << MJL_data;
-    //     } else {
-    //         std::cout << "NoData";
-    //     }
-    //     std::cout << std::dec << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", MemCmd: " << pkt->cmd.toString() << ", needsResponse? ";
-    //     if (pkt->needsResponse()) {
-    //         std::cout << "Y";
-    //     } else {
-    //         std::cout << "N";
-    //     }
-    //     //std::cout << "\n";
-    // }
+    // Assign direction preference to packet based on PC at L1D$
+    if ((pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos)
+        && (cache->MJL_PC2DirMap.find(pkt->req->getPC()) != cache->MJL_PC2DirMap.end())) {
+        CacheBlk::MJL_CacheBlkDir InputDir = cache->MJL_PC2DirMap.find(pkt->req->getPC())->second;
+        pkt->cmd.MJL_setCmdDir(InputDir);
+        pkt->req->MJL_setReqDir(InputDir);
+        pkt->MJL_setDataDir(InputDir);
+    }
+
+    /* MJL_Test: Request packet information output 
+    if (this->name().find("dcache") != std::string::npos) {
+        std::cout << this->name() << "::recvAtomicPreAcc"
+        std::cout << ": PC(hex) = ";
+        if (pkt->req->hasPC()) {
+            std::cout << std::hex << pkt->req->getPC() << std::dec;
+        } else {
+            std::cout << "noPC";
+        }
+        std::cout << ", MemCmd = " << pkt->cmd.toString();
+        std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+        std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+        std::cout << ", Size = " << pkt->getSize();
+        std::cout << ", Data(hex) = " << std::hex;
+        if (pkt->hasData()) {
+            uint64_t MJL_data = 0;
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+            std::cout << "word[0] " << std::hex << MJL_data << std::dec;
+            for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                MJL_data = 0;
+                std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
+                std::cout << " | word[" << i/sizeof(uint64_t) << "] " <<  MJL_data;
+            }         
+        } else {
+            std::cout << "noData";
+        }
+        std::cout << std::dec;
+        std::cout << ", Time = " << pkt->req->time();
+        std::cout << std::endl;
+    }
+     */
+
+    // Split packet if the access is not word aligned (despite changes in "splitRequest()"), see recvTimingReq for detail
     bool MJL_split = false;
     PacketPtr MJL_sndPkt = pkt;
-    if (this->name().find("dcache") != std::string::npos) {
-        Addr pktOrigAddr = pkt->getAddr();
+    if ((this->name().find("dcache") != std::string::npos)
+        && pkt->needsResponse()
+        && !cache->MJL_sndPacketWaiting
+        && !pkt->req->MJL_isVec()
+        && (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t))) {
+
+        MJL_split = true;
+
+        Addr MJL_baseAddr = pkt->getAddr();
         CacheBlk::MJL_CacheBlkDir pktOrigDir = pkt->MJL_getCmdDir();
-        MemCmd::Command pktOrigCmd = pkt->cmd.MJL_getCmd();
-        MemCmd::Command pktOrigCmdResp = pkt->cmd.responseCommand();
         assert(pkt->req->hasPC());
-        if (pkt->needsResponse()) {
-            int MJL_testSeq = 0;
-            if (!cache->MJL_sndPacketWaiting) {
-                while (cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].find(MJL_testSeq) != cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()].end()) {
-                    MJL_testSeq++;
-                }
-                cache->MJL_testPktOrigParamList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (pktOrigAddr, pktOrigDir, pktOrigCmdResp);
-                pkt->MJL_testSeq = MJL_testSeq;
-            }
-            Addr MJL_baseAddr = pkt->getAddr();
-            unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
-            if ((!pkt->req->MJL_isVec()) && (MJL_byteOffset + pkt->getSize() > sizeof(uint64_t))) {
-                MJL_split = true;
-                std::cout << "MJL_Split: splitting one packet into 2, ";
-                RequestPtr MJL_sndReq = new Request(*pkt->req);
-                std::cout << "New Packet created, ";
-                MJL_sndReq->MJL_setSize(MJL_byteOffset + pkt->getSize() - sizeof(uint64_t));
-                std::cout << "New Request size set, ";
-                MJL_sndReq->setPaddr(pkt->getAddr() + sizeof(uint64_t) - MJL_byteOffset);
-                std::cout << "New Packet address set, ";
-                MJL_sndPkt = new Packet(MJL_sndReq, pkt->cmd);
-                std::cout << "New Packet created\n";
-                MJL_sndPkt->MJL_testSeq = MJL_testSeq;
-                MJL_sndPkt->allocate();
-                if (!cache->MJL_sndPacketWaiting) {
-                    cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<PacketPtr, PacketPtr> (pkt, MJL_sndPkt);
-                    cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][0] = false;
-                    cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][1] = false;
-                    if (pkt->hasData()) {
-                        memcpy(MJL_sndPkt->getPtr<uint8_t>(), pkt->getConstPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPkt->getSize());
-                    }
-                    if (pkt->isWrite()) {
-                        pkt->req->MJL_setSize(sizeof(uint64_t) - MJL_byteOffset);
-                        pkt->MJL_setSize(sizeof(uint64_t) - MJL_byteOffset);
-                    }
-                }
-            }
+
+        int MJL_testSeq = 0;
+            
+        while (cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()].find(MJL_testSeq) != cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()].end()) {
+            MJL_testSeq++;
         }
-        if (!(cache->MJL_testInputList.empty())) {
-            // Insert test address, direction, command
-            //pkt->setAddr(std::get<0>(cache->MJL_testInputList.front()));
-            //pkt->cmd = std::get<2>(cache->MJL_testInputList.front());
-            pkt->cmd.MJL_setCmdDir(std::get<1>(cache->MJL_testInputList.front()));
-            pkt->req->MJL_setReqDir(std::get<1>(cache->MJL_testInputList.front()));
-            pkt->MJL_setDataDir(std::get<1>(cache->MJL_testInputList.front()));
-            std::cout << "Packet's [Addr, Dir, Cmd]: [" << pktOrigAddr << ", " << pktOrigDir << ", " << pktOrigCmd << "] --> ["  << pkt->getAddr() << ", " << pkt->cmd.MJL_getCmdDir() << ", " << pkt->cmd.MJL_getCmd() << "]\n";
-            if (MJL_split) {
-                MJL_sndPkt->cmd.MJL_setCmdDir(std::get<1>(cache->MJL_testInputList.front()));
-                MJL_sndPkt->req->MJL_setReqDir(std::get<1>(cache->MJL_testInputList.front()));
-                MJL_sndPkt->MJL_setDataDir(std::get<1>(cache->MJL_testInputList.front()));
-            }
-            cache->MJL_testInputList.pop_front();
-            if (cache->MJL_testInputList.empty()) {
-                std::cout << "End of test packet modification.\n";
-            }
+
+        pkt->MJL_testSeq = MJL_testSeq;
+
+        unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
+
+        assert(pktOrigDir == MemCmd::MJL_DirAttribute::MJL_IsRow);
+
+        std::cout << "MJL_Split: splitting one packet into 2, ";
+        RequestPtr MJL_sndReq = new Request(*pkt->req);
+        std::cout << "New Request created, ";
+        MJL_sndReq->MJL_setSize(MJL_byteOffset + pkt->getSize() - sizeof(uint64_t));
+        std::cout << "New Request size set, ";
+        MJL_sndReq->setPaddr(pkt->getAddr() + sizeof(uint64_t) - MJL_byteOffset);
+        std::cout << "New Request address set, ";
+        MJL_sndPkt = new Packet(MJL_sndReq, pkt->cmd);
+        std::cout << "New Packet created." << std::endl;
+        MJL_sndPkt->MJL_testSeq = MJL_testSeq;
+        MJL_sndPkt->allocate();
+                
+        cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][MJL_testSeq] = std::tuple<PacketPtr, PacketPtr> (pkt, MJL_sndPkt);
+        cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][0] = false;
+        cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][MJL_testSeq][1] = false;
+        if (pkt->hasData()) {
+            memcpy(MJL_sndPkt->getPtr<uint8_t>(), pkt->getConstPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPkt->getSize());
+        }
+        if (pkt->isWrite()) {
+            pkt->req->MJL_setSize(sizeof(uint64_t) - MJL_byteOffset);
+            pkt->MJL_setSize(sizeof(uint64_t) - MJL_byteOffset);
         }
     }
-    // MJL_Test for column access
+
+    // Assign column preference for default column access
     if (this->name().find("dcache") != std::string::npos && cache->MJL_defaultColumn) {
         pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
@@ -3283,216 +3255,137 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
             MJL_sndPkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
         }
     }
+
+    // Set common system information to propagate the information everywhere
     pkt->req->MJL_cachelineSize = cache->blkSize;
     pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     if (MJL_split) {
         MJL_sndPkt->req->MJL_cachelineSize = cache->blkSize;
         MJL_sndPkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     }
-    // // MJL_Test for column access
-    // if (this->name().find("dcache") != std::string::npos) {
-    //     pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-    //     pkt->req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-    //     pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
-    // }
+    
+    // The actual access
     Tick time = cache->recvAtomic(pkt);
     
     if (this->name().find("dcache") != std::string::npos && pkt->isResponse()) {
-        // std::cout << this->name() << "::sendTimingResp: hasPC? " << pkt->req->hasPC() << ", PC = ";
-        // if (pkt->req->hasPC()) {
-        //     std::cout << pkt->req->getPC();
-        // } else {
-        //     std::cout << "NoPC";
-        // }
-        // std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
-        // if (pkt->req->hasContextId()) {
-        //     std::cout << pkt->req->contextId();
-        // } else {
-        //     std::cout << "NoContextId";
-        // }
-        // std::cout << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", Addr = ";
-        // std::cout << std::oct << pkt->getAddr();
-        // std::cout << std::dec << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd();
-        // if (pkt->hasData()) {
-        //     std::cout << ", Data = ";
-        //     uint64_t MJL_data = 0;
-        //     std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
-        //     std::cout << std::hex << MJL_data;
-        // } else {
-        //     std::cout << ", noData";
-        // }
-        // std::cout << std::dec << "\n";
-        assert(!cache->MJL_testPktOrigParamList.empty());
-        auto PC_it = cache->MJL_testPktOrigParamList.find(pkt->req->getPC());
-        assert(PC_it != cache->MJL_testPktOrigParamList.end());
-        auto time_it = PC_it->second.find(pkt->req->time());
-        assert((time_it != PC_it->second.end()) && !time_it->second.empty());
-        bool MJL_isUnaligned = false;
-        auto unaligned_PC_it = cache->MJL_unalignedPacketList.find(pkt->req->getPC());
-        if (unaligned_PC_it != cache->MJL_unalignedPacketList.end()) {
-            auto unaligned_time_it = unaligned_PC_it->second.find(pkt->req->time());
-            if (unaligned_time_it != unaligned_PC_it->second.end()) {
-                auto unaligned_seq_it = unaligned_time_it->second.find(pkt->MJL_testSeq);
-                if (unaligned_seq_it != unaligned_time_it->second.end()) {
-                    MJL_isUnaligned = true;
-                    std::cout << "MJL_Watch: Received a packet that was split\n";
-                    if (pkt == std::get<0>(unaligned_seq_it->second)) {
-                        cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
-                    } else if (pkt == std::get<1>(unaligned_seq_it->second)) {
-                        cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = true;
-                    } else {
-                        assert((pkt == std::get<0>(unaligned_seq_it->second)) || (pkt == std::get<1>(unaligned_seq_it->second)));
-                    }
-                    if (cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] && cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1]) {
-                        std::cout << "MJL_Merge: Both packet from split received, ";
-                        PacketPtr MJL_origPacket = std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
-                        PacketPtr MJL_sndPacket = std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
-                        if (pkt->isRead()) {
-                            unsigned MJL_byteOffset = MJL_origPacket->getAddr() & (Addr)(sizeof(uint64_t) - 1);
-                            std::memcpy(MJL_origPacket->getPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPacket->getConstPtr<uint8_t>(), MJL_sndPacket->getSize());
-                            std::cout << "Merged read results, data = ";
-                            uint64_t MJL_Data = 0;
-                            std::memcpy(&MJL_Data, MJL_origPacket->getConstPtr<uint8_t>(), MJL_origPacket->getSize());
-                            std::cout << std::hex << MJL_Data;
-                            std::cout << std::dec << ", ";
-                        } else if (pkt->isWrite()) {
-                            MJL_origPacket->MJL_setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
-                            MJL_origPacket->req->MJL_setSize(MJL_origPacket->getSize());
-                            std::cout << "Recovering write size for original packet, ";
-                        }
-                        if (pkt != MJL_origPacket) {
-                            MJL_origPacket->headerDelay = pkt->headerDelay;
-                            MJL_origPacket->snoopDelay = pkt->snoopDelay;
-                            MJL_origPacket->payloadDelay = pkt->payloadDelay;
-                            MJL_origPacket->senderState = pkt->senderState;
-                            pkt = MJL_origPacket;
-                            std::cout << "Setting original packet variables, ";
-                        }
-                        assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                        // assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                        assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
-                        pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                        // pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                        // pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                        pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
-                        delete MJL_sndPacket;
-                        std::cout << "Deleted created packet\n";
-                        unaligned_time_it->second.erase(pkt->MJL_testSeq);
-                        time_it->second.erase(pkt->MJL_testSeq);
-                    }
-                }
-            }
+        /* MJL_Test: Respnse packet information output 
+        std::cout << this->name() << "::recvAtomicPostAcc";
+        std::cout << ": PC(hex) = ";
+        if (pkt->req->hasPC()) {
+            std::cout << std::hex << pkt->req->getPC() << std::dec;
+        } else {
+            std::cout << "noPC";
         }
-        if (!MJL_isUnaligned) {
-            assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-            // assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-            assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
-            pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-            // pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-            // pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-            pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
-            time_it->second.erase(pkt->MJL_testSeq);
+        std::cout << ", MemCmd = " << pkt->cmd.toString();
+        std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+        std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+        std::cout << ", Size = " << pkt->getSize();
+        std::cout << ", Data(hex) = ";
+        if (pkt->hasData()) {
+            uint64_t MJL_data = 0;
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+            std::cout << "word[0] " << std::hex << MJL_data << std::dec;
+            for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                MJL_data = 0;
+                std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
+                std::cout << " | word[" << i/sizeof(uint64_t) << "] " <<  MJL_data;
+            }       
+        } else {
+            std::cout << ", noData";
+        }
+        std::cout << std::dec;
+        std::cout << ", Time = " << pkt->req->time() ;
+        std::cout << std::endl;
+         */
+        
+        // Handle split packet's response, see sendTimingResp() in cache.hh for detail
+        bool MJL_isUnaligned = MJL_split;
+        if (MJL_isUnaligned) {
+            std::cout << "MJL_Merge: Received a packet that was split\n";
+
+            if (pkt == std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) {
+                cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
+            } else if (pkt == std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) {
+                cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = true;
+            } else {
+                assert((pkt == std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) || (pkt == std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])));
+            }
         }
     }
 
+    // Access for the second half of the split packet
     if (MJL_split) {
         pkt = MJL_sndPkt;
         time = time + cache->recvAtomic(pkt);
         if (this->name().find("dcache") != std::string::npos && pkt->isResponse() && MJL_sndPkt->isResponse()) {
-            // std::cout << this->name() << "::sendTimingResp: hasPC? " << pkt->req->hasPC() << ", PC = ";
-            // if (pkt->req->hasPC()) {
-            //     std::cout << pkt->req->getPC();
-            // } else {
-            //     std::cout << "NoPC";
-            // }
-            // std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
-            // if (pkt->req->hasContextId()) {
-            //     std::cout << pkt->req->contextId();
-            // } else {
-            //     std::cout << "NoContextId";
-            // }
-            // std::cout << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", Addr = ";
-            // std::cout << std::oct << pkt->getAddr();
-            // std::cout << std::dec << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd();
-            // if (pkt->hasData()) {
-            //     std::cout << ", Data = ";
-            //     uint64_t MJL_data = 0;
-            //     std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
-            //     std::cout << std::hex << MJL_data;
-            // } else {
-            //     std::cout << ", noData";
-            // }
-            // std::cout << std::dec << "\n";
-            assert(!cache->MJL_testPktOrigParamList.empty());
-            auto PC_it = cache->MJL_testPktOrigParamList.find(pkt->req->getPC());
-            assert(PC_it != cache->MJL_testPktOrigParamList.end());
-            auto time_it = PC_it->second.find(pkt->req->time());
-            assert((time_it != PC_it->second.end()) && !time_it->second.empty());
-            bool MJL_isUnaligned = false;
-            auto unaligned_PC_it = cache->MJL_unalignedPacketList.find(pkt->req->getPC());
-            if (unaligned_PC_it != cache->MJL_unalignedPacketList.end()) {
-                auto unaligned_time_it = unaligned_PC_it->second.find(pkt->req->time());
-                if (unaligned_time_it != unaligned_PC_it->second.end()) {
-                    auto unaligned_seq_it = unaligned_time_it->second.find(pkt->MJL_testSeq);
-                    if (unaligned_seq_it != unaligned_time_it->second.end()) {
-                        std::cout << "MJL_Watch: Received a packet that was split\n";
-                        MJL_isUnaligned = true;
-                        if (pkt == std::get<0>(unaligned_seq_it->second)) {
-                            cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
-                        } else if (pkt == std::get<1>(unaligned_seq_it->second)) {
-                            cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = true;
-                        } else {
-                            assert((pkt == std::get<0>(unaligned_seq_it->second)) || (pkt == std::get<1>(unaligned_seq_it->second)));
-                        }
-                        if (cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] && cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1]) {
-                            std::cout << "MJL_Merge: Both packet from split received, ";
-                            PacketPtr MJL_origPacket = std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
-                            PacketPtr MJL_sndPacket = std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
-                            if (pkt->isRead()) {
-                                unsigned MJL_byteOffset = MJL_origPacket->getAddr() & (Addr)(sizeof(uint64_t) - 1);
-                                std::memcpy(MJL_origPacket->getPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPacket->getConstPtr<uint8_t>(), MJL_sndPacket->getSize());
-                                std::cout << "Merged read results, data = ";
-                                uint64_t MJL_Data = 0;
-                                std::memcpy(&MJL_Data, MJL_origPacket->getConstPtr<uint8_t>(), MJL_origPacket->getSize());
-                                std::cout << std::hex << MJL_Data;
-                                std::cout << std::dec << ", ";
-                            } else if (pkt->isWrite()) {
-                                MJL_origPacket->MJL_setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
-                                MJL_origPacket->req->MJL_setSize(MJL_origPacket->getSize());
-                                std::cout << "Recovering write size for original packet, ";
-                            }
-                            if (pkt != MJL_origPacket) {
-                                MJL_origPacket->headerDelay = pkt->headerDelay;
-                                MJL_origPacket->snoopDelay = pkt->snoopDelay;
-                                MJL_origPacket->payloadDelay = pkt->payloadDelay;
-                                MJL_origPacket->senderState = pkt->senderState;
-                                pkt = MJL_origPacket;
-                                std::cout << "Setting original packet variables, ";
-                            }
-                            assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                            // assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                            assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
-                            pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                            // pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                            // pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                            pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
-                            delete MJL_sndPacket;
-                            std::cout << "Deleted created packet\n";
-                            unaligned_time_it->second.erase(pkt->MJL_testSeq);
-                            time_it->second.erase(pkt->MJL_testSeq);
-                        }
-                    }
-                }
+            /* MJL_Test: Respnse packet information output 
+            std::cout << this->name() << "::recvAtomicPostAcc";
+            std::cout << ": PC(hex) = ";
+            if (pkt->req->hasPC()) {
+                std::cout << std::hex << pkt->req->getPC() << std::dec;
+            } else {
+                std::cout << "noPC";
             }
-            if (!MJL_isUnaligned) {
-                assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                // assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
-                pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                // pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                // pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
-                time_it->second.erase(pkt->MJL_testSeq);
+            std::cout << ", MemCmd = " << pkt->cmd.toString();
+            std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+            std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+            std::cout << ", Size = " << pkt->getSize();
+            std::cout << ", Data(hex) = ";
+            if (pkt->hasData()) {
+                uint64_t MJL_data = 0;
+                std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+                std::cout << "word[0] " << std::hex << MJL_data << std::dec;
+                for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                    MJL_data = 0;
+                    std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
+                    std::cout << " | word[" << i/sizeof(uint64_t) << "] " <<  MJL_data;
+                }       
+            } else {
+                std::cout << ", noData";
+            }
+            std::cout << std::dec;
+            std::cout << ", Time = " << pkt->req->time() ;
+            std::cout << std::endl;
+            */
+
+            std::cout << "MJL_Merge: Received a packet that was split\n";
+            if (pkt == std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) {
+                cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
+            } else if (pkt == std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) {
+                cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = true;
+            } else {
+                assert((pkt == std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) || (pkt == std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])));
+            }
+
+            if (cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] && cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1]) {
+                std::cout << "MJL_Merge: Both packet from split received, ";
+                PacketPtr MJL_origPacket = std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
+                PacketPtr MJL_sndPacket = std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
+
+                if (pkt->isRead()) {
+                    unsigned MJL_byteOffset = MJL_origPacket->getAddr() & (Addr)(sizeof(uint64_t) - 1);
+                    std::memcpy(MJL_origPacket->getPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPacket->getConstPtr<uint8_t>(), MJL_sndPacket->getSize());
+                    std::cout << "Merged read results, data = ";
+                    uint64_t MJL_Data = 0;
+                    std::memcpy(&MJL_Data, MJL_origPacket->getConstPtr<uint8_t>(), MJL_origPacket->getSize());
+                    std::cout << std::hex << MJL_Data << std::dec << ", ";
+                } else if (pkt->isWrite()) {
+                    MJL_origPacket->MJL_setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
+                    MJL_origPacket->req->MJL_setSize(MJL_origPacket->getSize());
+                    std::cout << "Recovering write size for original packet, ";
+                }
+
+                if (pkt != MJL_origPacket) {
+                    MJL_origPacket->headerDelay = pkt->headerDelay;
+                    MJL_origPacket->snoopDelay = pkt->snoopDelay;
+                    MJL_origPacket->payloadDelay = pkt->payloadDelay;
+                    pkt = MJL_origPacket;
+                    std::cout << "Setting original packet variables, ";
+                }
+                
+                delete MJL_sndPacket;
+                std::cout << "Deleted created packet\n";
+                cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()].erase(pkt->MJL_testSeq);
             }
         }
     }
@@ -3507,75 +3400,62 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
 void
 Cache::CpuSidePort::recvFunctional(PacketPtr pkt)
 {
-    /* MJL_Begin 
-    // MJL_Test for mode
-    std::cout << this->name() << "::recvFunctional(PacketPtr pkt)\n";
-    // MJL_Test for PC and contextID
-    if (this->name().find("dcache") != std::string::npos) {
-        std::cout << "recvFunctional: hasPC? " << pkt->req->hasPC() << ", PC = ";
-        if (pkt->req->hasPC()) {
-            std::cout << pkt->req->getPC();
-        } else {
-            std::cout << "NoPC";
-        }
-        std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
-        if (pkt->req->hasContextId()) {
-            std::cout << pkt->req->contextId();
-        } else {
-            std::cout << "NoContextId";
-        }
-        //std::cout << "\n";
-    }
-    // MJL_Test for MemCmd type, size and Dir
-    if (this->name().find("dcache") != std::string::npos) {
-        std::cout << ", MemCmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", CmdDir: " << pkt->MJL_getCmdDir() << "\n";
-    }
-     MJL_End */
     /* MJL_Begin */
+    /* MJL_Test request packet information output 
     if (this->name().find("dcache") != std::string::npos) {
-        std::cout << this->name() << "::recvFunctional: before access: addr = ";
-        std::cout << std::oct << pkt->getAddr();
-        std::cout << std::dec  << ", size = " << pkt->getSize();
-        std::cout << ", hasData? " << pkt->hasData() << ", MemCmd: " << pkt->cmd.toString();
+        std::cout << this->name() << "::recvFunctionalPreAcc";
+        std::cout << ": MemCmd = " << pkt->cmd.toString();
+        std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+        std::cout << ", Size = " << pkt->getSize();
+        std::cout << ", Data = " << std::hex;
         if (pkt->hasData()) {
             uint64_t MJL_data = 0;
-            for (int i = 0; i < pkt->getSize()/sizeof(uint64_t); ++i) {
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), pkt->getSize()));
+            std::cout << "word[0] "<< MJL_data;
+            for (int i = 1; i < pkt->getSize()/sizeof(uint64_t); ++i) {
                 MJL_data = 0;
                 std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i*sizeof(uint64_t), std::min(sizeof(uint64_t), pkt->getSize() - i*sizeof(uint64_t)));
-                std::cout << std::hex << ", word[" << i << "] = "<< MJL_data;
+                std::cout << "| word[" << i << "] "<< MJL_data;
             }
         } else {
-            std::cout << ", NoData";
+            std::cout << "noData";
         }
-        std::cout << std::dec << "\n";
+        std::cout << std::dec << std::endl;
     }
+     */
 
-    // MJL_TODO: to check whether there are column accesses for functional
+    // Functional accesses are all in row direction
     assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
+
+    // Set common system information to propagate the information everywhere
     pkt->req->MJL_cachelineSize = cache->blkSize;
     pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     /* MJL_End */
     // functional request
     cache->functionalAccess(pkt, true);
     /* MJL_Begin */
-    // Test for functional access response
+    /* MJL_Test response packet information output 
     if ((this->name().find("dcache") != std::string::npos) && pkt->isResponse()) {
-        std::cout << this->name() << "::recvFunctional: after access: addr = ";
-        std::cout << std::oct << pkt->getAddr();
-        std::cout << std::dec  << ", size = " << pkt->getSize();
-        std::cout << ", hasData? " << pkt->hasData() << ", MemCmd: " << pkt->cmd.toString();
+        std::cout << this->name() << "::recvFunctionalPostAcc";
+        std::cout << ": MemCmd = " << pkt->cmd.toString();
+        std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+        std::cout << ", Size = " << pkt->getSize();
+        std::cout << ", Data = " << std::hex;
         if (pkt->hasData()) {
             uint64_t MJL_data = 0;
-            for (int i = 0; i < pkt->getSize()/sizeof(uint64_t); ++i) {
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), pkt->getSize()));
+            std::cout << "word[0] = "<< MJL_data;
+            for (int i = 1; i < pkt->getSize()/sizeof(uint64_t); ++i) {
                 MJL_data = 0;
                 std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i*sizeof(uint64_t), std::min(sizeof(uint64_t), pkt->getSize() - i*sizeof(uint64_t)));
-                std::cout << std::hex << ", word[" << i << "] = "<< MJL_data;
+                std::cout << " | word[" << i << "] = "<< MJL_data;
             }
         } else {
-            std::cout << ", NoData";
+            std::cout << "noData";
         }
-        std::cout << std::dec << "\n";
+        std::cout << std::dec << std::endl;
     }
+     */
     /* MJL_End */
 }
 
@@ -3626,7 +3506,7 @@ Cache::MemSidePort::recvFunctionalSnoop(PacketPtr pkt)
     // functional snoop (note that in contrast to atomic we don't have
     // a specific functionalSnoop method, as they have the same
     // behaviour regardless)
-     /* MJL_Begin */
+    /* MJL_Begin */
     // MJL_TODO: to check whether there are column accesses for functional
     assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
     /* MJL_End */

@@ -107,129 +107,121 @@ class Cache : public BaseCache
 
       public:
         /* MJL_Begin */
-        // MJL_Test (partially) to see whether cache functions work as desired, recovering original packet address, direction, and respond command, but not just for test anymore...
+        /**
+         * Override the default sendTimingResp() to merge split packets at L1D$ cpu_side port
+         */
         virtual bool sendTimingResp(PacketPtr pkt)
         {
             assert(pkt->isResponse());
             if (this->name().find("dcache") != std::string::npos) {
-                std::cout << this->name() << "::sendTimingResp: hasPC? " << pkt->req->hasPC() << ", PC = ";
+                /* MJL_Test: Packet information output */
+                std::cout << this->name() << "::sendTimingResp";
+                std::cout << ": PC(hex) = ";
                 if (pkt->req->hasPC()) {
-                    std::cout << pkt->req->getPC();
+                    std::cout << std::hex << pkt->req->getPC() << std::dec;
                 } else {
-                    std::cout << "NoPC";
+                    std::cout << "noPC";
                 }
-                std::cout << ", hasContextId? " << pkt->req->hasContextId() << ", contextID = ";
-                if (pkt->req->hasContextId()) {
-                    std::cout << pkt->req->contextId();
-                } else {
-                    std::cout << "NoContextId";
-                }
-                std::cout << ", Size = " << pkt->getSize() << ", time = " << pkt->req->time() << ", Addr = ";
-                std::cout << std::oct << pkt->getAddr();
-                std::cout << std::dec << ", Dir = " << pkt->MJL_getCmdDir() << ", Cmd = " << pkt->cmd.MJL_getCmd();
+                std::cout << ", MemCmd = " << pkt->cmd.toString();
+                std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+                std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+                std::cout << ", Size = " << pkt->getSize();
+                std::cout << ", Data(hex) = ";
                 if (pkt->hasData()) {
-                    std::cout << ", Data = ";
                     uint64_t MJL_data = 0;
                     std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
-                    std::cout << std::hex << MJL_data;
+                    std::cout << "word[0] " << std::hex << MJL_data << std::dec;
+                    for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                        MJL_data = 0;
+                        std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
+                        std::cout << " | word[" << i/sizeof(uint64_t) << "] " <<  MJL_data;
+                    }       
                 } else {
                     std::cout << ", noData";
                 }
-                std::cout << std::dec << "\n";
-                assert(!cache->MJL_testPktOrigParamList.empty());
-                auto PC_it = cache->MJL_testPktOrigParamList.find(pkt->req->getPC());
-                assert(PC_it != cache->MJL_testPktOrigParamList.end());
-                auto time_it = PC_it->second.find(pkt->req->time());
-                assert((time_it != PC_it->second.end()) && !time_it->second.empty());
+                std::cout << std::dec;
+                std::cout << ", Time = " << pkt->req->time() ;
+                std::cout << std::endl;
+                /* */
+
                 bool MJL_isUnaligned = false;
                 bool MJL_isMerged = false;
+
+                // Check whether the packet is part of a pair of split packets and handle split packets cases
                 auto unaligned_PC_it = cache->MJL_unalignedPacketList.find(pkt->req->getPC());
                 if (unaligned_PC_it != cache->MJL_unalignedPacketList.end()) {
                     auto unaligned_time_it = unaligned_PC_it->second.find(pkt->req->time());
                     if (unaligned_time_it != unaligned_PC_it->second.end()) {
                         auto unaligned_seq_it = unaligned_time_it->second.find(pkt->MJL_testSeq);
                         if (unaligned_seq_it != unaligned_time_it->second.end()) {
+
+                            // The packet received was split
                             MJL_isUnaligned = true;
                             std::cout << "MJL_Merge: received a packet that was split into 2, ";
+
+                            // Determine whether the response is to the original packet or the created second packet
                             if (pkt == std::get<0>(unaligned_seq_it->second)) {
                                 std::cout << " this is the first packet\n";
-                                unsigned MJL_byteOffset = pkt->getAddr() & (Addr)(sizeof(uint64_t) - 1);
+                                // Register that the response to the original packet has been received
                                 cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
-                                if (pkt->hasData()) {
-                                    cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = new uint8_t[sizeof(uint64_t) - MJL_byteOffset];
-                                    std::memcpy(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0], pkt->getConstPtr<uint8_t>(), sizeof(uint64_t) - MJL_byteOffset);
-                                }
                             } else if (pkt == std::get<1>(unaligned_seq_it->second)) {
                                 std::cout << " this is the second packet\n";
+                                // Register that the response to the second packet has been received
                                 cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = true;
-                                if (pkt->hasData()) {
-                                    cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1] = new uint8_t[pkt->getSize()];
-                                    std::memcpy(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1], pkt->getConstPtr<uint8_t>(), pkt->getSize());
-                                }
                             } else {
+                                // Should not have other cases
                                 assert((pkt == std::get<0>(unaligned_seq_it->second)) || (pkt == std::get<1>(unaligned_seq_it->second)));
                             }
+
+                            // Merge if both packets have been received
                             if (cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] && cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1]) {
+                                // Both packets received
                                 MJL_isMerged = true;
                                 std::cout << "MJL_Merge: Received both packets that were previously split, ";
                                 PacketPtr MJL_origPacket = std::get<0>(unaligned_seq_it->second);
                                 std::cout << ", got Original Packet, size = " << MJL_origPacket->getSize();
                                 PacketPtr MJL_sndPacket = std::get<1>(unaligned_seq_it->second);
                                 std::cout << ", got Second Packet, size = " << MJL_sndPacket->getSize();
-                                // pkt->MJL_setSize(cache->MJL_unalignedPacketSize[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
-                                // pkt->req->MJL_setSize(pkt->getSize());
-                                // pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                                // pkt->req->setPaddr(pkt->getAddr());
-                                cache->MJL_unalignedPacketSize[pkt->req->getPC()][pkt->req->time()].erase(pkt->MJL_testSeq);
+                                
+                                // If there is data in the response packets, merge data from both packets to the original packet
                                 if (pkt->hasData()) {
                                     unsigned MJL_byteOffset = MJL_origPacket->getAddr() & (Addr)(sizeof(uint64_t) - 1);
                                     std::memcpy(MJL_origPacket->getPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPacket->getConstPtr<uint8_t>(), MJL_sndPacket->getSize());
-                                    // pkt->deleteData();
-                                    // pkt->allocate();
-                                    // std::memcpy(pkt->getPtr<uint8_t>(), cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0], sizeof(*(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0])));
-                                    // std::memcpy(pkt->getPtr<uint8_t>() + sizeof(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0]), cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1], sizeof(*(cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1])));
-                                    cache->MJL_unalignedPacketData[pkt->req->getPC()][pkt->req->time()].erase(pkt->MJL_testSeq);
                                     std::cout << ", copying data from snd to orig";
+                                // Reset the request and packet size back to original size for write responses
                                 } else if (pkt->isWrite()) {
                                     MJL_origPacket->MJL_setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
                                     MJL_origPacket->req->MJL_setSize(MJL_origPacket->getSize());
                                 }
+
+                                // If the packet arrived second is not the original packet
                                 if (pkt != MJL_origPacket) {
+                                    // Copy timing information from the packet to the original packet
                                     MJL_origPacket->headerDelay = pkt->headerDelay;
                                     MJL_origPacket->snoopDelay = pkt->snoopDelay;
                                     MJL_origPacket->payloadDelay = pkt->payloadDelay;
-                                    // MJL_origPacket->senderState = pkt->senderState;
+                                    // And set the packet to be passed on to be the original one
                                     pkt = MJL_origPacket;
                                 }
-                                assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                                // assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                                assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
-                                pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                                // pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                                // pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                                pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
+
+                                // Delete the now useless second packet and split packets entry
                                 delete MJL_sndPacket;
-                                unaligned_time_it->second.erase(pkt->MJL_testSeq);
-                                // time_it->second.erase(pkt->MJL_testSeq);                
+                                unaligned_time_it->second.erase(pkt->MJL_testSeq);             
                             }
                         }
                     }
                 }
+
+                // Send response to core if the packet was not split, or the split packets has merged
                 if (!MJL_isUnaligned || (MJL_isUnaligned && MJL_isMerged)) {
-                    assert(pkt->getAddr() == std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                    // assert(pkt->MJL_getCmdDir() == std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                    assert(pkt->cmd.MJL_getCmd() == std::get<2>((time_it->second)[pkt->MJL_testSeq]));
-                    pkt->setAddr(std::get<0>((time_it->second)[pkt->MJL_testSeq]));
-                    // pkt->cmd.MJL_setCmdDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                    // pkt->MJL_setDataDir(std::get<1>((time_it->second)[pkt->MJL_testSeq]));
-                    pkt->cmd = std::get<2>((time_it->second)[pkt->MJL_testSeq]);
-                    time_it->second.erase(pkt->MJL_testSeq);
-                    
                     return CacheSlavePort::sendTimingResp(pkt);
+                // Wait for both of the split packets to be received and merged before sending response
                 } else {
                     return true;
                 }
             }
+
+            // Forward response to upper level
             return CacheSlavePort::sendTimingResp(pkt);
         }
         /* MJL_End */
@@ -385,6 +377,8 @@ class Cache : public BaseCache
     std::string MJL_PC2DirFilename;
     /**
      * The method to read the map information from file
+     * The file format should be the "PC Dir" with each line defining the direction for different instruction
+     * Note that the PC number should be in hexadecimal format, and the Dir is either "R" for row or "C" for column
      */
     void MJL_readPC2DirMap () {
         std::ifstream MJL_PC2DirFile;
@@ -394,8 +388,9 @@ class Cache : public BaseCache
 
         MJL_PC2DirFile.open(MJL_PC2DirFilename);
         if (MJL_PC2DirFile.is_open()) {
+            std::cout << this->name() << "::Reading PC to direction preference input from " << MJL_PC2DirFilename << ":" << std::endl;
             while (getline(MJL_PC2DirFile, line)) {
-                std::stringstream(line) >> tempPC >> tempDir;
+                std::stringstream(line) >> std::hex >> tempPC >> std::dec >> tempDir;
                 if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
                     std::cout << "MJL_Error: Redefinition of instruction direction found!\n";
                 }
@@ -407,10 +402,11 @@ class Cache : public BaseCache
                     std::cout << "MJL_Error: Invalid input direction annotation!\n";
                     assert((tempDir == 'R') || (tempDir == 'C'));
                 }
-                // MJL_Test: For test use
+                /* MJL_Test: file information output */
                 if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
-                    std::cout << "PC: " << MJL_PC2DirMap.find(tempPC)->first << ", Dir: " << MJL_PC2DirMap.find(tempPC)->second << "\n";
+                    std::cout << "PC: " << std::hex << MJL_PC2DirMap.find(tempPC)->first << std::dec << ", Dir: " << MJL_PC2DirMap.find(tempPC)->second << "\n";
                 }
+                /* */
             }
         }
         else {
@@ -420,63 +416,22 @@ class Cache : public BaseCache
         MJL_PC2DirFile.close();
     }
 
-    // MJL_Test: For test use 
-    std::list< std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > MJL_testInputList;
-    // not just test use anymore
-    std::map< Addr, std::map< Tick, std::map< int , std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> > > > MJL_testPktOrigParamList;// [PC][_time][MJL_testSeq] = <addr, dir, cmd>
+    /**
+     * Track the pointers to a pair of split packets.
+     */
     std::map< Addr, std::map< Tick, std::map< int , std::tuple<PacketPtr, PacketPtr> > > > MJL_unalignedPacketList;  //[PC][_time][MJL_testSeq] = <OrigPtr, SecPtr>
+    /**
+     * Register whether both response packets of a pair of split packets has been received.
+     */
     std::map< Addr, std::map< Tick, std::map< int , std::map< int, bool > > > > MJL_unalignedPacketCount;  //[PC][_time][MJL_testSeq][PacketAddrSeq] = received
-    std::map< Addr, std::map< Tick, std::map< int , unsigned > > > MJL_unalignedPacketSize;  //[PC][_time][MJL_testSeq] = size
-    std::map< Addr, std::map< Tick, std::map< int , std::map< int, uint8_t* > > > > MJL_unalignedPacketData;  //[PC][_time][MJL_testSeq][PacketAddrSeq] = data
+    /**
+     * Track whether there is a second half of split packets waiting to be sent
+     */
     bool MJL_sndPacketWaiting;
+    /**
+     * Pointer to the second half of split packets that is waiting
+     */
     PacketPtr MJL_retrySndPacket;
-
-    // MJL_Test: For test use 
-    void MJL_readTestInput () {
-        std::ifstream MJL_testInputFile;
-        std::string line;
-
-        Addr tempAddr;
-        char intempDir;
-        char intempCmd;
-        CacheBlk::MJL_CacheBlkDir tempDir;
-        MemCmd::Command tempCmd;
-
-        MJL_testInputFile.open("CacheTestInput.txt");
-        if (MJL_testInputFile.is_open()) {
-            while (getline(MJL_testInputFile, line)) {
-                if (line == "End") break;
-                std::stringstream(line) >> tempAddr >> intempDir >> intempCmd;
-                if (intempDir == 'R') {
-                    tempDir =  CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
-                } else if (intempDir == 'C') {
-                    tempDir =  CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
-                } else {
-                    std::cout << "MJL_Error: Invalid input direction annotation!\n";
-                    assert((intempDir == 'R') || (intempDir == 'C'));
-                }
-                if (intempCmd == 'R') {
-                    tempCmd =  MemCmd::Command::ReadReq;
-                } else if (intempCmd == 'W') {
-                    tempCmd = MemCmd::Command::WriteReq;
-                } else {
-                    std::cout << "MJL_Error: Invalid input command annotation!\n";
-                    assert((intempCmd == 'R') || (intempCmd == 'W'));
-                }
-                MJL_testInputList.push_back(std::tuple<Addr, CacheBlk::MJL_CacheBlkDir, MemCmd::Command> (tempAddr, tempDir, tempCmd));
-            }
-        } else {
-            std::cout << "MJL_Error: Could not open test input file!\n";
-            //assert(MJL_testInputFile.is_open());
-        }
-        MJL_testInputFile.close();
-
-        std::cout << "After reading the file\n";
-        for (auto it = MJL_testInputList.begin(); it != MJL_testInputList.end(); ++it) {
-            std::cout << "Addr: " << std::get<0>(*it) << ", Dir: " << std::get<1>(*it) << ", Cmd: " <<  std::get<2>(*it) << "\n";
-        }
-    }
-    /* */
     /* MJL_End */
 
     /**
@@ -616,33 +571,6 @@ class Cache : public BaseCache
             }
         }
     }
-    // For each cross directional address of the addresses written (MJL_written_addr <= addr < MJL_written_addr + MJL_size, invalidate the block if it exists. Should be needing writeback before invalidation. )
-    // Code for handling dirty and all 
-    // if (blk->isDirty() || writebackClean) {
-    //     // Save writeback packet for handling by caller
-    //     writebacks.push_back(writebackBlk(blk));
-    // } else {
-    //     writebacks.push_back(cleanEvictBlk(blk));
-    // }
-    // Assuming sharing only happens in L1, and L2 is unified.
-    // For any pair of row and column block holding the same word
-    // The statuses are MOESI, where Modified and Exclusive means this cache is the
-    // only one holding the block, and Owned and Shared means there are other caches 
-    // That has the block. I is Invalid.
-    // The problem is when can we Invalidate the Other Blocks, should be treated as 
-    // an upgrade miss and the update cannot happen. And then we need to figure out how
-    // to resolve the upgrade misses. 
-    // I think that the other ones should be marked not readable as well if we are 
-    // waiting on an upgrade miss, and becomes invalid when we have the right to write
-    // Column one is the status of the block that we want to update, Row is the others
-    // Status|       M       |       O       |       E       |       S       |  I
-    //   M   |               |               |               | Yes, inform S | ---- 
-    //   O   |               |               |               |               | ---- 
-    //   E   |               |               |               | Yes, inform S | ---- 
-    //   S   |               |               |               |               | ---- 
-    //   I   |               |               |               |               | ---- 
-    // Apparently it is ok to invalidate if the other is shared, but need to tell the others that the shared copy is not there anymore... 
-    // Apparently nothing to invalidate if the others are invalid...
     /* MJL_End */
 
     /**

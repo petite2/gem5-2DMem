@@ -534,15 +534,6 @@ Packet::MJL_checkFunctional(Printable *obj, Addr addr, MemCmd::MJL_DirAttribute 
                 uint8_t *src = getPtr<uint8_t>() + MJL_thisDataOffset;
                 uint8_t *dest = _data + MJL_inDataOffset;
                 memcpy(dest, src, MJL_size);
-                if (getAddr() == 1169168) {
-                    std::cout << "MJL_Watch: Functional write to addr 4353420, ";
-                    std::cout << std::oct << "cross directional block addr = " << addr;
-                    std::cout << std::dec << ", write data from packet's " << MJL_thisWordOffset << "th word to block's " << MJL_inWordOffset << "th word, size = " << MJL_size << ", data = ";
-                    uint64_t MJL_Data = 0;
-                    memcpy(&MJL_Data, src, MJL_size); 
-                    std::cout << std::hex << MJL_Data;
-                    std::cout << std::dec << "\n";
-                }
             } else {
                 panic("Don't know how to handle command %s\n", cmdString());
             }

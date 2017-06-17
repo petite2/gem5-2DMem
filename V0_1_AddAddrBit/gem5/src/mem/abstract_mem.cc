@@ -336,35 +336,43 @@ AbstractMemory::access(PacketPtr pkt)
                 pkt->getAddr());
       return;
     }
-    // MJL_TODO: doesn't look like that it needs to be changed
+
     assert(AddrRange(pkt->getAddr(),
                      pkt->getAddr() + (pkt->getSize() - 1)).isSubset(range));
 
     uint8_t *hostAddr = pmemAddr + pkt->getAddr() - range.start();
 
-    // MJL_Test
+    /* MJL_Begin */
+    /* MJL_Test: Packet information output
     if (!pkt->req->isInstFetch()) {
-        std::cout << this->name() << "::access() Cmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", addr: ";
-        std::cout << std::oct << pkt->getAddr();
-        std::cout << std::dec << ", PC: ";
+        std::cout << this->name() << "::access()";
+        std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
-             std::cout << pkt->req->getPC();
+             std::cout << std::hex << pkt->req->getPC() << std::dec;
         } else {
-             std::cout << "NoPC";
+             std::cout << "noPC";
         }
+        std::cout << ", MemCmd = " << pkt->cmd.toString();
+        std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+        std::cout << ", Addr(oct) = "<< std::oct << pkt->getAddr() << std::dec;
+        std::cout << ", Size = " << pkt->getSize();
         if ((pkt->cmd.toString()).find("WritebackDirty") != std::string::npos) {
-            std::cout << ", DataDir: " << pkt->MJL_getDataDir() << ", CmdDir: " << pkt->MJL_getCmdDir();
+            std::cout << ", DataDir = " << pkt->MJL_getDataDir();
             uint64_t MJL_data = 0;
-            std::cout << std::hex << ", Data:";
+            std::cout << ", Data = " << std::hex;
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), pkt->getSize()));
+            std::cout << "word[0] = " <<  MJL_data;
             for (unsigned i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
                 MJL_data = 0;
                 std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
-                std::cout << "word[" << i/sizeof(uint64_t) << "] = " <<  MJL_data << ", ";
+                std::cout << " | word[" << i/sizeof(uint64_t) << "] = " <<  MJL_data;
             }
             std::cout << std::dec;
         }
-        std::cout << ", time: " << pkt->req->time() << "\n";
+        std::cout << ", Time: " << pkt->req->time() << std::endl;
     }
+     */
+    /* MJL_End */
                     
 
     if (pkt->cmd == MemCmd::SwapReq) {
@@ -536,17 +544,20 @@ AbstractMemory::access(PacketPtr pkt)
 void
 AbstractMemory::functionalAccess(PacketPtr pkt)
 {
-    // MJL_TODO: Same as access()
     /* MJL_Begin */
-    std::cout << this->name() << "::functionalAccess() Cmd: " << pkt->cmd.toString() << ", Size: " << pkt->getSize() << ", addr: ";
-    std::cout << std::oct << pkt->getAddr();
-    std::cout << std::dec << ", PC: ";
+    /* MJL_Test: Packet information output 
+    std::cout << this->name() << "::functionalAccess()";
+    std::cout << ": PC(hex) = ";
     if (pkt->req->hasPC()) {
-         std::cout << pkt->req->getPC();
+         std::cout << std::hex << pkt->req->getPC() << std::dec;
     } else {
-         std::cout << "NoPC";
+         std::cout << "noPC";
     }
-    std::cout << ", time: " << pkt->req->time() << "\n";
+    std::cout << ", MemCmd = " << pkt->cmd.toString();
+    std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+    std::cout << ", Size = " << pkt->getSize();
+    std::cout << ", Time: " << pkt->req->time() << std::endl;
+     */
     /* MJL_End */
     assert(AddrRange(pkt->getAddr(),
                      pkt->getAddr() + pkt->getSize() - 1).isSubset(range));
