@@ -1230,7 +1230,7 @@ class Packet : public Printable
             
             std::cout << ", Data(hex) = " << std::hex;
             uint64_t MJL_data = 0;
-            std::memcpy(&MJL_data, getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), getSize()));
+            std::memcpy(&MJL_data, getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)getSize()));
             std::cout << "word[0] " <<  MJL_data;
             for (unsigned i = sizeof(uint64_t); i < getSize(); i = i + sizeof(uint64_t)) {
                 MJL_data = 0;
@@ -1279,7 +1279,7 @@ class Packet : public Printable
             
             std::cout << ", Data(hex) = " << std::hex;
             uint64_t MJL_data = 0;
-            std::memcpy(&MJL_data, getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), getSize()));
+            std::memcpy(&MJL_data, getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)getSize()));
             std::cout << "word[0] " <<  MJL_data;
             for (unsigned i = sizeof(uint64_t); i < getSize(); i = i + sizeof(uint64_t)) {
                 MJL_data = 0;

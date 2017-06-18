@@ -2982,7 +2982,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
 
     /* MJL_Test: Packet information output */
     if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
-        std::cout << this->name() << "::recvTimingReq"
+        std::cout << this->name() << "::recvTimingReq";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
             std::cout << std::hex << pkt->req->getPC() << std::dec;
@@ -3016,6 +3016,10 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     bool MJL_split = false;
     PacketPtr MJL_sndPkt = pkt;
 
+    // Extract the byte offset of the access
+    Addr MJL_baseAddr = pkt->getAddr();
+    unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
+
     if ((this->name().find("dcache") != std::string::npos) // Only split for L1D$
         && !blocked // When the cache is not blocked
         && !mustSendRetry // Or committed to a retry
@@ -3027,7 +3031,6 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         MJL_split = true;
 
         // Extract basic information about the packet
-        Addr MJL_baseAddr = pkt->getAddr();
         CacheBlk::MJL_CacheBlkDir pktOrigDir = pkt->MJL_getCmdDir();
         assert(pkt->req->hasPC());
 
@@ -3039,9 +3042,6 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         }
         // Assign the sequence number
         pkt->MJL_testSeq = MJL_testSeq;
-
-        // Extract the byte offset of the access
-        unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
         
         // Accesses designed to be column direction should never be unaligned
         assert(pktOrigDir == MemCmd::MJL_DirAttribute::MJL_IsRow);
@@ -3163,7 +3163,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
 
     /* MJL_Test: Request packet information output 
     if (this->name().find("dcache") != std::string::npos) {
-        std::cout << this->name() << "::recvAtomicPreAcc"
+        std::cout << this->name() << "::recvAtomicPreAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
             std::cout << std::hex << pkt->req->getPC() << std::dec;
@@ -3196,6 +3196,10 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     // Split packet if the access is not word aligned (despite changes in "splitRequest()"), see recvTimingReq for detail
     bool MJL_split = false;
     PacketPtr MJL_sndPkt = pkt;
+
+    Addr MJL_baseAddr = pkt->getAddr();
+    unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
+
     if ((this->name().find("dcache") != std::string::npos)
         && pkt->needsResponse()
         && !cache->MJL_sndPacketWaiting
@@ -3204,7 +3208,6 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
 
         MJL_split = true;
 
-        Addr MJL_baseAddr = pkt->getAddr();
         CacheBlk::MJL_CacheBlkDir pktOrigDir = pkt->MJL_getCmdDir();
         assert(pkt->req->hasPC());
 
@@ -3215,8 +3218,6 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         }
 
         pkt->MJL_testSeq = MJL_testSeq;
-
-        unsigned MJL_byteOffset = MJL_baseAddr & (Addr)(sizeof(uint64_t) - 1);
 
         assert(pktOrigDir == MemCmd::MJL_DirAttribute::MJL_IsRow);
 

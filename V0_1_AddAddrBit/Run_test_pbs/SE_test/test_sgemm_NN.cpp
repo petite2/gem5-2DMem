@@ -36,10 +36,10 @@ int main(int argc,char *argv[])
     fault = fault + posix_memalign((void**)&matrix_B, align_size, sizeof(double)*size);
     fault = fault + posix_memalign((void**)&matrix_C, align_size, sizeof(double)*size);
     
-    int index_i, index_j;
-    index_i = 0;
-    index_j = 0;
-    print_addr(matrix_A, matrix_B, matrix_C, index_i, index_j, width);
+//    int index_i, index_j;
+//    index_i = 0;
+//    index_j = 0;
+//    print_addr(matrix_A, matrix_B, matrix_C, index_i, index_j, width);
     
     if (fault) {
         std::cout << "Error: Error on memory allocation!" << std::endl;
@@ -60,8 +60,11 @@ int main(int argc,char *argv[])
         }
     }
 
+    std::cout << "Starting SGEMM_NN" << std::endl;
+
     SGEMM_NN(size_M_height_A_C, size_N_width_B_C, size_K_width_A_height_B, coeff_ALPHA, matrix_A, size_LDA, matrix_B, size_LDB, coeff_BETA, matrix_C, size_LDC);
 
+    std::cout << "End of SGEMM_NN" << std::endl;
     // for (int i = 0; i < width; ++i) {
     //     for (int j = 0; j < width; ++j) {
     //         std::cout << " " << matrix_C[i * width + j];
