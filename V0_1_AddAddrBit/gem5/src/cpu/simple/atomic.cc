@@ -676,8 +676,9 @@ AtomicSimpleCPU::tick()
 
                 postExecute();
                 /* MJL_Begin */
-                // Trying to get the PC to binary line mapping.
-                std::cout << "MJL_Commit_inst: PC " << pcState.instAddr() << ", " << curStaticInst->disassemble(pcState.instAddr()) << "\n";
+                /* MJL_Test: Commit instruction output 
+                std::cout << "MJL_Commit_inst: PC(hex) " << std::hex  << pcState.instAddr() << std::dec << ", " << curStaticInst->disassemble(pcState.instAddr()) << "\n";
+                 */
                 /* MJL_End */
             }
 

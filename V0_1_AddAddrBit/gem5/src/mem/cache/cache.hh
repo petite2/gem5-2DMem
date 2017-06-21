@@ -724,6 +724,14 @@ class Cache : public BaseCache
      * @return The writeback request for the block.
      */
     PacketPtr writebackBlk(CacheBlk *blk);
+    /* MJL_Begin */
+    /**
+     * Create a writeback request for the given block without eviction.
+     * @param blk The block to writeback.
+     * @return The writeback request for the block.
+     */
+    PacketPtr MJL_writebackCachedBlk(CacheBlk *blk);
+    /* MJL_End */
 
     /**
      * Create a CleanEvict request for the given block.

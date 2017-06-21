@@ -1220,9 +1220,9 @@ class Packet : public Printable
             std::cout << ", CmdDir = " << MJL_getCmdDir();
             std::cout << ", SameCmdDataDir = ";
             if (MJL_sameCmdDataDir()) {
-                std::cout << ", 1 ";
+                std::cout << "1";
             } else {
-                std::cout << ", 0 ";
+                std::cout << "0";
             }
             std::cout << ", Size = " << getSize();
             
@@ -1269,9 +1269,9 @@ class Packet : public Printable
             std::cout << ", CmdDir = " << MJL_getCmdDir();
             std::cout << ", SameCmdDataDir = ";
             if (MJL_sameCmdDataDir()) {
-                std::cout << ", 1 ";
+                std::cout << "1";
             } else {
-                std::cout << ", 0 ";
+                std::cout << "0";
             }
             std::cout << ", Size = " << getSize();
             

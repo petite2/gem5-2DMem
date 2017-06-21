@@ -465,6 +465,7 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_overallColumnHits;
     Stats::Formula MJL_overallRowAccesses;
     Stats::Formula MJL_overallColumnAccesses;
+    Stats::Scalar MJL_nonEvictWBCount;
     /* MJL_End */
 
     /**

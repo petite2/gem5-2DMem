@@ -561,18 +561,19 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         return true;
     }
     // MJL_TODO: Testing needed, should writeback the dirty blocks of different directions before issuing the miss
-    if (blk == nullptr && pkt->isRead() && pkt->getSize() > sizeof(uint64_t)) {
+    if (blk == nullptr && pkt->isRead()) {
         CacheBlk *MJL_crossBlk = nullptr;
         Addr MJL_crossBlkAddr;
-        for (unsigned MJL_offset = 0; MJL_offset < pkt->getSize(); MJL_offset = MJL_offset + sizeof(uint64_t)) {
-            MJL_crossBlkAddr= MJL_addOffsetAddr(pkt->getAddr(), pkt->MJL_getCmdDir(), MJL_offset);
+        for (unsigned MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
+            MJL_crossBlkAddr= MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir(), MJL_offset);
             if ( pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
                 MJL_crossBlk = tags->MJL_accessBlock(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, pkt->isSecure(), lat, id);
             } else if ( pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
                 MJL_crossBlk = tags->MJL_accessBlock(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), lat, id);
             }
             if (MJL_crossBlk && MJL_crossBlk->isValid() && MJL_crossBlk->isDirty()) {
-                writebacks.push_back(writebackBlk(MJL_crossBlk));
+                MJL_nonEvictWBCount++;
+                writebacks.push_back(MJL_writebackCachedBlk(MJL_crossBlk));
             }
         }
     }
@@ -1811,6 +1812,14 @@ Cache::recvTimingResp(PacketPtr pkt)
     delete pkt;
 }
 
+/* MJL_Begin */
+PacketPtr
+Cache::MJL_writebackCachedBlk(CacheBlk *blk) {
+    PacketPtr pkt = writebackBlk(blk);
+    pkt->setBlockCached();
+    return pkt;
+}
+/* MJL_End */
 PacketPtr
 Cache::writebackBlk(CacheBlk *blk)
 {
@@ -2059,6 +2068,14 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
             } else {
                 writebacks.push_back(cleanEvictBlk(blk));
             }
+            /* MJL_Test: what evict caused problem? 
+            std::cout << this->name() << "::MJL_allocateBlock()Evict";
+            std::cout << ": Addr(oct) = " << std::oct << repl_addr << std::dec;
+            std::cout << ", BlkDir = " << blk->MJL_blkDir;
+            std::cout << ", IsSecure = " << blk->isSecure();
+            std::cout << ", IsDirty = " << blk->isDirty();
+            std::cout << std::endl;
+             */ 
         }
     }
 
@@ -3161,7 +3178,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         pkt->MJL_setDataDir(InputDir);
     }
 
-    /* MJL_Test: Request packet information output 
+    /* MJL_Test: Request packet information output */ 
     if (this->name().find("dcache") != std::string::npos) {
         std::cout << this->name() << "::recvAtomicPreAcc";
         std::cout << ": PC(hex) = ";
@@ -3191,7 +3208,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
-     */
+    /* */
 
     // Split packet if the access is not word aligned (despite changes in "splitRequest()"), see recvTimingReq for detail
     bool MJL_split = false;

@@ -343,9 +343,9 @@ AbstractMemory::access(PacketPtr pkt)
     uint8_t *hostAddr = pmemAddr + pkt->getAddr() - range.start();
 
     /* MJL_Begin */
-    /* MJL_Test: Packet information output
+    /* MJL_Test: Packet information output */
     if (!pkt->req->isInstFetch()) {
-        std::cout << this->name() << "::access()";
+        std::cout << this->name() << "::access()PreAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
              std::cout << std::hex << pkt->req->getPC() << std::dec;
@@ -360,9 +360,9 @@ AbstractMemory::access(PacketPtr pkt)
             std::cout << ", DataDir = " << pkt->MJL_getDataDir();
             uint64_t MJL_data = 0;
             std::cout << ", Data = " << std::hex;
-            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), pkt->getSize()));
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)pkt->getSize()));
             std::cout << "word[0] = " <<  MJL_data;
-            for (unsigned i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+            for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
                 MJL_data = 0;
                 std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
                 std::cout << " | word[" << i/sizeof(uint64_t) << "] = " <<  MJL_data;
@@ -371,7 +371,7 @@ AbstractMemory::access(PacketPtr pkt)
         }
         std::cout << ", Time: " << pkt->req->time() << std::endl;
     }
-     */
+    /* */
     /* MJL_End */
                     
 
@@ -539,6 +539,37 @@ AbstractMemory::access(PacketPtr pkt)
     if (pkt->needsResponse()) {
         pkt->makeResponse();
     }
+    /* MJL_Begin */
+    /* MJL_Test: Packet information output */
+    if (!pkt->req->isInstFetch() && pkt->isResponse()) {
+        std::cout << this->name() << "::access()PostAcc";
+        std::cout << ": PC(hex) = ";
+        if (pkt->req->hasPC()) {
+             std::cout << std::hex << pkt->req->getPC() << std::dec;
+        } else {
+             std::cout << "noPC";
+        }
+        std::cout << ", MemCmd = " << pkt->cmd.toString();
+        std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+        std::cout << ", Addr(oct) = "<< std::oct << pkt->getAddr() << std::dec;
+        std::cout << ", Size = " << pkt->getSize();
+        if (pkt->hasData()) {
+            std::cout << ", DataDir = " << pkt->MJL_getDataDir();
+            uint64_t MJL_data = 0;
+            std::cout << ", Data = " << std::hex;
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)pkt->getSize()));
+            std::cout << "word[0] = " <<  MJL_data;
+            for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                MJL_data = 0;
+                std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
+                std::cout << " | word[" << i/sizeof(uint64_t) << "] = " <<  MJL_data;
+            }
+            std::cout << std::dec;
+        }
+        std::cout << ", Time: " << pkt->req->time() << std::endl;
+    }
+    /* */
+    /* MJL_End */
 }
 
 void

@@ -65,12 +65,12 @@ int main(int argc,char *argv[])
     SGEMM_NN(size_M_height_A_C, size_N_width_B_C, size_K_width_A_height_B, coeff_ALPHA, matrix_A, size_LDA, matrix_B, size_LDB, coeff_BETA, matrix_C, size_LDC);
 
     std::cout << "End of SGEMM_NN" << std::endl;
-    // for (int i = 0; i < width; ++i) {
-    //     for (int j = 0; j < width; ++j) {
-    //         std::cout << " " << matrix_C[i * width + j];
-    //     }
-    //     std::cout << std::endl;
-    // }
+    for (int i = 0; i < width; ++i) {
+        for (int j = 0; j < width; ++j) {
+            std::cout << " " << matrix_C[i * width + j];
+        }
+        std::cout << std::endl;
+    }
     free(matrix_A);
     free(matrix_B);
     free(matrix_C);

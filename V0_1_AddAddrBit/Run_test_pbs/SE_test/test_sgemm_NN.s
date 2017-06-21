@@ -672,6 +672,11 @@ _Z10print_addrPdS_S_iii:
 	.long	5131871
 	.type	.L_2__STRING.7,@object
 	.size	.L_2__STRING.7,16
+	.align 4
+.L_2__STRING.8:
+	.word	32
+	.type	.L_2__STRING.8,@object
+	.size	.L_2__STRING.8,2
 	.text
 # mark_begin;
 
@@ -691,12 +696,12 @@ main:
         movq      %rsp, %rbp                                    #test_sgemm_NN.cpp:17.1
 	.cfi_def_cfa 6, 16
 	.cfi_offset 6, -16
-        subq      $256, %rsp                                    #test_sgemm_NN.cpp:17.1
+        subq      $288, %rsp                                    #test_sgemm_NN.cpp:17.1
         movq      %rbx, -16(%rbp)                               #test_sgemm_NN.cpp:17.1
-        movl      %edi, -168(%rbp)                              #test_sgemm_NN.cpp:17.1
-        movq      %rsi, -160(%rbp)                              #test_sgemm_NN.cpp:17.1
+        movl      %edi, -192(%rbp)                              #test_sgemm_NN.cpp:17.1
+        movq      %rsi, -184(%rbp)                              #test_sgemm_NN.cpp:17.1
         movl      $8, %eax                                      #test_sgemm_NN.cpp:21.15
-        addq      -160(%rbp), %rax                              #test_sgemm_NN.cpp:21.15
+        addq      -184(%rbp), %rax                              #test_sgemm_NN.cpp:21.15
         movq      (%rax), %rax                                  #test_sgemm_NN.cpp:21.15
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:21.15
 ..___tag_value_main.102:
@@ -705,93 +710,93 @@ main:
 ..___tag_value_main.103:
 	.cfi_offset 3, -32
                                 # LOE rbp rsp r12 r13 r14 r15 rip eax
-..B7.30:                        # Preds ..B7.1
-        movl      %eax, -256(%rbp)                              #test_sgemm_NN.cpp:21.15
-        movl      -256(%rbp), %eax                              #test_sgemm_NN.cpp:21.15
-        movl      %eax, -252(%rbp)                              #test_sgemm_NN.cpp:21.8
-        movl      -252(%rbp), %eax                              #test_sgemm_NN.cpp:21.8
-        movl      %eax, -248(%rbp)                              #test_sgemm_NN.cpp:21.8
-        movl      -252(%rbp), %eax                              #test_sgemm_NN.cpp:21.8
-        movl      %eax, -244(%rbp)                              #test_sgemm_NN.cpp:21.2
-        movl      -248(%rbp), %eax                              #test_sgemm_NN.cpp:22.17
-        imull     -244(%rbp), %eax                              #test_sgemm_NN.cpp:22.17
-        movl      %eax, -240(%rbp)                              #test_sgemm_NN.cpp:22.10
-        movl      $8, -236(%rbp)                                #test_sgemm_NN.cpp:23.35
-        lea       -244(%rbp), %rax                              #test_sgemm_NN.cpp:23.19
-        lea       -236(%rbp), %rdx                              #test_sgemm_NN.cpp:23.19
+..B7.39:                        # Preds ..B7.1
+        movl      %eax, -288(%rbp)                              #test_sgemm_NN.cpp:21.15
+        movl      -288(%rbp), %eax                              #test_sgemm_NN.cpp:21.15
+        movl      %eax, -284(%rbp)                              #test_sgemm_NN.cpp:21.8
+        movl      -284(%rbp), %eax                              #test_sgemm_NN.cpp:21.8
+        movl      %eax, -280(%rbp)                              #test_sgemm_NN.cpp:21.8
+        movl      -284(%rbp), %eax                              #test_sgemm_NN.cpp:21.8
+        movl      %eax, -276(%rbp)                              #test_sgemm_NN.cpp:21.2
+        movl      -280(%rbp), %eax                              #test_sgemm_NN.cpp:22.17
+        imull     -276(%rbp), %eax                              #test_sgemm_NN.cpp:22.17
+        movl      %eax, -272(%rbp)                              #test_sgemm_NN.cpp:22.10
+        movl      $8, -268(%rbp)                                #test_sgemm_NN.cpp:23.35
+        lea       -276(%rbp), %rax                              #test_sgemm_NN.cpp:23.19
+        lea       -268(%rbp), %rdx                              #test_sgemm_NN.cpp:23.19
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:23.19
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:23.19
 #       std::max<int>(const int &, const int &)
         call      _ZSt3maxIiERKT_S2_S2_                         #test_sgemm_NN.cpp:23.19
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.29:                        # Preds ..B7.30
-        movq      %rax, -152(%rbp)                              #test_sgemm_NN.cpp:23.19
+..B7.38:                        # Preds ..B7.39
+        movq      %rax, -176(%rbp)                              #test_sgemm_NN.cpp:23.19
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.2:                         # Preds ..B7.29
-        movq      -152(%rbp), %rax                              #test_sgemm_NN.cpp:23.19
+..B7.2:                         # Preds ..B7.38
+        movq      -176(%rbp), %rax                              #test_sgemm_NN.cpp:23.19
         movl      (%rax), %eax                                  #test_sgemm_NN.cpp:23.19
         movslq    %eax, %rax                                    #test_sgemm_NN.cpp:23.19
         imulq     $8, %rax, %rax                                #test_sgemm_NN.cpp:23.40
-        movl      %eax, -232(%rbp)                              #test_sgemm_NN.cpp:23.17
-        movl      -248(%rbp), %eax                              #test_sgemm_NN.cpp:25.29
-        movl      %eax, -228(%rbp)                              #test_sgemm_NN.cpp:25.27
-        movl      -244(%rbp), %eax                              #test_sgemm_NN.cpp:26.28
-        movl      %eax, -224(%rbp)                              #test_sgemm_NN.cpp:26.26
-        movl      -244(%rbp), %eax                              #test_sgemm_NN.cpp:27.35
-        movl      %eax, -220(%rbp)                              #test_sgemm_NN.cpp:27.33
+        movl      %eax, -264(%rbp)                              #test_sgemm_NN.cpp:23.17
+        movl      -280(%rbp), %eax                              #test_sgemm_NN.cpp:25.29
+        movl      %eax, -260(%rbp)                              #test_sgemm_NN.cpp:25.27
+        movl      -276(%rbp), %eax                              #test_sgemm_NN.cpp:26.28
+        movl      %eax, -256(%rbp)                              #test_sgemm_NN.cpp:26.26
+        movl      -276(%rbp), %eax                              #test_sgemm_NN.cpp:27.35
+        movl      %eax, -252(%rbp)                              #test_sgemm_NN.cpp:27.33
         movsd     .L_2il0floatpacket.1(%rip), %xmm0             #test_sgemm_NN.cpp:28.24
-        movsd     %xmm0, -144(%rbp)                             #test_sgemm_NN.cpp:28.24
-        movl      $1, -216(%rbp)                                #test_sgemm_NN.cpp:29.29
-        lea       -216(%rbp), %rax                              #test_sgemm_NN.cpp:29.20
-        lea       -228(%rbp), %rdx                              #test_sgemm_NN.cpp:29.20
+        movsd     %xmm0, -168(%rbp)                             #test_sgemm_NN.cpp:28.24
+        movl      $1, -248(%rbp)                                #test_sgemm_NN.cpp:29.29
+        lea       -248(%rbp), %rax                              #test_sgemm_NN.cpp:29.20
+        lea       -260(%rbp), %rdx                              #test_sgemm_NN.cpp:29.20
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:29.20
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:29.20
 #       std::max<int>(const int &, const int &)
         call      _ZSt3maxIiERKT_S2_S2_                         #test_sgemm_NN.cpp:29.20
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.31:                        # Preds ..B7.2
-        movq      %rax, -136(%rbp)                              #test_sgemm_NN.cpp:29.20
+..B7.40:                        # Preds ..B7.2
+        movq      %rax, -160(%rbp)                              #test_sgemm_NN.cpp:29.20
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.3:                         # Preds ..B7.31
-        movq      -136(%rbp), %rax                              #test_sgemm_NN.cpp:29.20
+..B7.3:                         # Preds ..B7.40
+        movq      -160(%rbp), %rax                              #test_sgemm_NN.cpp:29.20
         movl      (%rax), %eax                                  #test_sgemm_NN.cpp:29.20
-        movl      %eax, -212(%rbp)                              #test_sgemm_NN.cpp:29.18
-        movl      $1, -208(%rbp)                                #test_sgemm_NN.cpp:30.29
-        lea       -208(%rbp), %rax                              #test_sgemm_NN.cpp:30.20
-        lea       -220(%rbp), %rdx                              #test_sgemm_NN.cpp:30.20
+        movl      %eax, -244(%rbp)                              #test_sgemm_NN.cpp:29.18
+        movl      $1, -240(%rbp)                                #test_sgemm_NN.cpp:30.29
+        lea       -240(%rbp), %rax                              #test_sgemm_NN.cpp:30.20
+        lea       -252(%rbp), %rdx                              #test_sgemm_NN.cpp:30.20
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:30.20
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:30.20
 #       std::max<int>(const int &, const int &)
         call      _ZSt3maxIiERKT_S2_S2_                         #test_sgemm_NN.cpp:30.20
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.32:                        # Preds ..B7.3
-        movq      %rax, -128(%rbp)                              #test_sgemm_NN.cpp:30.20
+..B7.41:                        # Preds ..B7.3
+        movq      %rax, -152(%rbp)                              #test_sgemm_NN.cpp:30.20
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.4:                         # Preds ..B7.32
-        movq      -128(%rbp), %rax                              #test_sgemm_NN.cpp:30.20
+..B7.4:                         # Preds ..B7.41
+        movq      -152(%rbp), %rax                              #test_sgemm_NN.cpp:30.20
         movl      (%rax), %eax                                  #test_sgemm_NN.cpp:30.20
-        movl      %eax, -204(%rbp)                              #test_sgemm_NN.cpp:30.18
+        movl      %eax, -236(%rbp)                              #test_sgemm_NN.cpp:30.18
         pxor      %xmm0, %xmm0                                  #test_sgemm_NN.cpp:31.23
-        movsd     %xmm0, -120(%rbp)                             #test_sgemm_NN.cpp:31.23
-        movl      $1, -200(%rbp)                                #test_sgemm_NN.cpp:32.29
-        lea       -200(%rbp), %rax                              #test_sgemm_NN.cpp:32.20
-        lea       -228(%rbp), %rdx                              #test_sgemm_NN.cpp:32.20
+        movsd     %xmm0, -144(%rbp)                             #test_sgemm_NN.cpp:31.23
+        movl      $1, -232(%rbp)                                #test_sgemm_NN.cpp:32.29
+        lea       -232(%rbp), %rax                              #test_sgemm_NN.cpp:32.20
+        lea       -260(%rbp), %rdx                              #test_sgemm_NN.cpp:32.20
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:32.20
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:32.20
 #       std::max<int>(const int &, const int &)
         call      _ZSt3maxIiERKT_S2_S2_                         #test_sgemm_NN.cpp:32.20
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.33:                        # Preds ..B7.4
-        movq      %rax, -112(%rbp)                              #test_sgemm_NN.cpp:32.20
+..B7.42:                        # Preds ..B7.4
+        movq      %rax, -136(%rbp)                              #test_sgemm_NN.cpp:32.20
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.5:                         # Preds ..B7.33
-        movq      -112(%rbp), %rax                              #test_sgemm_NN.cpp:32.20
+..B7.5:                         # Preds ..B7.42
+        movq      -136(%rbp), %rax                              #test_sgemm_NN.cpp:32.20
         movl      (%rax), %eax                                  #test_sgemm_NN.cpp:32.20
-        movl      %eax, -196(%rbp)                              #test_sgemm_NN.cpp:32.18
-        lea       -104(%rbp), %rax                              #test_sgemm_NN.cpp:35.13
-        movl      -232(%rbp), %edx                              #test_sgemm_NN.cpp:35.13
+        movl      %eax, -228(%rbp)                              #test_sgemm_NN.cpp:32.18
+        lea       -128(%rbp), %rax                              #test_sgemm_NN.cpp:35.13
+        movl      -264(%rbp), %edx                              #test_sgemm_NN.cpp:35.13
         movslq    %edx, %rdx                                    #test_sgemm_NN.cpp:35.13
-        movl      -240(%rbp), %ecx                              #test_sgemm_NN.cpp:35.13
+        movl      -272(%rbp), %ecx                              #test_sgemm_NN.cpp:35.13
         movslq    %ecx, %rcx                                    #test_sgemm_NN.cpp:35.13
         imulq     $8, %rcx, %rcx                                #test_sgemm_NN.cpp:35.13
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:35.13
@@ -802,16 +807,16 @@ main:
         call      posix_memalign                                #test_sgemm_NN.cpp:35.13
 ..___tag_value_main.106:
                                 # LOE rbp rsp r12 r13 r14 r15 rip eax
-..B7.34:                        # Preds ..B7.5
-        movl      %eax, -192(%rbp)                              #test_sgemm_NN.cpp:35.13
+..B7.43:                        # Preds ..B7.5
+        movl      %eax, -224(%rbp)                              #test_sgemm_NN.cpp:35.13
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.6:                         # Preds ..B7.34
-        movl      -192(%rbp), %eax                              #test_sgemm_NN.cpp:35.13
-        movl      %eax, -188(%rbp)                              #test_sgemm_NN.cpp:35.5
-        lea       -96(%rbp), %rax                               #test_sgemm_NN.cpp:36.21
-        movl      -232(%rbp), %edx                              #test_sgemm_NN.cpp:36.21
+..B7.6:                         # Preds ..B7.43
+        movl      -224(%rbp), %eax                              #test_sgemm_NN.cpp:35.13
+        movl      %eax, -220(%rbp)                              #test_sgemm_NN.cpp:35.5
+        lea       -120(%rbp), %rax                              #test_sgemm_NN.cpp:36.21
+        movl      -264(%rbp), %edx                              #test_sgemm_NN.cpp:36.21
         movslq    %edx, %rdx                                    #test_sgemm_NN.cpp:36.21
-        movl      -240(%rbp), %ecx                              #test_sgemm_NN.cpp:36.21
+        movl      -272(%rbp), %ecx                              #test_sgemm_NN.cpp:36.21
         movslq    %ecx, %rcx                                    #test_sgemm_NN.cpp:36.21
         imulq     $8, %rcx, %rcx                                #test_sgemm_NN.cpp:36.21
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:36.21
@@ -822,17 +827,17 @@ main:
         call      posix_memalign                                #test_sgemm_NN.cpp:36.21
 ..___tag_value_main.108:
                                 # LOE rbp rsp r12 r13 r14 r15 rip eax
-..B7.35:                        # Preds ..B7.6
-        movl      %eax, -184(%rbp)                              #test_sgemm_NN.cpp:36.21
+..B7.44:                        # Preds ..B7.6
+        movl      %eax, -216(%rbp)                              #test_sgemm_NN.cpp:36.21
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.7:                         # Preds ..B7.35
-        movl      -184(%rbp), %eax                              #test_sgemm_NN.cpp:36.21
-        addl      -188(%rbp), %eax                              #test_sgemm_NN.cpp:36.21
-        movl      %eax, -188(%rbp)                              #test_sgemm_NN.cpp:36.5
-        lea       -88(%rbp), %rax                               #test_sgemm_NN.cpp:37.21
-        movl      -232(%rbp), %edx                              #test_sgemm_NN.cpp:37.21
+..B7.7:                         # Preds ..B7.44
+        movl      -216(%rbp), %eax                              #test_sgemm_NN.cpp:36.21
+        addl      -220(%rbp), %eax                              #test_sgemm_NN.cpp:36.21
+        movl      %eax, -220(%rbp)                              #test_sgemm_NN.cpp:36.5
+        lea       -112(%rbp), %rax                              #test_sgemm_NN.cpp:37.21
+        movl      -264(%rbp), %edx                              #test_sgemm_NN.cpp:37.21
         movslq    %edx, %rdx                                    #test_sgemm_NN.cpp:37.21
-        movl      -240(%rbp), %ecx                              #test_sgemm_NN.cpp:37.21
+        movl      -272(%rbp), %ecx                              #test_sgemm_NN.cpp:37.21
         movslq    %ecx, %rcx                                    #test_sgemm_NN.cpp:37.21
         imulq     $8, %rcx, %rcx                                #test_sgemm_NN.cpp:37.21
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:37.21
@@ -843,14 +848,14 @@ main:
         call      posix_memalign                                #test_sgemm_NN.cpp:37.21
 ..___tag_value_main.110:
                                 # LOE rbp rsp r12 r13 r14 r15 rip eax
-..B7.36:                        # Preds ..B7.7
-        movl      %eax, -180(%rbp)                              #test_sgemm_NN.cpp:37.21
+..B7.45:                        # Preds ..B7.7
+        movl      %eax, -212(%rbp)                              #test_sgemm_NN.cpp:37.21
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.8:                         # Preds ..B7.36
-        movl      -180(%rbp), %eax                              #test_sgemm_NN.cpp:37.21
-        addl      -188(%rbp), %eax                              #test_sgemm_NN.cpp:37.21
-        movl      %eax, -188(%rbp)                              #test_sgemm_NN.cpp:37.5
-        movl      -188(%rbp), %eax                              #test_sgemm_NN.cpp:44.9
+..B7.8:                         # Preds ..B7.45
+        movl      -212(%rbp), %eax                              #test_sgemm_NN.cpp:37.21
+        addl      -220(%rbp), %eax                              #test_sgemm_NN.cpp:37.21
+        movl      %eax, -220(%rbp)                              #test_sgemm_NN.cpp:37.5
+        movl      -220(%rbp), %eax                              #test_sgemm_NN.cpp:44.9
         testl     %eax, %eax                                    #test_sgemm_NN.cpp:44.9
         je        ..B7.12       # Prob 50%                      #test_sgemm_NN.cpp:44.9
                                 # LOE rbp rsp r12 r13 r14 r15 rip
@@ -864,11 +869,11 @@ main:
         call      _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc #test_sgemm_NN.cpp:45.19
 ..___tag_value_main.112:
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.37:                        # Preds ..B7.9
-        movq      %rax, -80(%rbp)                               #test_sgemm_NN.cpp:45.19
+..B7.46:                        # Preds ..B7.9
+        movq      %rax, -104(%rbp)                              #test_sgemm_NN.cpp:45.19
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.10:                        # Preds ..B7.37
-        movq      -80(%rbp), %rax                               #test_sgemm_NN.cpp:45.59
+..B7.10:                        # Preds ..B7.46
+        movq      -104(%rbp), %rax                              #test_sgemm_NN.cpp:45.59
         movl      $_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_, %edx #test_sgemm_NN.cpp:45.59
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:45.59
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:45.59
@@ -877,10 +882,10 @@ main:
         call      _ZNSolsEPFRSoS_E                              #test_sgemm_NN.cpp:45.59
 ..___tag_value_main.114:
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.38:                        # Preds ..B7.10
-        movq      %rax, -72(%rbp)                               #test_sgemm_NN.cpp:45.59
+..B7.47:                        # Preds ..B7.10
+        movq      %rax, -96(%rbp)                               #test_sgemm_NN.cpp:45.59
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.11:                        # Preds ..B7.38
+..B7.11:                        # Preds ..B7.47
         movl      $0, %eax                                      #test_sgemm_NN.cpp:46.16
         movq      -16(%rbp), %rbx                               #test_sgemm_NN.cpp:46.16
 	.cfi_restore 3
@@ -891,58 +896,58 @@ main:
 	.cfi_offset 6, -16
                                 # LOE
 ..B7.12:                        # Preds ..B7.8
-        movl      $0, -176(%rbp)                                #test_sgemm_NN.cpp:55.16
+        movl      $0, -208(%rbp)                                #test_sgemm_NN.cpp:55.16
                                 # LOE rbp rsp r12 r13 r14 r15 rip
 ..B7.13:                        # Preds ..B7.14 ..B7.12
-        movl      -176(%rbp), %eax                              #test_sgemm_NN.cpp:55.21
-        movl      -244(%rbp), %edx                              #test_sgemm_NN.cpp:55.25
+        movl      -208(%rbp), %eax                              #test_sgemm_NN.cpp:55.21
+        movl      -276(%rbp), %edx                              #test_sgemm_NN.cpp:55.25
         cmpl      %edx, %eax                                    #test_sgemm_NN.cpp:55.25
         jl        ..B7.15       # Prob 50%                      #test_sgemm_NN.cpp:55.25
         jmp       ..B7.18       # Prob 100%                     #test_sgemm_NN.cpp:55.25
                                 # LOE rbp rsp r12 r13 r14 r15 rip
 ..B7.14:                        # Preds ..B7.16
         movl      $1, %eax                                      #test_sgemm_NN.cpp:55.34
-        addl      -176(%rbp), %eax                              #test_sgemm_NN.cpp:55.34
-        movl      %eax, -176(%rbp)                              #test_sgemm_NN.cpp:55.34
+        addl      -208(%rbp), %eax                              #test_sgemm_NN.cpp:55.34
+        movl      %eax, -208(%rbp)                              #test_sgemm_NN.cpp:55.34
         jmp       ..B7.13       # Prob 100%                     #test_sgemm_NN.cpp:55.34
                                 # LOE rbp rsp r12 r13 r14 r15 rip
 ..B7.15:                        # Preds ..B7.13
-        movl      $0, -172(%rbp)                                #test_sgemm_NN.cpp:56.20
+        movl      $0, -204(%rbp)                                #test_sgemm_NN.cpp:56.20
                                 # LOE rbp rsp r12 r13 r14 r15 rip
 ..B7.16:                        # Preds ..B7.17 ..B7.15
-        movl      -172(%rbp), %eax                              #test_sgemm_NN.cpp:56.25
-        movl      -244(%rbp), %edx                              #test_sgemm_NN.cpp:56.29
+        movl      -204(%rbp), %eax                              #test_sgemm_NN.cpp:56.25
+        movl      -276(%rbp), %edx                              #test_sgemm_NN.cpp:56.29
         cmpl      %edx, %eax                                    #test_sgemm_NN.cpp:56.29
         jge       ..B7.14       # Prob 50%                      #test_sgemm_NN.cpp:56.29
                                 # LOE rbp rsp r12 r13 r14 r15 rip
 ..B7.17:                        # Preds ..B7.16
         movsd     .L_2il0floatpacket.1(%rip), %xmm0             #test_sgemm_NN.cpp:57.13
-        movl      -244(%rbp), %eax                              #test_sgemm_NN.cpp:57.26
-        imull     -176(%rbp), %eax                              #test_sgemm_NN.cpp:57.26
-        addl      -172(%rbp), %eax                              #test_sgemm_NN.cpp:57.34
+        movl      -276(%rbp), %eax                              #test_sgemm_NN.cpp:57.26
+        imull     -208(%rbp), %eax                              #test_sgemm_NN.cpp:57.26
+        addl      -204(%rbp), %eax                              #test_sgemm_NN.cpp:57.34
         movslq    %eax, %rax                                    #test_sgemm_NN.cpp:57.13
         imulq     $8, %rax, %rax                                #test_sgemm_NN.cpp:57.13
-        addq      -104(%rbp), %rax                              #test_sgemm_NN.cpp:57.13
+        addq      -128(%rbp), %rax                              #test_sgemm_NN.cpp:57.13
         movsd     %xmm0, (%rax)                                 #test_sgemm_NN.cpp:57.13
         movsd     .L_2il0floatpacket.1(%rip), %xmm0             #test_sgemm_NN.cpp:58.13
-        movl      -244(%rbp), %eax                              #test_sgemm_NN.cpp:58.26
-        imull     -176(%rbp), %eax                              #test_sgemm_NN.cpp:58.26
-        addl      -172(%rbp), %eax                              #test_sgemm_NN.cpp:58.34
+        movl      -276(%rbp), %eax                              #test_sgemm_NN.cpp:58.26
+        imull     -208(%rbp), %eax                              #test_sgemm_NN.cpp:58.26
+        addl      -204(%rbp), %eax                              #test_sgemm_NN.cpp:58.34
         movslq    %eax, %rax                                    #test_sgemm_NN.cpp:58.13
         imulq     $8, %rax, %rax                                #test_sgemm_NN.cpp:58.13
-        addq      -96(%rbp), %rax                               #test_sgemm_NN.cpp:58.13
+        addq      -120(%rbp), %rax                              #test_sgemm_NN.cpp:58.13
         movsd     %xmm0, (%rax)                                 #test_sgemm_NN.cpp:58.13
         pxor      %xmm0, %xmm0                                  #test_sgemm_NN.cpp:59.13
-        movl      -244(%rbp), %eax                              #test_sgemm_NN.cpp:59.26
-        imull     -176(%rbp), %eax                              #test_sgemm_NN.cpp:59.26
-        addl      -172(%rbp), %eax                              #test_sgemm_NN.cpp:59.34
+        movl      -276(%rbp), %eax                              #test_sgemm_NN.cpp:59.26
+        imull     -208(%rbp), %eax                              #test_sgemm_NN.cpp:59.26
+        addl      -204(%rbp), %eax                              #test_sgemm_NN.cpp:59.34
         movslq    %eax, %rax                                    #test_sgemm_NN.cpp:59.13
         imulq     $8, %rax, %rax                                #test_sgemm_NN.cpp:59.13
-        addq      -88(%rbp), %rax                               #test_sgemm_NN.cpp:59.13
+        addq      -112(%rbp), %rax                              #test_sgemm_NN.cpp:59.13
         movsd     %xmm0, (%rax)                                 #test_sgemm_NN.cpp:59.13
         movl      $1, %eax                                      #test_sgemm_NN.cpp:56.38
-        addl      -172(%rbp), %eax                              #test_sgemm_NN.cpp:56.38
-        movl      %eax, -172(%rbp)                              #test_sgemm_NN.cpp:56.38
+        addl      -204(%rbp), %eax                              #test_sgemm_NN.cpp:56.38
+        movl      %eax, -204(%rbp)                              #test_sgemm_NN.cpp:56.38
         jmp       ..B7.16       # Prob 100%                     #test_sgemm_NN.cpp:56.38
                                 # LOE rbp rsp r12 r13 r14 r15 rip
 ..B7.18:                        # Preds ..B7.13
@@ -955,11 +960,11 @@ main:
         call      _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc #test_sgemm_NN.cpp:63.15
 ..___tag_value_main.120:
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.39:                        # Preds ..B7.18
-        movq      %rax, -64(%rbp)                               #test_sgemm_NN.cpp:63.15
+..B7.48:                        # Preds ..B7.18
+        movq      %rax, -88(%rbp)                               #test_sgemm_NN.cpp:63.15
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.19:                        # Preds ..B7.39
-        movq      -64(%rbp), %rax                               #test_sgemm_NN.cpp:63.38
+..B7.19:                        # Preds ..B7.48
+        movq      -88(%rbp), %rax                               #test_sgemm_NN.cpp:63.38
         movl      $_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_, %edx #test_sgemm_NN.cpp:63.38
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:63.38
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:63.38
@@ -968,24 +973,24 @@ main:
         call      _ZNSolsEPFRSoS_E                              #test_sgemm_NN.cpp:63.38
 ..___tag_value_main.122:
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.40:                        # Preds ..B7.19
-        movq      %rax, -56(%rbp)                               #test_sgemm_NN.cpp:63.38
+..B7.49:                        # Preds ..B7.19
+        movq      %rax, -80(%rbp)                               #test_sgemm_NN.cpp:63.38
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.20:                        # Preds ..B7.40
+..B7.20:                        # Preds ..B7.49
         addq      $-32, %rsp                                    #test_sgemm_NN.cpp:65.5
-        movl      -228(%rbp), %eax                              #test_sgemm_NN.cpp:65.5
-        movl      -224(%rbp), %edx                              #test_sgemm_NN.cpp:65.5
-        movl      -220(%rbp), %ecx                              #test_sgemm_NN.cpp:65.5
-        movsd     -144(%rbp), %xmm0                             #test_sgemm_NN.cpp:65.5
-        movq      -104(%rbp), %rbx                              #test_sgemm_NN.cpp:65.5
-        movl      -212(%rbp), %esi                              #test_sgemm_NN.cpp:65.5
-        movq      -96(%rbp), %rdi                               #test_sgemm_NN.cpp:65.5
-        movl      -204(%rbp), %r8d                              #test_sgemm_NN.cpp:65.5
+        movl      -260(%rbp), %eax                              #test_sgemm_NN.cpp:65.5
+        movl      -256(%rbp), %edx                              #test_sgemm_NN.cpp:65.5
+        movl      -252(%rbp), %ecx                              #test_sgemm_NN.cpp:65.5
+        movsd     -168(%rbp), %xmm0                             #test_sgemm_NN.cpp:65.5
+        movq      -128(%rbp), %rbx                              #test_sgemm_NN.cpp:65.5
+        movl      -244(%rbp), %esi                              #test_sgemm_NN.cpp:65.5
+        movq      -120(%rbp), %rdi                              #test_sgemm_NN.cpp:65.5
+        movl      -236(%rbp), %r8d                              #test_sgemm_NN.cpp:65.5
         movl      %r8d, (%rsp)                                  #test_sgemm_NN.cpp:65.5
-        movsd     -120(%rbp), %xmm1                             #test_sgemm_NN.cpp:65.5
-        movq      -88(%rbp), %r8                                #test_sgemm_NN.cpp:65.5
+        movsd     -144(%rbp), %xmm1                             #test_sgemm_NN.cpp:65.5
+        movq      -112(%rbp), %r8                               #test_sgemm_NN.cpp:65.5
         movq      %r8, 8(%rsp)                                  #test_sgemm_NN.cpp:65.5
-        movl      -196(%rbp), %r8d                              #test_sgemm_NN.cpp:65.5
+        movl      -228(%rbp), %r8d                              #test_sgemm_NN.cpp:65.5
         movl      %r8d, 16(%rsp)                                #test_sgemm_NN.cpp:65.5
         movq      %rdi, -32(%rbp)                               #test_sgemm_NN.cpp:65.5
         movl      %eax, %edi                                    #test_sgemm_NN.cpp:65.5
@@ -1001,10 +1006,10 @@ main:
         call      _Z8SGEMM_NNiiidPdiS_idS_i                     #test_sgemm_NN.cpp:65.5
 ..___tag_value_main.124:
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.41:                        # Preds ..B7.20
+..B7.50:                        # Preds ..B7.20
         addq      $32, %rsp                                     #test_sgemm_NN.cpp:65.5
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.21:                        # Preds ..B7.41
+..B7.21:                        # Preds ..B7.50
         movl      $_ZSt4cout, %eax                              #test_sgemm_NN.cpp:67.15
         movl      $.L_2__STRING.7, %edx                         #test_sgemm_NN.cpp:67.15
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:67.15
@@ -1014,11 +1019,11 @@ main:
         call      _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc #test_sgemm_NN.cpp:67.15
 ..___tag_value_main.126:
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.42:                        # Preds ..B7.21
-        movq      %rax, -48(%rbp)                               #test_sgemm_NN.cpp:67.15
+..B7.51:                        # Preds ..B7.21
+        movq      %rax, -72(%rbp)                               #test_sgemm_NN.cpp:67.15
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.22:                        # Preds ..B7.42
-        movq      -48(%rbp), %rax                               #test_sgemm_NN.cpp:67.36
+..B7.22:                        # Preds ..B7.51
+        movq      -72(%rbp), %rax                               #test_sgemm_NN.cpp:67.36
         movl      $_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_, %edx #test_sgemm_NN.cpp:67.36
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:67.36
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:67.36
@@ -1027,34 +1032,112 @@ main:
         call      _ZNSolsEPFRSoS_E                              #test_sgemm_NN.cpp:67.36
 ..___tag_value_main.128:
                                 # LOE rax rbp rsp r12 r13 r14 r15 rip
-..B7.43:                        # Preds ..B7.22
-        movq      %rax, -40(%rbp)                               #test_sgemm_NN.cpp:67.36
+..B7.52:                        # Preds ..B7.22
+        movq      %rax, -64(%rbp)                               #test_sgemm_NN.cpp:67.36
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.23:                        # Preds ..B7.43
-        movq      -104(%rbp), %rax                              #test_sgemm_NN.cpp:74.5
-        movq      %rax, %rdi                                    #test_sgemm_NN.cpp:74.5
+..B7.23:                        # Preds ..B7.52
+        movl      $0, -200(%rbp)                                #test_sgemm_NN.cpp:68.16
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.24:                        # Preds ..B7.25 ..B7.23
+        movl      -200(%rbp), %eax                              #test_sgemm_NN.cpp:68.21
+        movl      -276(%rbp), %edx                              #test_sgemm_NN.cpp:68.25
+        cmpl      %edx, %eax                                    #test_sgemm_NN.cpp:68.25
+        jl        ..B7.26       # Prob 50%                      #test_sgemm_NN.cpp:68.25
+        jmp       ..B7.32       # Prob 100%                     #test_sgemm_NN.cpp:68.25
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.25:                        # Preds ..B7.55
+        movl      $1, %eax                                      #test_sgemm_NN.cpp:68.34
+        addl      -200(%rbp), %eax                              #test_sgemm_NN.cpp:68.34
+        movl      %eax, -200(%rbp)                              #test_sgemm_NN.cpp:68.34
+        jmp       ..B7.24       # Prob 100%                     #test_sgemm_NN.cpp:68.34
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.26:                        # Preds ..B7.24
+        movl      $0, -196(%rbp)                                #test_sgemm_NN.cpp:69.20
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.27:                        # Preds ..B7.28 ..B7.26
+        movl      -196(%rbp), %eax                              #test_sgemm_NN.cpp:69.25
+        movl      -276(%rbp), %edx                              #test_sgemm_NN.cpp:69.29
+        cmpl      %edx, %eax                                    #test_sgemm_NN.cpp:69.29
+        jl        ..B7.29       # Prob 50%                      #test_sgemm_NN.cpp:69.29
+        jmp       ..B7.31       # Prob 100%                     #test_sgemm_NN.cpp:69.29
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.28:                        # Preds ..B7.54
+        movl      $1, %eax                                      #test_sgemm_NN.cpp:69.38
+        addl      -196(%rbp), %eax                              #test_sgemm_NN.cpp:69.38
+        movl      %eax, -196(%rbp)                              #test_sgemm_NN.cpp:69.38
+        jmp       ..B7.27       # Prob 100%                     #test_sgemm_NN.cpp:69.38
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.29:                        # Preds ..B7.27
+        movl      $_ZSt4cout, %eax                              #test_sgemm_NN.cpp:70.23
+        movl      $.L_2__STRING.8, %edx                         #test_sgemm_NN.cpp:70.23
+        movq      %rax, %rdi                                    #test_sgemm_NN.cpp:70.23
+        movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:70.23
 ..___tag_value_main.129:
+#       std::operator<<<std::char_traits<char>>(std::basic_ostream<char, std::char_traits<char>> &, const char *)
+        call      _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc #test_sgemm_NN.cpp:70.23
+..___tag_value_main.130:
+                                # LOE rax rbp rsp r12 r13 r14 r15 rip
+..B7.53:                        # Preds ..B7.29
+        movq      %rax, -56(%rbp)                               #test_sgemm_NN.cpp:70.23
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.30:                        # Preds ..B7.53
+        movq      -56(%rbp), %rax                               #test_sgemm_NN.cpp:70.30
+        movl      -276(%rbp), %edx                              #test_sgemm_NN.cpp:70.30
+        imull     -200(%rbp), %edx                              #test_sgemm_NN.cpp:70.30
+        addl      -196(%rbp), %edx                              #test_sgemm_NN.cpp:70.30
+        movslq    %edx, %rdx                                    #test_sgemm_NN.cpp:70.30
+        imulq     $8, %rdx, %rdx                                #test_sgemm_NN.cpp:70.30
+        addq      -112(%rbp), %rdx                              #test_sgemm_NN.cpp:70.30
+        movsd     (%rdx), %xmm0                                 #test_sgemm_NN.cpp:70.30
+        movq      %rax, %rdi                                    #test_sgemm_NN.cpp:70.30
+..___tag_value_main.131:
+#       std::basic_ostream<char, std::char_traits<char>>::operator<<(std::basic_ostream<char, std::char_traits<char>> *, double)
+        call      _ZNSolsEd                                     #test_sgemm_NN.cpp:70.30
+..___tag_value_main.132:
+                                # LOE rax rbp rsp r12 r13 r14 r15 rip
+..B7.54:                        # Preds ..B7.30
+        movq      %rax, -40(%rbp)                               #test_sgemm_NN.cpp:70.30
+        jmp       ..B7.28       # Prob 100%                     #test_sgemm_NN.cpp:70.30
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.31:                        # Preds ..B7.27
+        movl      $_ZSt4cout, %eax                              #test_sgemm_NN.cpp:72.19
+        movl      $_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_, %edx #test_sgemm_NN.cpp:72.19
+        movq      %rax, %rdi                                    #test_sgemm_NN.cpp:72.19
+        movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:72.19
+..___tag_value_main.133:
+#       std::basic_ostream<char, std::char_traits<char>>::operator<<(std::basic_ostream<char, std::char_traits<char>> *, std::basic_ostream<char, std::char_traits<char>>::__ostream_type &(*)(std::basic_ostream<char, std::char_traits<char>>::__ostream_type &))
+        call      _ZNSolsEPFRSoS_E                              #test_sgemm_NN.cpp:72.19
+..___tag_value_main.134:
+                                # LOE rax rbp rsp r12 r13 r14 r15 rip
+..B7.55:                        # Preds ..B7.31
+        movq      %rax, -48(%rbp)                               #test_sgemm_NN.cpp:72.19
+        jmp       ..B7.25       # Prob 100%                     #test_sgemm_NN.cpp:72.19
+                                # LOE rbp rsp r12 r13 r14 r15 rip
+..B7.32:                        # Preds ..B7.24
+        movq      -128(%rbp), %rax                              #test_sgemm_NN.cpp:74.5
+        movq      %rax, %rdi                                    #test_sgemm_NN.cpp:74.5
+..___tag_value_main.135:
 #       free(void *)
         call      free                                          #test_sgemm_NN.cpp:74.5
-..___tag_value_main.130:
+..___tag_value_main.136:
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.24:                        # Preds ..B7.23
-        movq      -96(%rbp), %rax                               #test_sgemm_NN.cpp:75.5
+..B7.33:                        # Preds ..B7.32
+        movq      -120(%rbp), %rax                              #test_sgemm_NN.cpp:75.5
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:75.5
-..___tag_value_main.131:
+..___tag_value_main.137:
 #       free(void *)
         call      free                                          #test_sgemm_NN.cpp:75.5
-..___tag_value_main.132:
+..___tag_value_main.138:
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.25:                        # Preds ..B7.24
-        movq      -88(%rbp), %rax                               #test_sgemm_NN.cpp:76.5
+..B7.34:                        # Preds ..B7.33
+        movq      -112(%rbp), %rax                              #test_sgemm_NN.cpp:76.5
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:76.5
-..___tag_value_main.133:
+..___tag_value_main.139:
 #       free(void *)
         call      free                                          #test_sgemm_NN.cpp:76.5
-..___tag_value_main.134:
+..___tag_value_main.140:
                                 # LOE rbp rsp r12 r13 r14 r15 rip
-..B7.26:                        # Preds ..B7.25
+..B7.35:                        # Preds ..B7.34
         movl      $0, %eax                                      #test_sgemm_NN.cpp:78.12
         movq      -16(%rbp), %rbx                               #test_sgemm_NN.cpp:78.12
 	.cfi_restore 3
@@ -1071,15 +1154,16 @@ main:
 	.text
 # -- Begin  _Z8SGEMM_NNiiidPdiS_idS_i
 	.section .rodata, "a"
+	.space 2, 0x00 	# pad
 	.align 4
-.L_2__STRING.8:
+.L_2__STRING.9:
 	.long	1869771333
 	.long	1461729906
 	.long	1735290738
 	.long	1886284064
 	.long	2192501
-	.type	.L_2__STRING.8,@object
-	.size	.L_2__STRING.8,20
+	.type	.L_2__STRING.9,@object
+	.size	.L_2__STRING.9,20
 	.text
 # mark_begin;
 
@@ -1100,8 +1184,8 @@ _Z8SGEMM_NNiiidPdiS_idS_i:
 ..B8.1:                         # Preds ..B8.0
 	.cfi_startproc
 	.cfi_personality 0x3,__gxx_personality_v0
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.138:
-..L139:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.144:
+..L145:
                                                         #test_sgemm_NN.cpp:81.123
         pushq     %rbp                                          #test_sgemm_NN.cpp:81.123
 	.cfi_def_cfa_offset 16
@@ -1156,13 +1240,13 @@ _Z8SGEMM_NNiiidPdiS_idS_i:
 ..B8.7:                         # Preds ..B8.1 ..B8.2 ..B8.3 ..B8.4 ..B8.5
                                 #       ..B8.6
         movl      $_ZSt4cout, %eax                              #test_sgemm_NN.cpp:95.19
-        movl      $.L_2__STRING.8, %edx                         #test_sgemm_NN.cpp:95.19
+        movl      $.L_2__STRING.9, %edx                         #test_sgemm_NN.cpp:95.19
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:95.19
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:95.19
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.143:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.149:
 #       std::operator<<<std::char_traits<char>>(std::basic_ostream<char, std::char_traits<char>> &, const char *)
         call      _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc #test_sgemm_NN.cpp:95.19
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.144:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.150:
                                 # LOE rax rbx rbp rsp r12 r13 r14 r15 rip
 ..B8.35:                        # Preds ..B8.7
         movq      %rax, -40(%rbp)                               #test_sgemm_NN.cpp:95.19
@@ -1172,10 +1256,10 @@ _Z8SGEMM_NNiiidPdiS_idS_i:
         movl      $_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_, %edx #test_sgemm_NN.cpp:95.44
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:95.44
         movq      %rdx, %rsi                                    #test_sgemm_NN.cpp:95.44
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.145:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.151:
 #       std::basic_ostream<char, std::char_traits<char>>::operator<<(std::basic_ostream<char, std::char_traits<char>> *, std::basic_ostream<char, std::char_traits<char>>::__ostream_type &(*)(std::basic_ostream<char, std::char_traits<char>>::__ostream_type &))
         call      _ZNSolsEPFRSoS_E                              #test_sgemm_NN.cpp:95.44
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.146:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.152:
                                 # LOE rax rbx rbp rsp r12 r13 r14 r15 rip
 ..B8.36:                        # Preds ..B8.8
         movq      %rax, -32(%rbp)                               #test_sgemm_NN.cpp:95.44
@@ -1191,10 +1275,10 @@ _Z8SGEMM_NNiiidPdiS_idS_i:
         movslq    %eax, %rax                                    #test_sgemm_NN.cpp:99.22
         imulq     $8, %rax, %rax                                #test_sgemm_NN.cpp:99.22
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:99.22
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.149:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.155:
 #       malloc(size_t)
         call      malloc                                        #test_sgemm_NN.cpp:99.22
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.150:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.156:
                                 # LOE rax rbx rbp rsp r12 r13 r14 r15 rip
 ..B8.37:                        # Preds ..B8.10
         movq      %rax, -24(%rbp)                               #test_sgemm_NN.cpp:99.22
@@ -1376,10 +1460,10 @@ _Z8SGEMM_NNiiidPdiS_idS_i:
 ..B8.31:                        # Preds ..B8.12
         movq      -16(%rbp), %rax                               #test_sgemm_NN.cpp:129.5
         movq      %rax, %rdi                                    #test_sgemm_NN.cpp:129.5
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.151:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.157:
 #       free(void *)
         call      free                                          #test_sgemm_NN.cpp:129.5
-..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.152:
+..___tag_value__Z8SGEMM_NNiiidPdiS_idS_i.158:
                                 # LOE rbx rbp rsp r12 r13 r14 r15 rip
 ..B8.32:                        # Preds ..B8.31
         leave                                                   #test_sgemm_NN.cpp:131.5
@@ -1415,8 +1499,8 @@ __sti__$E:
 ..B9.1:                         # Preds ..B9.0
 	.cfi_startproc
 	.cfi_personality 0x3,__gxx_personality_v0
-..___tag_value___sti__$E.155:
-..L156:
+..___tag_value___sti__$E.161:
+..L162:
                                                         #
         pushq     %rbp                                          #
 	.cfi_def_cfa_offset 16
@@ -1426,10 +1510,10 @@ __sti__$E:
         subq      $16, %rsp                                     #
         movl      $_ZSt8__ioinit, %eax                          #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25
         movq      %rax, %rdi                                    #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25
-..___tag_value___sti__$E.160:
+..___tag_value___sti__$E.166:
 #       std::ios_base::Init::Init(std::ios_base::Init *)
         call      _ZNSt8ios_base4InitC1Ev                       #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25
-..___tag_value___sti__$E.161:
+..___tag_value___sti__$E.167:
                                 # LOE rbx rbp rsp r12 r13 r14 r15 rip
 ..B9.2:                         # Preds ..B9.1
         movl      $_ZNSt8ios_base4InitD1Ev, %eax                #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25
@@ -1438,9 +1522,9 @@ __sti__$E:
         movq      %rax, %rdi                                    #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25
         movq      %rdx, %rsi                                    #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25
         movq      %rcx, %rdx                                    #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25
-..___tag_value___sti__$E.162:
+..___tag_value___sti__$E.168:
         call      __cxa_atexit                                  #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25
-..___tag_value___sti__$E.163:
+..___tag_value___sti__$E.169:
                                 # LOE rbx rbp rsp r12 r13 r14 r15 rip eax
 ..B9.6:                         # Preds ..B9.2
         movl      %eax, -16(%rbp)                               #/home/software/gcc/gcc-4.8.3/include/c++/4.8.3/iostream:74.25

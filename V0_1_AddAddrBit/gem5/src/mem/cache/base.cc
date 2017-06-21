@@ -804,6 +804,12 @@ BaseCache::regStats()
         .flags(total | nozero | nonan)
         ;
     MJL_overallColumnAccesses = MJL_overallColumnHits + MJL_overallColumnMisses;
+
+    MJL_nonEvictWBCount
+        .name(name() + ".MJL_nonEvictWBCount")
+        .desc("number of writebacks that are not eviction")
+        .flags(nozero)
+        ;
     /* MJL_End */
 
 }
