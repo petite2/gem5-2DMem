@@ -425,6 +425,14 @@ class Cache : public BaseCache
      */
     std::map< Addr, std::map< Tick, std::map< int , std::map< int, bool > > > > MJL_unalignedPacketCount;  //[PC][_time][MJL_testSeq][PacketAddrSeq] = received
     /**
+     * Keep the writeback data to forward to response packet
+     */
+    struct MJL_wbForwardWord{
+        bool MJL_isDirty;
+        uint64_t MJL_data;
+    };
+    std::map< Addr, std::map< CacheBlk::MJL_CacheBlkDir, MJL_wbForwardWord[8] > > MJL_wbForwardBuffer;
+    /**
      * Track whether there is a second half of split packets waiting to be sent
      */
     bool MJL_sndPacketWaiting;
