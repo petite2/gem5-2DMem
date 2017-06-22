@@ -1562,6 +1562,33 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (is_fill && !is_error) {
         DPRINTF(Cache, "Block for addr %#llx being updated in Cache\n",
                 pkt->getAddr());
+        /* MJL_Begin */
+        // Forward data from write buffer (those that we hoped would be written back before this happened).
+        for (unsigned MJL_offset = 0; MJL_offset < pkt->getSize(); MJL_offset = MJL_offset + sizeof(uint64_t)) {
+            WriteQueueEntry *MJL_crossWb_entry = nullptr;
+            MJL_crossBlkAddr= MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getDataDir()), pkt->MJL_getDataDir(), MJL_offset);
+            if ( pkt->MJL_getDataDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
+                MJL_crossWb_entry = writeBuffer.MJL_findPending(MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn),
+                                                          CacheBlk::MJL_CacheBlkDir::MJL_IsColumn,
+                                                          pkt->isSecure());
+            } else if ( pkt->MJL_getDataDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
+                MJL_crossWb_entry = writeBuffer.MJL_findPending(MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow),
+                                                          CacheBlk::MJL_CacheBlkDir::MJL_IsRow,
+                                                          pkt->isSecure());
+            }
+            if (MJL_crossWb_entry && MJL_crossWb_entry->hasTargets()) {
+                assert(MJL_crossWb_entry->getNumTargets() == 1);
+                PacketPtr MJL_crossWb_pkt = MJL_crossWb_entry->getTarget()->pkt;
+                Addr MJL_crossWb_offset;
+                if ( MJL_crossWb_pkt->MJL_getDataDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
+                    MJL_crossWb_offset = MJL_crossBlkAddr & Addr(blkSize - 1);;
+                } else if ( MJL_crossWb_pkt->MJL_getDataDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
+                    MJL_crossWb_offset = (MJL_crossWb_pkt->MJL_swapRowColBits(MJL_crossBlkAddr, blkSize, MJL_rowWidth)) & Addr(blk_size - 1);
+                }    
+                std::memcpy(pkt->getPtr<uint8_t>(), MJL_crossWb_pkt->getConstPtr<uint8_t>() + MJL_crossWb_offset, sizeof(uint64_t));
+            }
+        }
+        /* MJL_End */
 
         blk = handleFill(pkt, blk, writebacks, mshr->allocOnFill());
         assert(blk != nullptr);
@@ -1812,14 +1839,6 @@ Cache::recvTimingResp(PacketPtr pkt)
     delete pkt;
 }
 
-/* MJL_Begin */
-PacketPtr
-Cache::MJL_writebackCachedBlk(CacheBlk *blk) {
-    PacketPtr pkt = writebackBlk(blk);
-    pkt->setBlockCached();
-    return pkt;
-}
-/* MJL_End */
 PacketPtr
 Cache::writebackBlk(CacheBlk *blk)
 {
@@ -1877,6 +1896,14 @@ Cache::writebackBlk(CacheBlk *blk)
 
     return pkt;
 }
+/* MJL_Begin */
+PacketPtr
+Cache::MJL_writebackCachedBlk(CacheBlk *blk) {
+    PacketPtr pkt = writebackBlk(blk);
+    pkt->setBlockCached();
+    return pkt;
+}
+/* MJL_End */
 
 PacketPtr
 Cache::cleanEvictBlk(CacheBlk *blk)
