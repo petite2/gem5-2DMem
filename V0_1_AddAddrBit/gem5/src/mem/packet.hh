@@ -862,9 +862,9 @@ class Packet : public Printable
      * not be valid. The command must be supplied.
      */
     Packet(const RequestPtr _req, MemCmd _cmd)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_hasOrder(false), MJL_order(0),/* MJL_End*/ _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            size(0), headerDelay(0), snoopDelay(0), payloadDelay(0),
-           senderState(NULL)
+           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}/* MJL_End */
     {
         if (req->hasPaddr()) {
             addr = req->getPaddr();
@@ -883,9 +883,9 @@ class Packet : public Printable
      * req.  this allows for overriding the size/addr of the req.
      */
     Packet(const RequestPtr _req, MemCmd _cmd, int _blkSize)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_hasOrder(false), MJL_order(0),/* MJL_End*/ _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            headerDelay(0), snoopDelay(0), payloadDelay(0),
-           senderState(NULL)
+           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}/* MJL_End */
     {
         if (req->hasPaddr()) {
             /* MJL_Begin */
@@ -919,14 +919,14 @@ class Packet : public Printable
     Packet(const PacketPtr pkt, bool clear_flags, bool alloc_data)
         :  cmd(pkt->cmd), req(pkt->req),
            data(nullptr),
-           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir()), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]},  MJL_hasOrder(false), MJL_order(0)/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
+           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir())/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
            bytesValid(pkt->bytesValid),/* MJL_Begin */
            MJL_bytesValid(pkt->MJL_bytesValid),
            /* MJL_End */
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
            payloadDelay(pkt->payloadDelay),
-           senderState(pkt->senderState)
+           senderState(pkt->senderState)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]}/* MJL_End */
     {
         if (!clear_flags)
             flags.set(pkt->flags & COPY_FLAGS);

@@ -1,0 +1,21 @@
+gem5 Simulator System.  http://gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 compiled Jul  5 2017 19:25:21
+gem5 started Jul  5 2017 19:34:09
+gem5 executing on ladon.cse.psu.edu, pid 56762
+command line: /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/build/X86/gem5.opt --redirect-stdout --stdout-file=build_test_Jul05_2017.gemout_c --redirect-stderr --stderr-file=build_test_Jul05_2017.gemerr --stats-file=build_test_Jul05_2017.stat_c /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/gem5/configs/example/se.py --output=build_test_Jul05_2017.appout_c --errout=build_test_Jul05_2017.apperr -c /home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/test_sgemm_NN-bin -o 32 --caches --cpu-type=detailed --MJL_row_width=4 --MJL_PC2DirFile=test_sgemm_NN_PC2DirMap.txt --mem-size=8192MB --l1d_size=16kB --l1d_assoc=4
+
+Global frequency set at 1000000000000 ticks per second
+system.cpu.dcache.tags::MJL_rowWidth = 4
+system.cpu.dcache::MJL_rowWidth = 4
+system.cpu.dcache::Reading PC to direction preference input from test_sgemm_NN_PC2DirMap.txt:
+PC: 400d34, Dir: 2
+system.cpu.dtb_walker_cache.tags::MJL_rowWidth = 4
+system.cpu.dtb_walker_cache::MJL_rowWidth = 4
+system.cpu.icache.tags::MJL_rowWidth = 4
+system.cpu.icache::MJL_rowWidth = 4
+system.cpu.itb_walker_cache.tags::MJL_rowWidth = 4
+system.cpu.itb_walker_cache::MJL_rowWidth = 4
+**** REAL SIMULATION ****
+info: Entering event queue @ 0.  Starting simulation...

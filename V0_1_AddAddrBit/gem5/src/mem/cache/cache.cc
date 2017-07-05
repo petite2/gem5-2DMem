@@ -1627,7 +1627,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     /* MJL_Begin */
     bool MJL_writeback = false;
     bool MJL_invalidate = false;
-    Counter MJL_order;
+    Counter MJL_order = initial_tgt->order;
     /* MJL_End */
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
     for (auto &target: targets) {
@@ -1788,11 +1788,11 @@ Cache::recvTimingResp(PacketPtr pkt)
         }
         /* MJL_Begin */
         MJL_writeback |= target.MJL_postWriteback;
-        MJL_invalidate |= target.MJL_invalidate;
-        assert(!target.MJL_invalidate || (target == targets.back())); 
+        MJL_invalidate |= target.MJL_postInvalidate;
+        assert(!target.MJL_postInvalidate || (&target == &targets.back())); 
         if (target.MJL_postWriteback) {
             MJL_order = target.order;
-        } else if (!MJL_writeback && target.MJL_invalidate) {
+        } else if (!MJL_writeback && target.MJL_postInvalidate) {
             MJL_order = target.order;
         }
         target.MJL_clearBlocking();
@@ -2543,7 +2543,7 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
             /* MJL_Begin */
             {
                 pkt->setDataFromBlock(blk->data, blkSize);
-                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty);
+                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty,blkSize);
             }
             /* MJL_End */
             /* MJL_Comment 
@@ -2763,7 +2763,7 @@ Cache::getNextQueueEntry()
 
         // Check other direction conflict
         Addr MJL_crossBlkAddr = wq_entry->blkAddr;
-        WriteQueueEntry *temp_conflict_mshr = conflict_mshr;
+        MSHR *temp_conflict_mshr = conflict_mshr;
         for (Addr MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
             MJL_crossBlkAddr = MJL_addOffsetAddr(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, MJL_offset);
             if (wq_entry->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
@@ -2776,7 +2776,7 @@ Cache::getNextQueueEntry()
                                     wq_entry->isSecure);
             }
             if (conflict_mshr) {
-                if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr < wq_entry->order)) {
+                if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr->order < wq_entry->order)) {
                     conflict_mshr = temp_conflict_mshr;
                 }
             } else {
@@ -2822,7 +2822,7 @@ Cache::getNextQueueEntry()
                                     miss_mshr->isSecure);
             }
             if (conflict_mshr) {
-                if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr < miss_mshr->order)) {
+                if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr->order < miss_mshr->order)) {
                     conflict_mshr = temp_conflict_mshr;
                 }
             } else {

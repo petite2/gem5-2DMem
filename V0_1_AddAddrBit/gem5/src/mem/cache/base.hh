@@ -511,6 +511,15 @@ class BaseCache : public MemObject
         }
     }
 
+    Addr MJL_swapRowColBits(Addr addr) const {
+        int MJL_rowShift = floorLog2(sizeof(uint64_t));
+        uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+        int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+
+        Addr new_row = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
+        Addr new_col = (addr >> MJL_rowShift) & (Addr)MJL_wordMask;
+        return ((addr & ~(((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift))) | (new_row << MJL_rowShift) | (new_col << MJL_colShift));
+    }
     /**
      * MJL_baseAddr: starting address
      * MJL_cacheBlkDir: direction of the address
@@ -521,7 +530,7 @@ class BaseCache : public MemObject
         if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             return MJL_baseAddr + Addr(offset);
         } else if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) { // MJL_temp temporary fix for column
-            return tags->MJL_swapRowColBits(tags->MJL_swapRowColBits(MJL_baseAddr) + Addr(offset));
+            return MJL_swapRowColBits(MJL_swapRowColBits(MJL_baseAddr) + Addr(offset));
         } else {
             return MJL_baseAddr + Addr(offset);
         }
@@ -535,7 +544,7 @@ class BaseCache : public MemObject
      */
     void MJL_markBlockInfo(MSHR *mshr) {
         // Get the newly added target and packet information
-        Target* new_target = mshr->MJL_getLastTarget();
+        MSHR::Target* new_target = mshr->MJL_getLastTarget();
         PacketPtr pkt = new_target->pkt;
         Addr baseAddr = mshr->blkAddr;
         Addr size = pkt->getSize();

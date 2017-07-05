@@ -212,10 +212,10 @@
                             "/home/mdl/mjl5868/GEM5/Mem2D/New_Version/2dmem_v0_1_addaddrbit/V0_1_AddAddrBit/Run_test_pbs/SE_test/test_sgemm_NN-bin", 
                             "32"
                         ], 
-                        "errout": "build_test_Jun21_2017.apperr", 
+                        "errout": "build_test_Jul05_2017.apperr", 
                         "useArchPT": false, 
                         "egid": 100, 
-                        "output": "build_test_Jun21_2017.appout_c"
+                        "output": "build_test_Jul05_2017.appout_c"
                     }
                 ], 
                 "name": "cpu", 
