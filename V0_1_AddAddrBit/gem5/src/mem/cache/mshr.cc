@@ -483,6 +483,9 @@ MSHR::extractServiceableTargets(PacketPtr pkt)
     if (pkt->cmd == MemCmd::ReadRespWithInvalidate) {
         auto it = targets.begin();
         assert(it->source == Target::FromCPU);
+        /* MJL_Begin */
+        assert(!it->MJL_isBlocked());
+        /* MJL_End */
         ready_targets.push_back(*it);
         it = targets.erase(it);
         while (it != targets.end()) {
@@ -490,13 +493,29 @@ MSHR::extractServiceableTargets(PacketPtr pkt)
                 it++;
             } else {
                 assert(it->source == Target::FromSnoop);
+                /* MJL_Begin */
+                if (it->MJL_isBlocked()) {
+                    break;
+                }
+                /* MJL_End */
                 ready_targets.push_back(*it);
                 it = targets.erase(it);
             }
         }
         ready_targets.populateFlags();
     } else {
+        /* MJL_Begin */
+        auto target_it = targets.begin();
+        assert(!target_it->MJL_isBlocked());
+        while ((target_it != targets.end()) && (!target_it->MJL_isBlocked())) {
+            ready_targets.push_back(*target_it);
+            target_it = target_it.erase(target_it);
+        }
+        ready_targets.populateFlags();
+        /* MJL_End */
+        /* MJL_Comment
         std::swap(ready_targets, targets);
+        */
     }
     targets.populateFlags();
 

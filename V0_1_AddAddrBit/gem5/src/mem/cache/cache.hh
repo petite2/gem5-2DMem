@@ -425,14 +425,6 @@ class Cache : public BaseCache
      */
     std::map< Addr, std::map< Tick, std::map< int , std::map< int, bool > > > > MJL_unalignedPacketCount;  //[PC][_time][MJL_testSeq][PacketAddrSeq] = received
     /**
-     * Keep the writeback data to forward to response packet
-     */
-    struct MJL_wbForwardWord{
-        bool MJL_isDirty;
-        uint64_t MJL_data;
-    };
-    std::map< Addr, std::map< CacheBlk::MJL_CacheBlkDir, MJL_wbForwardWord[8] > > MJL_wbForwardBuffer;
-    /**
      * Track whether there is a second half of split packets waiting to be sent
      */
     bool MJL_sndPacketWaiting;
@@ -506,28 +498,13 @@ class Cache : public BaseCache
     /* MJL_Begin */
     // MJL_TODO: Make this happen, but probably after the only one core version happens
     /**
-     * MJL_baseAddr: starting address
-     * MJL_cacheBlkDir: direction of the address
-     * offset: which byte from the starting address to get the word address
-     * return the address of the word
-     */
-    Addr MJL_addOffsetAddr(Addr MJL_baseAddr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned offset) {
-        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
-            return MJL_baseAddr + Addr(offset);
-        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_temp temporary fix for column
-            return tags->MJL_swapRowColBits(tags->MJL_swapRowColBits(MJL_baseAddr) + Addr(offset));
-        } else {
-            return MJL_baseAddr + Addr(offset);
-        }
-    }
-    /**
      * Invalidate blocks that are cross direction of the addresses written
      * MJL_written_addr: starting address of the words written
      * MJL_cacheBlkDir: direction of the block written
-     * size: size of bytes writte, can be used to determine how many words are written and their address
+     * size: size of bytes written, can be used to determine how many words are written and their address
      * is_secure: used in MJL_findBlk
      */
-    void MJL_invalidateOtherBlocks(Addr MJL_written_addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned size, bool is_secure) {
+    void MJL_invalidateOtherBlocks(Addr MJL_written_addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned size, bool is_secure, PacketList& writebacks, bool MJL_wordDirty[8]) {
         CacheBlk::MJL_CacheBlkDir MJL_diffDir;
         Addr MJL_writtenWord_addr;
         CacheBlk *MJL_diffDir_blk;
@@ -540,11 +517,16 @@ class Cache : public BaseCache
             MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
         }
         for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {
-            MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_written_addr, MJL_cacheBlkDir, offset);
-	        MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
-            if (MJL_diffDir_blk != nullptr) {
-                if (MJL_diffDir_blk->isValid()) {
+            if (MJL_wordDirty[offset/sizeof(uint64_t)]) {
+                MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_written_addr, MJL_cacheBlkDir, offset);
+                MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
+                if ((MJL_diffDir_blk != nullptr) && MJL_diffDir_blk->isValid()) {
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
+                    if (MJL_diffDir_blk->isDirty()) {
+                        writebacks.push_back(writebackBlk(MJL_diffDir_blk));
+                    } else {
+                        writebacks.push_back(cleanEvictBlk(MJL_diffDir_blk));
+                    }
                     invalidateBlock(MJL_diffDir_blk);
                 }
             }

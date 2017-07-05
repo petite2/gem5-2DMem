@@ -146,6 +146,22 @@ class MSHR : public QueueEntry, public Printable
 
         const bool allocOnFill;   //!< Should the response servicing this
                                   //!< target list allocate in the cache?
+        
+        /* MJL_Begin */
+        std::list<Target *> MJL_isBlockedBy;
+        std::list<Target *> MJL_isBlocking;
+        bool MJL_postInvalidate;
+        bool MJL_postWriteback;
+        bool MJL_isBlocked() {
+            return MJL_isBlockedBy.empty();
+        }
+        void MJL_clearBlocking() {
+            while (!MJL_isBlocking.empty()) {
+                MJL_isBlocking.front()->MJL_isBlockedBy.remove(this);
+                MJL_isBlocking.pop_front();
+            }
+        }
+        /* MJL_End */
 
         Target(PacketPtr _pkt, Tick _readyTime, Counter _order,
                Source _source, bool _markedPending, bool alloc_on_fill)
@@ -344,6 +360,49 @@ class MSHR : public QueueEntry, public Printable
         assert(hasTargets());
         return &targets.front();
     }
+
+    /* MJL_Begin */
+    /**
+     * Returns a reference to the last target.
+     * @return A pointer to the last target.
+     */
+    Target *MJL_getLastTarget()
+    {
+        assert(hasTargets());
+        if (!deferredTargets.empty()) {
+            return &deferredTargets.back();
+        } else {
+            return &targets.back();
+        }
+    }
+    
+    /**
+     * Returns a reference to the last target that is a write.
+     * @return A pointer to the last target that is a write, null if no target is a write.
+     */
+    Target *MJL_getLastWriteTarget()
+    {
+        assert(hasTargets());
+        Target* lastWrite = nullptr;
+        if (!deferredTargets.empty()) {
+           for (auto rit = deferredTargets.rbegin(); rit != deferredTargets.rend(); ++rit) {
+               if (rit->pkt->isWrite()) {
+                   lastWrite = &(*rit);
+                   break;
+               }
+           }
+        } 
+        if (!lastWrite) {
+            for (auto rit = targets.rbegin(); rit != targets.rend(); ++rit) {
+               if (rit->pkt->isWrite()) {
+                   lastWrite = &(*rit);
+                   break;
+               }
+           }
+        }
+        return lastWrite;
+    }
+    /* MJL_End */
 
     /**
      * Pop first target.

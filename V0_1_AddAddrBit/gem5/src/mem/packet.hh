@@ -551,6 +551,24 @@ class Packet : public Printable
 
     /* MJL_Begin */
     int MJL_testSeq; // Used to identify packet during test
+    bool MJL_hasOrder;
+    Counter MJL_order;
+    bool MJL_wordDirty[8]; // Used to identify dirty words for cross direction checks
+    void MJL_setWordDirtyFromBlk( bool MJL_blkWordDirty[8], unsigned blkSize) {
+        for (int i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
+            MJL_wordDirty[i/sizeof(uint64_t)] = MJL_blkWordDirty[(i + getOffset(blkSize))/sizeof(uint64_t)];
+        }
+    }
+    void MJL_copyWordDirty( bool MJL_otherWordDirty[8]) {
+        for (int i = 0; i < 8; ++i) {
+            MJL_wordDirty[i] = MJL_otherWordDirty[i];
+        }
+    }
+    void MJL_setAllDirty() {
+        for (int i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
+            MJL_wordDirty[i/sizeof(uint64_t)] = true;
+        }
+    }
     MemCmd::MJL_DirAttribute MJL_getCmdDir() const { return cmd.MJL_getCmdDir(); }
     bool MJL_cmdIsRow() const           { return cmd.MJL_isRow(); }
     bool MJL_cmdIsColumn() const        { return cmd.MJL_isColumn(); }
@@ -844,7 +862,7 @@ class Packet : public Printable
      * not be valid. The command must be supplied.
      */
     Packet(const RequestPtr _req, MemCmd _cmd)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_hasOrder(false), MJL_order(0),/* MJL_End*/ _isSecure(false),
            size(0), headerDelay(0), snoopDelay(0), payloadDelay(0),
            senderState(NULL)
     {
@@ -865,7 +883,7 @@ class Packet : public Printable
      * req.  this allows for overriding the size/addr of the req.
      */
     Packet(const RequestPtr _req, MemCmd _cmd, int _blkSize)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_hasOrder(false), MJL_order(0),/* MJL_End*/ _isSecure(false),
            headerDelay(0), snoopDelay(0), payloadDelay(0),
            senderState(NULL)
     {
@@ -901,7 +919,7 @@ class Packet : public Printable
     Packet(const PacketPtr pkt, bool clear_flags, bool alloc_data)
         :  cmd(pkt->cmd), req(pkt->req),
            data(nullptr),
-           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir())/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
+           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir()), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]},  MJL_hasOrder(false), MJL_order(0)/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
            bytesValid(pkt->bytesValid),/* MJL_Begin */
            MJL_bytesValid(pkt->MJL_bytesValid),
            /* MJL_End */

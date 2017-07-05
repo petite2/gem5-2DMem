@@ -510,6 +510,80 @@ class BaseCache : public MemObject
             return (addr & ~(Addr(blkSize - 1)));
         }
     }
+
+    /**
+     * MJL_baseAddr: starting address
+     * MJL_cacheBlkDir: direction of the address
+     * offset: which byte from the starting address to get the word address
+     * return the address of the word
+     */
+    Addr MJL_addOffsetAddr(Addr MJL_baseAddr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, unsigned offset) {
+        if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+            return MJL_baseAddr + Addr(offset);
+        } else if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) { // MJL_temp temporary fix for column
+            return tags->MJL_swapRowColBits(tags->MJL_swapRowColBits(MJL_baseAddr) + Addr(offset));
+        } else {
+            return MJL_baseAddr + Addr(offset);
+        }
+    }
+
+    /**
+     * Updates the blocking/blocked information between targets to ensure ordering 
+     * in the presence of a conflict. Should be used at each creation of a new target
+     * to maintain memory access ordering on conflict.
+     * @param mshr The mshr with the newly added target
+     */
+    void MJL_markBlockInfo(MSHR *mshr) {
+        // Get the newly added target and packet information
+        Target* new_target = mshr->MJL_getLastTarget();
+        PacketPtr pkt = new_target->pkt;
+        Addr baseAddr = mshr->blkAddr;
+        Addr size = pkt->getSize();
+        assert(mshr->MJL_qEntryDir == pkt->MJL_getCmdDir() || size <= sizeof(uint64_t));
+
+
+        MemCmd::MJL_DirAttribute crossBlkDir = pkt->MJL_getCmdDir();
+        pkt->MJL_setDataDir(mshr->MJL_qEntryDir);
+        Addr target_offset = pkt->getOffset(blkSize);
+        if (pkt->MJL_getCmdDir() != mshr->MJL_qEntryDir) {
+            pkt->MJL_setDataDir(crossBlkDir);
+        }
+
+        if (mshr->MJL_qEntryDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+            crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+        } else if (mshr->MJL_qEntryDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+            crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+        }
+
+        // Search for crossing mshr entries
+        for (Addr offset = 0; offset < blkSize; offset = offset + sizeof(uint64_t)) {
+            Addr crossBlkAddr = MJL_blockAlign(MJL_addOffsetAddr(baseAddr, mshr->MJL_qEntryDir, offset), crossBlkDir); 
+            MSHR* crossMshr =  mshrQueue.MJL_findMatch(crossBlkAddr, crossBlkDir, pkt->isSecure());
+            // If an entry is found
+            if (crossMshr) {
+                // If the packet is a write and the crossing word is written
+                if (pkt->isWrite() && (offset >= target_offset && offset < target_offset + size)) {
+                    // The new target is blocked by the crossing mshr's last target
+                    new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastTarget());
+                    crossMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(new_target);
+                    // And the crossing mshr's last target should have post invalidate
+                    crossMshr->MJL_getLastTarget()->MJL_postInvalidate = true;
+                // Else if the packet is read or the packet is write but the crossing word is not written
+                // And If there is a write target in the crossing mshr
+                } else if (crossMshr->MJL_getLastWriteTarget()) {
+                    // The new target is blocked by the crossing mshr's latest write target
+                    new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastWriteTarget());
+                    crossMshr->MJL_getLastWriteTarget()->MJL_isBlocking.push_back(new_target);
+                    // And the crossing mshr's last write target should writeback
+                    crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;
+                // Else the crossing mshr's last target should have post lose writable
+                } else {
+                    crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;
+                }
+
+            }
+        }
+    }
     /* MJL_End */
 
     const AddrRangeList &getAddrRanges() const { return addrRanges; }
@@ -524,6 +598,9 @@ class BaseCache : public MemObject
         /* MJL_End */
                                         pkt, time, order++,
                                         allocOnFill(pkt->cmd));
+        /* MJL_Begin */
+        MJL_markBlockInfo(mshr);
+        /* MJL_End */
 
         if (mshrQueue.isFull()) {
             setBlocked((BlockedCause)MSHRQueue_MSHRs);
@@ -555,12 +632,20 @@ class BaseCache : public MemObject
         */
         /* MJL_Begin */
             writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getDataDir(), pkt->isSecure());
+
+        uint64_t MJL_order;
+        if (pkt->MJL_hasOrder) {
+            MJL_order = pkt->MJL_order;
+            pkt->MJL_hasOrder = false;
+        } else {
+            MJL_order = order++;
+        }
         /* MJL_End */
         if (wq_entry && !wq_entry->inService) {
             DPRINTF(Cache, "Potential to merge writeback %s", pkt->print());
         }
 
-        writeBuffer.allocate(blk_addr, blkSize, pkt, time, order++);
+        writeBuffer.allocate(blk_addr, blkSize, pkt, time, /* MJL_Begin */MJL_order/* MJL_End *//* MJL_Comment order++ */);
 
         if (writeBuffer.isFull()) {
             setBlocked((BlockedCause)MSHRQueue_WriteBuffer);

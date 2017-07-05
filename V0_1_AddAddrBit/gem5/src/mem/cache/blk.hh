@@ -117,6 +117,7 @@ class CacheBlk
     
     /** block data direction */
     MJL_CacheBlkDir MJL_blkDir;
+    bool MJL_wordDirty[8];
     /* MJL_End */
 
     /** Which curTick() will this block be accessable */
@@ -270,6 +271,7 @@ class CacheBlk
           asid(-1), tag(0), data(0) ,size(0), status(0),
           /* MJL_Begin */ 
           MJL_blkDir(MJL_CacheBlkDir::MJL_IsRow),
+          MJL_wordDirty{false, false, false, false, false, false, false, false},
           /* MJL_End */
            whenReady(0),
           set(-1), way(-1), isTouched(false), refCount(0),
@@ -366,6 +368,69 @@ class CacheBlk
     bool MJL_isColumn() const
     {
         return MJL_blkDir == MJL_CacheBlkDir::MJL_IsColumn;
+    }
+
+    /**
+     * Update the dirty status based on words' dirty status 
+     */
+    void MJL_updateDirty()
+    {
+        bool dirty = false;
+        for (int i = 0; i < 8; ++i) {
+            dirty |= MJL_wordDirty[i];
+        }
+        if (dirty) {
+            status |= BlkDirty;
+        } else {
+            status &= ~BlkDirty;
+        }
+    }
+
+    /**
+     * Set the word's dirty status 
+     */
+    void MJL_setWordDirty(int i)
+    {
+        MJL_wordDirty[i] = true;
+    }
+
+    /**
+     * Clear the word's dirty status 
+     */
+    void MJL_clearWordDirty(int i)
+    {
+        MJL_wordDirty[i] = false;
+    }
+
+    /**
+     * Set all words' dirty status 
+     */
+    void MJL_setAllDirty()
+    {
+        for (int i = 0; i < 8; ++i) {
+            MJL_wordDirty[i] = true;
+        }
+    }
+
+    /**
+     * Clear all words' dirty status 
+     */
+    void MJL_clearAllDirty()
+    {
+        for (int i = 0; i < 8; ++i) {
+            MJL_wordDirty[i] = false;
+        }
+    }
+
+    /**
+     * Set words' dirty status from packet
+     */
+    void MJL_setWordDirtyPkt(const PacketPtr pkt, unsigned blkSize) 
+    {
+        int offset = pkt->getOffset(blkSize)/sizeof(uint64_t);
+        for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)){
+            MJL_wordDirty[(i + offset)/sizeof(uint64_t)] |= pkt->MJL_wordDirty[i/sizeof(uint64_t)];
+        }
     }
     /* MJL_End */
 

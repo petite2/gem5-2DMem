@@ -526,6 +526,7 @@ template <class Impl>
 Fault
 LSQUnit<Impl>::checkViolations(int load_idx, DynInstPtr &inst)
 {
+    /* MJL_TODO: will need to change this if we implement column vector store/load from the instruction to take into account cross directional conflicts */
     Addr inst_eff_addr1 = inst->effAddr >> depCheckShift;
     Addr inst_eff_addr2 = (inst->effAddr + inst->effSize - 1) >> depCheckShift;
 

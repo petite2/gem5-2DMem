@@ -155,7 +155,9 @@ Cache::cmpAndSwap(CacheBlk *blk, PacketPtr pkt)
     if (overwrite_mem) {
         std::memcpy(blk_data, &overwrite_val, pkt->getSize());
         /* MJL_Begin */
-        MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
+        blk->MJL_setWordDirty(offset/sizeof(uint64_t));
+        // Should be for SPARC so should not be a problem...
+        //MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
         /* MJL_End */
         blk->status |= BlkDirty;
     }
@@ -222,7 +224,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // supply data to any snoops that have appended themselves to
         // this cache before knowing the store will fail.
         /* MJL_Begin */
-        MJL_invalidateOtherBlocks(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
+        for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t)) {
+            blk->MJL_setWordDirty(i/sizeof(uint64_t));
+        }
         /* MJL_End */
         blk->status |= BlkDirty;
         DPRINTF(CacheVerbose, "%s for %s (write)\n", __func__, pkt->print());
@@ -235,6 +239,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         assert(pkt->hasRespData());
         /* MJL_Begin */
         pkt->MJL_setDataDir(blk->MJL_blkDir);
+        pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
         /* MJL_End */
         pkt->setDataFromBlock(blk->data, blkSize);
 
@@ -255,6 +260,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 if (blk->isDirty()) {
                     pkt->setCacheResponding();
                     blk->status &= ~BlkDirty;
+                    /* MJL_Begin */
+                    blk->MJL_clearAllDirty();
+                    /* MJL_End */
                 }
             } else if (blk->isWritable() && !pending_downgrade &&
                        !pkt->hasSharers() &&
@@ -292,6 +300,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                         // and first snoop upwards in all other
                         // branches
                         blk->status &= ~BlkDirty;
+                        /* MJL_Begin */
+                        blk->MJL_clearAllDirty();
+                        /* MJL_End */
                     } else {
                         // if we're responding after our own miss,
                         // there's a window where the recipient didn't
@@ -317,6 +328,10 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             // that the data it already has is in fact dirty
             pkt->setCacheResponding();
             blk->status &= ~BlkDirty;
+            /* MJL_Begin */
+            pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+            blk->MJL_clearAllDirty();
+            /* MJL_End */
         }
     } else {
         assert(pkt->isInvalidate());
@@ -490,7 +505,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         if (pkt->cmd == MemCmd::WritebackDirty) {
             /* MJL_Begin */
             assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
-            MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
+            MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
+            blk->MJL_clearAllDirty();
+            blk->MJL_setWordDirtyPkt(pkt, blkSize);
             /* MJL_End */
             blk->status |= BlkDirty;
         }
@@ -536,6 +553,10 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
             MJL_overallColumnHits++;
         }
+
+        if (pkt->isWrite()) {
+            MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
+        }
         /* MJL_End */
         satisfyRequest(pkt, blk);
         maintainClusivity(pkt->fromCache(), blk);
@@ -560,31 +581,45 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         pkt->req->setExtraData(0);
         return true;
     }
-    // MJL_TODO: Testing needed, should writeback the dirty blocks of different directions before issuing the miss
-    if (blk == nullptr && pkt->isRead()) {
+    /* MJL_Begin */
+    // We are going to bring in a cache line, crossing lines with dirty data at the crossing needs to be written back
+    // And if the access were a write, then the crossing lines to the write section needs to be invalidated as well
+    if (blk == nullptr) {
         CacheBlk *MJL_crossBlk = nullptr;
         Addr MJL_crossBlkAddr;
         for (unsigned MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
-            MJL_crossBlkAddr= MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir(), MJL_offset);
+            // Get the address of each word in the cache line
+            MJL_crossBlkAddr = MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir(), MJL_offset);
+            Addr MJL_crossBlkOffset = MJL_offset;
+            // Search for the crossing cache line 
             if ( pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
                 MJL_crossBlk = tags->MJL_accessBlock(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, pkt->isSecure(), lat, id);
+                MJL_crossBlkOffset = tags->MJL_swapRowColBits(MJL_crossBlkAddr) & Addr(blkSize - 1);
             } else if ( pkt->MJL_getCmdDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
                 MJL_crossBlk = tags->MJL_accessBlock(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), lat, id);
+                MJL_crossBlkOffset = MJL_crossBlkAddr & Addr(blkSize - 1);
             }
-            if (MJL_crossBlk && MJL_crossBlk->isValid() && MJL_crossBlk->isDirty()) {
-                MJL_nonEvictWBCount++;
-                writebacks.push_back(MJL_writebackCachedBlk(MJL_crossBlk));
-                Addr MJL_crossBlkOffset = 0;
-                if ( MJL_crossBlk->MJL_blkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
-                    MJL_crossBlkoffset = MJL_crossBlkAddr & Addr(blkSize - 1);;
-                } else if ( MJL_crossBlk->MJL_blkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
-                    MJL_crossBlkoffset = (pkt->MJL_swapRowColBits(MJL_crossBlkAddr, blkSize, MJL_rowWidth)) & Addr(blk_size - 1);
+            // If the crossing line exists
+            if (MJL_crossBlk && MJL_crossBlk->isValid()) {
+                // Invalidate for the written section of the write request
+                if (pkt->isWrite() && (MJL_offset <= pkt->getOffset(blkSize) || MJL_offset > pkt->getOffset(blkSize) + pkt->getSize())) {
+                    if (MJL_crossBlk->isDirty()) {
+                        writebacks.push_back(writebackBlk(MJL_crossBlk));
+                    } else {
+                        writebacks.push_back(cleanEvictBlk(MJL_crossBlk));
+                    }
+                    invalidateBlock(MJL_crossBlk);
+                // Write back for read requests and non written sections of the write request if the crossing word is dirty
+                } else if (MJL_crossBlk->isDirty() && MJL_crossBlk->MJL_wordDirty[MJL_crossBlkOffset/sizeof(uint64_t)]){
+                    writebacks.push_back(MJL_writebackCachedBlk(MJL_crossBlk));
+                // Otherwise, just revoke writable
+                } else {
+                    MJL_crossBlk->status &= ~BlkWritable;
                 }
-                MJL_wbForwardBuffer[MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir())][pkt->MJL_getCmdDir()][MJL_offset/sizeof(uint64_t)].MJL_isDirty = true;
-                std::memcpy(&(MJL_wbForwardBuffer[MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir())][pkt->MJL_getCmdDir()][MJL_offset/sizeof(uint64_t)].MJL_data), MJL_crossBlk->data + MJL_crossBlkOffset, sizeof(uint64_t));
             }
         }
     }
+    /* MJL_End */
 
     return false;
 }
@@ -997,6 +1032,9 @@ Cache::recvTimingReq(PacketPtr pkt)
                     // delay of the xbar.
                     mshr->allocateTarget(pkt, forward_time, order++,
                                          allocOnFill(pkt->cmd));
+                    /* MJL_Begin */
+                    MJL_markBlockInfo(mshr);
+                    /* MJL_End */
                     if (mshr->getNumTargets() == numTarget) {
                         noTargetMSHR = mshr;
                         setBlocked(Blocked_NoTargets);
@@ -1057,9 +1095,8 @@ Cache::recvTimingReq(PacketPtr pkt)
                     assert(!blk->isWritable());
                     blk->status &= ~BlkReadable;
                     /* MJL_Begin */
-                    // For write invalidation, if other direction's one exist, then it should not be readable either
-                    // MJL_TODO: Check if this breaks things
-                    MJL_unreadableOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
+                    // Write miss, crossing blocks should have been invalidated
+                    // MJL_unreadableOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
                     /* MJL_End */
                 }
                 // Here we are using forward_time, modelling the latency of
@@ -1269,6 +1306,10 @@ Cache::recvAtomic(PacketPtr pkt)
                                      allocOnFill(pkt->cmd));
                     assert(blk != NULL);
                     is_invalidate = false;
+                    /* MJL_Begin */
+                    // Should not need the invalidation, things should have been taken care of at the access
+                    //MJL_invalidateOtherBlocks(pkt->getAddr(), pkt->MJL_getDataDir(), pkt->getSize(), pkt->isSecure(), writebacks);
+                    /* MJL_End */
                     satisfyRequest(pkt, blk);
                 } else if (bus_pkt->isRead() ||
                            bus_pkt->cmd == MemCmd::UpgradeResp) {
@@ -1570,33 +1611,6 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (is_fill && !is_error) {
         DPRINTF(Cache, "Block for addr %#llx being updated in Cache\n",
                 pkt->getAddr());
-        /* MJL_Begin */
-        // Forward data from write buffer (those that we hoped would be written back before this happened).
-        for (unsigned MJL_offset = 0; MJL_offset < pkt->getSize(); MJL_offset = MJL_offset + sizeof(uint64_t)) {
-            WriteQueueEntry *MJL_crossWb_entry = nullptr;
-            Addr MJL_crossBlkAddr = MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getDataDir()), pkt->MJL_getDataDir(), MJL_offset);
-            if ( pkt->MJL_getDataDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
-                MJL_crossWb_entry = writeBuffer.MJL_findPending(MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn),
-                                                          CacheBlk::MJL_CacheBlkDir::MJL_IsColumn,
-                                                          pkt->isSecure());
-            } else if ( pkt->MJL_getDataDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
-                MJL_crossWb_entry = writeBuffer.MJL_findPending(MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow),
-                                                          CacheBlk::MJL_CacheBlkDir::MJL_IsRow,
-                                                          pkt->isSecure());
-            }
-            if (MJL_crossWb_entry && MJL_crossWb_entry->hasTargets()) {
-                assert(MJL_crossWb_entry->getNumTargets() == 1);
-                PacketPtr MJL_crossWb_pkt = MJL_crossWb_entry->getTarget()->pkt;
-                Addr MJL_crossWb_offset = 0;
-                if ( MJL_crossWb_pkt->MJL_getDataDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
-                    MJL_crossWb_offset = MJL_crossBlkAddr & Addr(blkSize - 1);;
-                } else if ( MJL_crossWb_pkt->MJL_getDataDir() == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
-                    MJL_crossWb_offset = (MJL_crossWb_pkt->MJL_swapRowColBits(MJL_crossBlkAddr, blkSize, MJL_rowWidth)) & Addr(blkSize - 1);
-                }    
-                std::memcpy(pkt->getPtr<uint8_t>(), MJL_crossWb_pkt->getConstPtr<uint8_t>() + MJL_crossWb_offset, sizeof(uint64_t));
-            }
-        }
-        /* MJL_End */
 
         blk = handleFill(pkt, blk, writebacks, mshr->allocOnFill());
         assert(blk != nullptr);
@@ -1607,14 +1621,14 @@ Cache::recvTimingResp(PacketPtr pkt)
     bool is_invalidate = pkt->isInvalidate();
 
     // First offset for critical word first calculations
-    /* MJL_Begin */
     int initial_offset = initial_tgt->pkt->getOffset(blkSize);
-    /* MJL_End */
-    /* MJL_Comment
-    int initial_offset = initial_tgt->pkt->getOffset(blkSize);
-    */
 
     bool from_cache = false;
+    /* MJL_Begin */
+    bool MJL_writeback = false;
+    bool MJL_invalidate = false;
+    Counter MJL_order;
+    /* MJL_End */
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
     for (auto &target: targets) {
         Packet *tgt_pkt = target.pkt;
@@ -1663,16 +1677,14 @@ Cache::recvTimingResp(PacketPtr pkt)
             }
 
             if (is_fill) {
+                /* MJL_Begin */
+                // Should not need to invalidate anymore on writes, this is taken care of at the time of access.
+                /* MJL_End */
                 satisfyRequest(tgt_pkt, blk, true, mshr->hasPostDowngrade());
 
                 // How many bytes past the first request is this one
                 int transfer_offset =
-                /* MJL_Begin */
-                    tgt_pkt->getOffset(blkSize) - initial_offset;
-                /* MJL_End */
-                /* MJL_Comment
-                    tgt_pkt->getOffset(blkSize) - initial_offset;
-                */
+                    tgt_pkt->getOffset(blkSize) - initial_offset;   
                 if (transfer_offset < 0) {
                     transfer_offset += blkSize;
                 }
@@ -1774,16 +1786,45 @@ Cache::recvTimingResp(PacketPtr pkt)
           default:
             panic("Illegal target->source enum %d\n", target.source);
         }
+        /* MJL_Begin */
+        MJL_writeback |= target.MJL_postWriteback;
+        MJL_invalidate |= target.MJL_invalidate;
+        assert(!target.MJL_invalidate || (target == targets.back())); 
+        if (target.MJL_postWriteback) {
+            MJL_order = target.order;
+        } else if (!MJL_writeback && target.MJL_invalidate) {
+            MJL_order = target.order;
+        }
+        target.MJL_clearBlocking();
+        /* MJL_End */
     }
 
     maintainClusivity(from_cache, blk);
 
     // MJL_TODO: probably coherence handling
     if (blk && blk->isValid()) {
+        /* MJL_Begin */
+        PacketPtr MJL_postPkt = nullptr;
+        if (MJL_invalidate && blk->isDirty()) {
+            MJL_postPkt = writebackBlk(blk);
+        } else if (MJL_invalidate) {
+            MJL_postPkt = cleanEvictBlk(blk);
+        } else if (MJL_writeback && blk->isDirty()) {
+            MJL_postPkt = MJL_writebackCachedBlk(blk);
+        } else if (MJL_writeback) {
+            blk->status &= ~BlkWritable;
+        }
+        
+        if (MJL_postPkt) {
+            MJL_postPkt->MJL_hasOrder = true;
+            MJL_postPkt->MJL_order = MJL_order;
+            writebacks.push_back(MJL_postPkt);
+        }
+        /* MJL_End */
         // an invalidate response stemming from a write line request
         // should not invalidate the block, so check if the
         // invalidation should be discarded
-        if (is_invalidate || mshr->hasPostInvalidate()) {
+        if (/* MJL_Begin */MJL_invalidate || /* MJL_End */is_invalidate || mshr->hasPostInvalidate()) {
             invalidateBlock(blk);
         } else if (mshr->hasPostDowngrade()) {
             blk->status &= ~BlkWritable;
@@ -1879,6 +1920,7 @@ Cache::writebackBlk(CacheBlk *blk)
     /* MJL_Begin */
     pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
     pkt->MJL_setDataDir(req->MJL_getReqDir());
+    pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
     /* MJL_End */
 
     DPRINTF(Cache, "Create Writeback %s writable: %d, dirty: %d\n",
@@ -1894,6 +1936,9 @@ Cache::writebackBlk(CacheBlk *blk)
     }
 
     // make sure the block is not marked dirty
+    /* MJL_Begin */
+    blk->MJL_clearAllDirty();
+    /* MJL_End */
     blk->status &= ~BlkDirty;
 
     pkt->allocate();
@@ -1942,6 +1987,7 @@ Cache::cleanEvictBlk(CacheBlk *blk)
     /* MJL_Begin */
     pkt->cmd.MJL_setCmdDir(blk->MJL_blkDir);
     pkt->MJL_setDataDir(blk->MJL_blkDir);
+    pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
     /* MJL_End */
     pkt->allocate();
     DPRINTF(Cache, "Create CleanEvict %s\n", pkt->print());
@@ -1996,11 +2042,15 @@ Cache::writebackVisitor(CacheBlk &blk)
         /* MJL_Begin */
         packet.cmd.MJL_setCmdDir(blk.MJL_blkDir);
         packet.MJL_setDataDir(blk.MJL_blkDir);
+        packet.MJL_setWordDirtyFromBlk(blk.MJL_wordDirty, blkSize);
         /* MJL_End */
         packet.dataStatic(blk.data);
 
         memSidePort->sendFunctional(&packet);
 
+        /* MJL_Begin */
+        blk.MJL_clearAllDirty();
+        /* MJL_End */
         blk.status &= ~BlkDirty;
     }
 
@@ -2168,9 +2218,9 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         /* MJL_Begin */
         blk = allocate ? MJL_allocateBlock(addr, pkt->MJL_getDataDir(), is_secure, writebacks) : nullptr;
         /* MJL_End */
-        /* MJL_Comment
+        /* MJL_Comment 
         blk = allocate ? allocateBlock(addr, is_secure, writebacks) : nullptr;
-        */
+         */
 
         if (blk == nullptr) {
             // No replaceable block or a mostly exclusive
@@ -2239,6 +2289,10 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             // we got the block in Modified state, and invalidated the
             // owners copy
             blk->status |= BlkDirty;
+            /* MJL_Begin */
+            blk->MJL_clearAllDirty();
+            blk->MJL_setWordDirtyPkt(pkt, blkSize);
+            /* MJL_End */
 
             chatty_assert(!isReadOnly, "Should never see dirty snoop response "
                           "in read-only cache %s\n", name());
@@ -2256,6 +2310,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         assert(pkt->getSize() == blkSize);
         /* MJL_Begin */
         assert(pkt->MJL_getDataDir() == blk->MJL_blkDir);
+        pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
         /* MJL_End */
 
         std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
@@ -2485,7 +2540,15 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
             // packets such as upgrades do not actually have any data
             // payload
             if (pkt->hasData())
+            /* MJL_Begin */
+            {
                 pkt->setDataFromBlock(blk->data, blkSize);
+                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty);
+            }
+            /* MJL_End */
+            /* MJL_Comment 
+                pkt->setDataFromBlock(blk->data, blkSize);
+            */
         }
     }
 
@@ -2697,6 +2760,31 @@ Cache::getNextQueueEntry()
         /* MJL_Begin */
             mshrQueue.MJL_findPending(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, 
                                   wq_entry->isSecure);
+
+        // Check other direction conflict
+        Addr MJL_crossBlkAddr = wq_entry->blkAddr;
+        WriteQueueEntry *temp_conflict_mshr = conflict_mshr;
+        for (Addr MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
+            MJL_crossBlkAddr = MJL_addOffsetAddr(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, MJL_offset);
+            if (wq_entry->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+                MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+                temp_conflict_mshr = mshrQueue.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, 
+                                    wq_entry->isSecure);
+            } else if (wq_entry->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+                MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+                temp_conflict_mshr = mshrQueue.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, 
+                                    wq_entry->isSecure);
+            }
+            if (conflict_mshr) {
+                if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr < wq_entry->order)) {
+                    conflict_mshr = temp_conflict_mshr;
+                }
+            } else {
+                if (temp_conflict_mshr && (temp_conflict_mshr->order < wq_entry->order)) {
+                    conflict_mshr = temp_conflict_mshr;
+                }
+            }
+        }
         /* MJL_End */
         /* MJL_Comment
             mshrQueue.findPending(wq_entry->blkAddr,
@@ -2718,6 +2806,31 @@ Cache::getNextQueueEntry()
         /* MJL_Begin */
             writeBuffer.MJL_findPending(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, 
                                     miss_mshr->isSecure);
+
+        // Check other direction conflict
+        Addr MJL_crossBlkAddr = miss_mshr->blkAddr;
+        WriteQueueEntry *temp_conflict_mshr = conflict_mshr;
+        for (Addr MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
+            MJL_crossBlkAddr = MJL_addOffsetAddr(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, MJL_offset);
+            if (miss_mshr->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+                MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+                temp_conflict_mshr = writeBuffer.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, 
+                                    miss_mshr->isSecure);
+            } else if (miss_mshr->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+                MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+                temp_conflict_mshr = writeBuffer.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, 
+                                    miss_mshr->isSecure);
+            }
+            if (conflict_mshr) {
+                if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr < miss_mshr->order)) {
+                    conflict_mshr = temp_conflict_mshr;
+                }
+            } else {
+                if (temp_conflict_mshr && (temp_conflict_mshr->order < miss_mshr->order)) {
+                    conflict_mshr = temp_conflict_mshr;
+                }
+            }
+        }
         /* MJL_End */
         /* MJL_Comment
             writeBuffer.findPending(miss_mshr->blkAddr,
@@ -3032,6 +3145,11 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setDataDir(InputDir);
     }
 
+    // Assign dirty bits for write requests at L1D$
+    if ((this->name().find("dcache") != std::string::npos) && pkt->isWrite()) {
+        pkt->MJL_setAllDirty();
+    }
+
     /* MJL_Test: Packet information output */
     if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
         std::cout << this->name() << "::recvTimingReq";
@@ -3211,6 +3329,11 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         pkt->cmd.MJL_setCmdDir(InputDir);
         pkt->req->MJL_setReqDir(InputDir);
         pkt->MJL_setDataDir(InputDir);
+    }
+
+    // Assign dirty bits for write requests at L1D$
+    if ((this->name().find("dcache") != std::string::npos) && pkt->isWrite()) {
+        pkt->MJL_setAllDirty();
     }
 
     /* MJL_Test: Request packet information output */ 
