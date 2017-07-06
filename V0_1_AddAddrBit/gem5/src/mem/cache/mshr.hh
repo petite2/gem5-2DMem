@@ -153,7 +153,7 @@ class MSHR : public QueueEntry, public Printable
         bool MJL_postInvalidate;
         bool MJL_postWriteback;
         bool MJL_isBlocked() {
-            return MJL_isBlockedBy.empty();
+            return !MJL_isBlockedBy.empty();
         }
         void MJL_clearBlocking() {
             while (!MJL_isBlocking.empty()) {

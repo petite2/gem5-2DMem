@@ -249,7 +249,7 @@ class Queue : public Drainable
      * Returns the WriteQueueEntry at the head of the readyList.
      * @return The next request to service.
      */
-    Entry* getNext() const
+    virtual Entry* getNext() const
     {
         if (readyList.empty() || readyList.front()->readyTime > curTick()) {
             return nullptr;

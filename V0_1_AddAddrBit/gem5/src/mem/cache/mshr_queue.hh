@@ -145,6 +145,30 @@ class MSHRQueue : public Queue<MSHR>
         // keep regressions unchanged
         return (allocated < numEntries - (numReserve + 1 + demandReserve));
     }
+
+    /* MJL_Begin */
+    /**
+    * Returns the first MSHRQueueEntry that is not blocked.
+    * @return The next request to service.
+    */
+    virtual MSHR* getNext() const
+    {
+        if (readyList.empty() || readyList.front()->readyTime > curTick()) {
+            return nullptr;
+        } else {
+            for (auto it = readyList.begin(); it != readyList.end(); ++it) {
+                if (it->readyTime > curTick) {
+                    return nullptr;
+                }
+                else if (!it->getTarget()->MJL_isBlocked()) {
+                    return *it;
+                }
+            }
+            return nullptr;
+        }
+        return readyList.front();
+    } 
+    /* MJL_End */
 };
 
 #endif //__MEM_CACHE_MSHR_QUEUE_HH__
