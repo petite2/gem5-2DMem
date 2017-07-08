@@ -509,6 +509,10 @@ MSHR::extractServiceableTargets(PacketPtr pkt)
         assert(!target_it->MJL_isBlocked());
         while ((target_it != targets.end()) && (!target_it->MJL_isBlocked())) {
             ready_targets.push_back(*target_it);
+            if (target_it->MJL_postInvalidate) {
+                targets.erase(target_it);
+                break;
+            }
             target_it = targets.erase(target_it);
         }
         ready_targets.populateFlags();

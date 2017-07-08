@@ -157,10 +157,10 @@ class MSHRQueue : public Queue<MSHR>
             return nullptr;
         } else {
             for (auto it = readyList.begin(); it != readyList.end(); ++it) {
-                if (it->readyTime > curTick) {
+                if ((*it)->readyTime > curTick()) {
                     return nullptr;
                 }
-                else if (!it->getTarget()->MJL_isBlocked()) {
+                else if (!(*it)->getTarget()->MJL_isBlocked()) {
                     return *it;
                 }
             }

@@ -1,0 +1,2 @@
+0: system.remote_gdb.listener: listening for remote gdb #0 on port 7000
+warn: ClockedObject: More than one power state change request encountered within the same simulation tick

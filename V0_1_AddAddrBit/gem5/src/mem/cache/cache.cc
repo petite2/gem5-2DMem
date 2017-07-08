@@ -603,7 +603,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             if (MJL_crossBlk && MJL_crossBlk->isValid()) {
                 // Invalidate for the written section of the write request
                 if (pkt->isWrite() && (MJL_offset <= pkt->getOffset(blkSize) || MJL_offset > pkt->getOffset(blkSize) + pkt->getSize())) {
-                    if (MJL_crossBlk->isDirty()) {
+                    if (MJL_crossBlk->isDirty() || writebackClean) {
                         writebacks.push_back(writebackBlk(MJL_crossBlk));
                     } else {
                         writebacks.push_back(cleanEvictBlk(MJL_crossBlk));
@@ -1805,7 +1805,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (blk && blk->isValid()) {
         /* MJL_Begin */
         PacketPtr MJL_postPkt = nullptr;
-        if (MJL_invalidate && blk->isDirty()) {
+        if (MJL_invalidate && (blk->isDirty() || writebackClean)) {
             MJL_postPkt = writebackBlk(blk);
         } else if (MJL_invalidate) {
             MJL_postPkt = cleanEvictBlk(blk);
