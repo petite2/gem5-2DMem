@@ -537,6 +537,22 @@ class BaseCache : public MemObject
     }
 
     /**
+     * MJL_baseAddr: starting address
+     * MJL_cacheBlkDir: direction of the address
+     * offset: which byte from the starting address to get the word address
+     * return the address of the word
+     */
+    Addr MJL_subOffsetAddr(Addr MJL_baseAddr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, unsigned offset) {
+        if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+            return MJL_baseAddr - Addr(offset);
+        } else if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) { // MJL_temp temporary fix for column
+            return MJL_swapRowColBits(MJL_swapRowColBits(MJL_baseAddr) - Addr(offset));
+        } else {
+            return MJL_baseAddr - Addr(offset);
+        }
+    }
+
+    /**
      * Updates the blocking/blocked information between targets to ensure ordering 
      * in the presence of a conflict. Should be used at each creation of a new target
      * to maintain memory access ordering on conflict.

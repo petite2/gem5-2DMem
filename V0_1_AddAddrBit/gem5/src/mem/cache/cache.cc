@@ -3143,6 +3143,10 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->cmd.MJL_setCmdDir(InputDir);
         pkt->req->MJL_setReqDir(InputDir);
         pkt->MJL_setDataDir(InputDir);
+        // Column vector access handler
+        if (!MJL_colVecHandler.isSend(pkt)) {
+            return true;
+        }
     }
 
     // Assign dirty bits for write requests at L1D$
@@ -3329,6 +3333,10 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         pkt->cmd.MJL_setCmdDir(InputDir);
         pkt->req->MJL_setReqDir(InputDir);
         pkt->MJL_setDataDir(InputDir);
+        // Column vector access handler
+        if (!MJL_colVecHandler.isSend(pkt)) {
+            return 0;
+        }
     }
 
     // Assign dirty bits for write requests at L1D$

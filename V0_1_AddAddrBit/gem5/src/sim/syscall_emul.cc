@@ -97,6 +97,17 @@ unimplementedFunc(SyscallDesc *desc, int callnum, LiveProcess *process,
     return 1;
 }
 
+/* MJL_Begin */
+SyscallReturn
+MJL_ignoreUnimplementedFunc(SyscallDesc *desc, int callnum, LiveProcess *process,
+                            ThreadContext *tc)
+{
+    warn("MJL_ignoring unimplemented syscall %s (#%d).", desc->name, callnum);
+
+    return 0;
+}
+/* MJL_End */
+
 
 SyscallReturn
 ignoreFunc(SyscallDesc *desc, int callnum, LiveProcess *process,

@@ -150,6 +150,11 @@ class SyscallDesc {
 SyscallReturn unimplementedFunc(SyscallDesc *desc, int num,
                                 LiveProcess *p, ThreadContext *tc);
 
+/* MJL_Begin */
+SyscallReturn MJL_ignoreUnimplementedFunc(SyscallDesc *desc, int num,
+                                          LiveProcess *p, ThreadContext *tc);
+/* MJL_End */
+
 /// Handler for unimplemented syscalls that we never intend to
 /// implement (signal handling, etc.) and should not affect the correct
 /// behavior of the program.  Print a warning only if the appropriate

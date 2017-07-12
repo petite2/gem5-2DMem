@@ -144,6 +144,11 @@ class Cache : public BaseCache
                 std::cout << std::endl;
                 /* */
 
+                // Check if it is a column vector response
+                if (MJL_colVecHandler.handleResponse(pkt)) {
+                    return CacheSlavePort::sendTimingResp(pkt);
+                }
+
                 bool MJL_isUnaligned = false;
                 bool MJL_isMerged = false;
 
@@ -379,18 +384,23 @@ class Cache : public BaseCache
      * The method to read the map information from file
      * The file format should be the "PC Dir" with each line defining the direction for different instruction
      * Note that the PC number should be in hexadecimal format, and the Dir is either "R" for row or "C" for column
+     * If the instruction is part of a vector column access, then the position of the instruction and the other part of the vector access instruction should also be provided.
+     * The position 0 means that it is not a vector column access, 1 means that it is the first instruction, 2 means that it is the second instruction.
+     * The other intstruction's PC can be set to 0 for non column vector insturctions.
      */
     void MJL_readPC2DirMap () {
         std::ifstream MJL_PC2DirFile;
         std::string line;
         Addr tempPC;
         char tempDir;
+        int tempPos;
+        Addr tempOtherPC;
 
         MJL_PC2DirFile.open(MJL_PC2DirFilename);
         if (MJL_PC2DirFile.is_open()) {
             std::cout << this->name() << "::Reading PC to direction preference input from " << MJL_PC2DirFilename << ":" << std::endl;
             while (getline(MJL_PC2DirFile, line)) {
-                std::stringstream(line) >> std::hex >> tempPC >> std::dec >> tempDir;
+                std::stringstream(line) >> std::hex >> tempPC >> std::dec >> tempDir >> tempPos >> std::hex >> tempOtherPC >> std::dec;
                 if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
                     std::cout << "MJL_Error: Redefinition of instruction direction found!\n";
                 }
@@ -402,9 +412,14 @@ class Cache : public BaseCache
                     std::cout << "MJL_Error: Invalid input direction annotation!\n";
                     assert((tempDir == 'R') || (tempDir == 'C'));
                 }
+                if (tempPos > 0) {
+                    assert(tempPos == 1 || tempPos == 2);
+                    assert( MJL_colVecHandler.MJL_ColVecList.find(tempOtherPC) == MJL_colVecHandler.MJL_ColVecList.end() || MJL_colVecHandler.MJL_ColVecList[tempOtherPC]->pos != tempPos-1);
+                    MJL_colVecHandler.MJL_ColVecList[tempPC] = new MJL_VecInfo(tempOtherPC, tempPos-1);
+                }
                 /* MJL_Test: file information output */
                 if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
-                    std::cout << "PC: " << std::hex << MJL_PC2DirMap.find(tempPC)->first << std::dec << ", Dir: " << MJL_PC2DirMap.find(tempPC)->second << "\n";
+                    std::cout << "PC: " << std::hex << MJL_PC2DirMap.find(tempPC)->first << std::dec << ", Dir: " << MJL_PC2DirMap.find(tempPC)->second << ", ColumnVec: " << tempPos << ", OtherPC: " << tempOtherPC << "\n";
                 }
                 /* */
             }
@@ -432,6 +447,269 @@ class Cache : public BaseCache
      * Pointer to the second half of split packets that is waiting
      */
     PacketPtr MJL_retrySndPacket;
+    /**
+     * The class that handles column vector access merging
+     */
+    class MJL_ColVecHandler {
+        public:
+
+        /**
+         * The class that holds the column access that is waiting for the other part of the vector access
+         */
+        class MJL_VecWaiting {
+            public:
+                // For read, the packet that came second and the corresponding data from the first response packet are recorded
+                // For write, the packet that came first and the data from the second packet are recorded here.
+                PacketPtr pktWaiting;
+                uint8_t* dataWaiting;
+                MJL_VecWaiting(): pktWaiting(nullptr), dataWaiting(nullptr) { }
+                ~MJL_VecWaiting() {delete dataWaiting;}
+        }
+
+        std::map< Addr, std::map< Addr, MJL_VecWaiting*> > MJL_VecPktWaitingList; //[PC][Addr] = MJL_VecPktWaiting
+
+        class MJL_VecInfo {
+            public:
+                Addr otherPC;
+                int pos;
+                MJL_VecInfo(Addr in_otherPC, int in_pos): otherPC(in_otherPC), pos(in_pos) {}
+        }
+        std::map< Addr, MJL_VecInfo> MJL_ColVecList; //[PC][{PC of the other instruction that makes the vector access, pos}], pos=0 is the first word, pos=1 is the second.
+
+        /**
+         * Determine whether the packet should be send to the L1 data cache.
+         * Also modifies the packet sent to vector packets.
+         * @return if the packet should be send to cache or not 
+         */
+        bool isSend(PacketPtr pkt) {
+            bool shouldSend = true;
+            bool satisfyPkt = false;
+
+            // Try to find an entry matching the packet in the waiting list
+            auto PC_it = MJL_VecPktWaitingList.find(pkt->req->getPC());
+            // If the entry is found
+            if (PC_it != MJL_VecPktWaitingList.end() && PC_it->second.find(pkt->getAddr() != PC_it->second.end()) {
+                auto Addr_it = PC_it->second.find(pkt->getAddr());
+                // And the request is a read
+                if (pkt->isRead()) {
+                    // An earlier request should have been sent to get the data for this request as well
+                    // So we do not send this packet to the cache
+                    shouldSend = false;
+                    // Should not have duplicate requests for this... I think... Otherwise I'll need a list...
+                    assert(Addr_it->second->pktWaiting == nullptr);
+                    // Record this packet in the entry
+                    Addr_it->second->pktWaiting = pkt;
+                    // And just satisfy the packet is the data is already available
+                    if (Addr_it->second->dataWaiting != nullptr) {
+                        satisfyPkt = satisfy_and_respond(Addr_it->second);
+                        assert(satisfyPkt);
+                    }
+                // If the request is a write
+                } else if (pkt->isWrite()) {
+                    // We should have the earlier packet available
+                    assert(Addr_it->second->pktWaiting != nullptr);
+                    // Keep a copy of the data in the packet
+                    int write_size = pkt->getSize();
+                    Addr_it->second->dataWaiting = new uint8_t[write_size];
+                    pkt->writeData(Addr_it->second->dataWaiting);
+                    // Modify the pkt to form a vector access
+                    updatePkt(pkt);
+                    // Reset data for vector access
+                    pkt->deleteData();
+                    pkt->allocate();
+                    std::memcpy(pkt->getPtr<uint8_t>() + MJL_ColVecList[pkt->req->getPC()].pos * write_size, Addr_it->second->dataWaiting, write_size);
+                    std::memcpy(pkt->getPtr<uint8_t>() + MJL_ColVecList[Addr_it->second->pktWaiting->req->getPC()].pos * write_size, Addr_it->second->pktWaiting->getConstPtr<uint8_t>(), write_size);
+                }
+            // If the entry is not found
+            } else {
+                // Add the entry if it is a column vector memory access
+                shouldSend = addNewVecWaiting(pkt);
+            }
+
+            // If we have already done with the vector access
+            if (satisfyPkt) {
+                // Erase the entry from waiting list
+                auto Addr_it = PC_it->second.find(pkt->getAddr());
+                delete Addr_it->second;
+                PC_it->second.erase(Addr_it);
+                if (PC_it->second.empty()) {
+                    MJL_VecPktWaitingList.erase(PC_it);
+                }
+            }
+
+            return shouldSend;
+        }
+
+        /**
+         * Satisfy the request of the packet waiting.
+         * Make and schedule response when all information are present.
+         * @return whether the request has been satisfied. Should always be true on correct use.
+         */
+        bool satisfy_and_respond(MJL_VecWaiting* vecWaiting) {
+            // The VecWaiting should have both a packet and data to be able to satisfy and respond
+            assert(vecWaiting->pktWaiting != nullptr);
+            assert(vecWaiting->dataWaiting != nullptr);
+                
+            PacketPtr pkt = vecWaiting->pktWaiting;
+            // Copy the data to packet if it is a read
+            if (pkt->isRead()) {
+                pkt->setData(vecWaiting->dataWaiting + MJL_ColVecList[pkt->req->getPC()].pos * pkt->getSize());
+            } else if (!pkt->isWrite()) {
+                return false;
+            }
+            // Make response and schedule a response for the packet for as soon as possible
+            pkt->makeTimingResponse();
+            pkt->headerDelay = pkt->payloadDelay = 0;
+            cpuSidePort->schedTimingResp(pkt, curTick(), true);
+            
+            return true;
+        }
+
+        /**
+         * Add a new vecWaiting entry and populate it with available information.
+         * @return whether the packet should be send to cache
+         */
+        bool addNewVecWaiting(PacketPtr pkt) {
+            bool shouldSend = false;
+            // Should send if the packet received first is a read
+            if (pkt->isRead()) {
+                shouldSend = true;
+                // Create a new entry with the other packet's PC and access address
+                Addr otherPC =  MJL_ColVecList[pkt->req->getPC()].otherPC;
+                Addr otherAddr = pkt->getAddr();
+                // If the other packet is in the first position, then it's address should be (pkt->getAddr() - pkt->getSize()) with respect to the direction preference
+                if (MJL_ColVecList[otherPC].pos == 0) {
+                    otherAddr = MJL_subOffsetAddr(otherAddr, pkt->MJL_getCmdDir(), pkt->getSize();
+                // Otherwise, it's (pkt->getAddr() + pkt->getSize())
+                } else {
+                    otherAddr = MJL_addOffsetAddr(otherAddr, pkt->MJL_getCmdDir(), pkt->getSize();
+                }
+                MJL_VecPktWaitingList[otherPC][otherAddr] = new MJL_VecWaiting();
+                // Modify the packet for vector accesses
+                updatePkt(pkt);
+            // The packet for write is saved and not sent
+            } else if (pkt->isWrite()) {
+                // Create a new entry with the other packet's PC and access address
+                Addr otherPC =  MJL_ColVecList[pkt->req->getPC()].otherPC;
+                Addr otherAddr = pkt->getAddr();
+                // If the other packet is in the first position, then it's address should be (pkt->getAddr() - pkt->getSize()) with respect to the direction preference
+                if (MJL_ColVecList[otherPC].pos == 0) {
+                    otherAddr = MJL_subOffsetAddr(otherAddr, pkt->MJL_getCmdDir(), pkt->getSize();
+                // Otherwise, it's (pkt->getAddr() + pkt->getSize())
+                } else {
+                    otherAddr = MJL_addOffsetAddr(otherAddr, pkt->MJL_getCmdDir(), pkt->getSize();
+                }
+                MJL_VecPktWaitingList[otherPC][otherAddr] = new MJL_VecWaiting();
+                // Add self to the new entry's pktWaiting
+                MJL_VecPktWaitingList[otherPC][otherAddr].pktWaiting = pkt;
+            }
+
+            return shouldSend;
+        }
+
+        /**
+         * Handle column vector response packets. 
+         * Satisfy waiting packets and modify packets back to original state.
+         * @return whether the packet is a column vector response packet
+         */
+        bool handleResponse(PacketPtr pkt) {
+            bool isVec = false;
+            // See if this packet is a column vector access response
+            assert(pkt->isResponse());
+            if (pkt->req->MJL_isVec() && pkt->MJL_cmdIsColumn()) {
+                isVec = true;
+                // If this packet is a read response
+                if (pkt->isRead()) {
+                    // Then the PC and the address of the other packet is used as index to the vecWaiting entry
+                    Addr otherPC =  MJL_ColVecList[pkt->req->getPC()].otherPC;
+                    Addr otherAddr = pkt->getAddr();
+                    // If the other packet is in the first position, then it's address should be (pkt->getAddr() - pkt->getSize()) with respect to the direction preference
+                    if (MJL_ColVecList[otherPC].pos == 0) {
+                        otherAddr = MJL_subOffsetAddr(otherAddr, pkt->MJL_getCmdDir(), pkt->getSize();
+                    // Otherwise, it's (pkt->getAddr() + pkt->getSize())
+                    } else {
+                        otherAddr = MJL_addOffsetAddr(otherAddr, pkt->MJL_getCmdDir(), pkt->getSize();
+                    }
+                    // This entry should exist
+                    auto PC_it = MJL_VecPktWaitingList.find(otherPC);
+                    assert(PC_it != MJL_VecPktWaitingList.end() && PC_it->find(otherAddr) != PC_it->end());
+                    // Copy data from the packet to dataWaiting
+                    uint8_t *data = new uint8_t[pkt->getSize()];
+                    MJL_VecPktWaitingList[otherPC][otherAddr]->dataWaiting = data;
+                    pkt->writeData(data);
+                    // Reset pkt to original form and get the correct portion of the data
+                    resetPkt(pkt);
+                    pkt->deleteData();
+                    pkt->allocate();
+                    int write_size = pkt->getSize();
+                    std::memcpy(pkt->getPtr<uint8_t>() + MJL_ColVecList[pkt->req->getPC()].pos * write_size, data, write_size);
+                    // Satisfy the other packet if it is waiting 
+                    if (MJL_VecPktWaitingList[otherPC][otherAddr]->pktWaiting != nullptr) {
+                        bool satisfy = false;
+                        satisfy = satisfy_and_respond(MJL_VecPktWaitingList[otherPC][otherAddr]);
+                        assert(satisfy);
+                        // Delete the entry after it has served it's purpose 
+                        delete MJL_VecPktWaitingList[otherPC][otherAddr];
+                        MJL_VecPktWaitingList[otherPC].erase(otherAddr);
+                        if (MJL_VecPktWaitingList[otherPC].empty()) {
+                            MJL_VecPktWaitingList.erase(otherPC);
+                        }
+                    }
+                // Else if it is a write response
+                } else if (pkt->isWrite()) {
+                    // Then the PC and Addr of this packet has been used for vecWaiting index
+                    Addr thisPC = pkt->req->getPC();
+                    Addr thisAddr = pkt->getAddr();
+                    // This entry should exist
+                    auto PC_it = MJL_VecPktWaitingList.find(thisPC);
+                    assert(PC_it != MJL_VecPktWaitingList.end() && PC_it->find(thisAddr) != PC_it->end());
+                    // And a packet should be present in the entry
+                    assert(MJL_VecPktWaitingList[thisPC][thisAddr]->pktWaiting != nullptr);
+                    // The write for both packets has been satisfied, respond and delete the entry
+                    bool satisfy = false;
+                    satisfy = satisfy_and_respond(MJL_VecPktWaitingList[thisPC][thisAddr]);
+                    assert(satisfy);
+                    delete MJL_VecPktWaitingList[thisPC][thisAddr];
+                    MJL_VecPktWaitingList[thisPC].erase(thisAddr);
+                    if (MJL_VecPktWaitingList[thisPC].empty()) {
+                        MJL_VecPktWaitingList.erase(thisPC);
+                    }
+                }
+            }
+
+            return isVec;
+        }
+
+        /**
+         * Modify packet information to make column vector access packets
+         */
+        void updatePkt(PacketPtr pkt) {
+            pkt->req->MJL_setVec();
+            // Double the request's size (Assuming that both accesses always has the same size)
+            pkt->req->MJL_setSize(pkt->getSize() + pkt->getSize()); 
+            pkt->MJL_setSize(pkt->getSize() + pkt->getSize());
+            if (MJL_ColVecList[pkt->req->getPC()].pos != 0) {
+                pkt->req->setPaddr(MJL_subOffsetAddr(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->getSize());
+                pkt->setAddr(pkt->req->getPaddr());
+            }
+        }
+
+        /**
+         * Reset packet information to original state from column vector access packets
+         */
+        void resetPkt(PacketPtr pkt) {
+            // Double the request's size (Assuming that both accesses always has the same size)
+            pkt->req->MJL_setSize(pkt->getSize()/2); 
+            pkt->MJL_setSize(pkt->getSize()/2);
+            if (MJL_ColVecList[pkt->req->getPC()].pos != 0) {
+                pkt->req->setPaddr(MJL_addOffsetAddr(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->getSize()));
+                pkt->setAddr(pkt->req->getPaddr());
+            }
+        }
+
+    };
+
+    MJL_colVecHandler MJL_colVecHandler;
     /* MJL_End */
 
     /**
