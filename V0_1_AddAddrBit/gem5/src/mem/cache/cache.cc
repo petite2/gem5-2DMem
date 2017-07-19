@@ -94,6 +94,7 @@ Cache::Cache(const CacheParams *p)
         MJL_readPC2DirMap();
     }
     MJL_sndPacketWaiting = false;
+    MJL_colVecHandler.cache = this;
     /* MJL_End */
 }
 
@@ -216,6 +217,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             /* MJL_Begin */
             // Setting the direction to make sure that offset is calculated correctly. Maybe can also be used to collect the statistics on different directional hit?
             pkt->MJL_setDataDir(blk->MJL_blkDir);
+            /* MJL_Test 
+            std::cout << "MJL_writeToBlock: set " << blk->set << std::endl;
+             */
             /* MJL_End */
             pkt->writeDataToBlock(blk->data, blkSize);
         }
@@ -240,6 +244,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         /* MJL_Begin */
         pkt->MJL_setDataDir(blk->MJL_blkDir);
         pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+        /* MJL_Test 
+        std::cout << "MJL_setFromBlock: set " << blk->set << std::endl;
+         */
         /* MJL_End */
         pkt->setDataFromBlock(blk->data, blkSize);
 
@@ -2542,6 +2549,9 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
             if (pkt->hasData())
             /* MJL_Begin */
             {
+                /* MJL_Test 
+                std::cout << "MJL_setFromBlock: set " << blk->set << std::endl;
+                 */
                 pkt->setDataFromBlock(blk->data, blkSize);
                 pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty,blkSize);
             }
@@ -3143,10 +3153,6 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->cmd.MJL_setCmdDir(InputDir);
         pkt->req->MJL_setReqDir(InputDir);
         pkt->MJL_setDataDir(InputDir);
-        // Column vector access handler
-        if (!MJL_colVecHandler.isSend(pkt)) {
-            return true;
-        }
     }
 
     // Assign dirty bits for write requests at L1D$
@@ -3186,6 +3192,14 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     }
     /* */
     
+    // Column vector access handler
+    if ((pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry
+        && (cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() && !cache->MJL_colVecHandler.isSend(pkt, true))) {
+        return true;
+    }
+
+
     // Split packet if the access is not word aligned (despite changes in "splitRequest()")
     bool MJL_split = false;
     PacketPtr MJL_sndPkt = pkt;
@@ -3333,10 +3347,6 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         pkt->cmd.MJL_setCmdDir(InputDir);
         pkt->req->MJL_setReqDir(InputDir);
         pkt->MJL_setDataDir(InputDir);
-        // Column vector access handler
-        if (!MJL_colVecHandler.isSend(pkt)) {
-            return 0;
-        }
     }
 
     // Assign dirty bits for write requests at L1D$
@@ -3375,6 +3385,14 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         std::cout << std::endl;
     }
     /* */
+
+    // Column vector access handler
+    if ((pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos)
+        && (cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() && !cache->MJL_colVecHandler.isSend(pkt, false))) {
+        if (pkt->isRead()) return 0;
+        // Cannot do vector write work around since there one packet cannot wait on another
+    }
 
     // Split packet if the access is not word aligned (despite changes in "splitRequest()"), see recvTimingReq for detail
     bool MJL_split = false;
@@ -3572,6 +3590,12 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
                 cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()].erase(pkt->MJL_testSeq);
             }
         }
+    }
+    
+    // Column vector access handler
+    if ((pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos)) {
+        cache->MJL_colVecHandler.handleResponse(pkt, false);
     }
 
     return time;
