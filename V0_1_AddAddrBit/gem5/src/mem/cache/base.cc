@@ -99,10 +99,6 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
 
     // forward snoops is overridden in init() once we can query
     // whether the connected master is actually snooping or not
-    /* MJL_Begin */
-    // MJL_Test to see if the parameter MJL_rowWidth has been passed in correctly
-    std::cout << this->name() << "::MJL_rowWidth = " << MJL_rowWidth << "\n";
-    /* MJL_End */
 }
 
 void
@@ -805,9 +801,15 @@ BaseCache::regStats()
         ;
     MJL_overallColumnAccesses = MJL_overallColumnHits + MJL_overallColumnMisses;
 
-    MJL_nonEvictWBCount
-        .name(name() + ".MJL_nonEvictWBCount")
-        .desc("number of writebacks that are not eviction")
+    MJL_conflictWBCount
+        .name(name() + ".MJL_conflictWBCount")
+        .desc("number of writebacks that are caused by conflict accesses")
+        .flags(nozero)
+        ;
+    
+    MJL_mshrConflictCount
+        .name(name() + ".MJL_mshrConflictCount")
+        .desc("number of mshr conflicts (conflict access are strictly in order, may cause blocking)")
         .flags(nozero)
         ;
     /* MJL_End */

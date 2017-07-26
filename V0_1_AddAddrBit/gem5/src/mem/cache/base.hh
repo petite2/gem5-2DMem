@@ -465,7 +465,8 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_overallColumnHits;
     Stats::Formula MJL_overallRowAccesses;
     Stats::Formula MJL_overallColumnAccesses;
-    Stats::Scalar MJL_nonEvictWBCount;
+    Stats::Scalar MJL_conflictWBCount;
+    Stats::Scalar MJL_mshrConflictCount;
     /* MJL_End */
 
     /**
@@ -586,6 +587,7 @@ class BaseCache : public MemObject
             MSHR* crossMshr =  mshrQueue.MJL_findMatch(crossBlkAddr, crossBlkDir, pkt->isSecure());
             // If an entry is found
             if (crossMshr) {
+                MJL_mshrConflictCount++;
                 // If the packet is a write and the crossing word is written
                 if (pkt->isWrite() && (offset >= target_offset && offset < target_offset + size)) {
                     // The new target is blocked by the crossing mshr's last target

@@ -114,7 +114,7 @@ class Cache : public BaseCache
         {
             assert(pkt->isResponse());
             if (this->name().find("dcache") != std::string::npos) {
-                /* MJL_Test: Packet information output */
+                /* MJL_Test: Packet information output 
                 std::cout << this->name() << "::sendTimingResp";
                 std::cout << ": PC(hex) = ";
                 if (pkt->req->hasPC()) {
@@ -142,7 +142,7 @@ class Cache : public BaseCache
                 std::cout << std::dec;
                 std::cout << ", Time = " << pkt->req->time() ;
                 std::cout << std::endl;
-                /* */
+                 */
 
                 bool MJL_isUnaligned = false;
                 bool MJL_isMerged = false;
@@ -819,6 +819,7 @@ class Cache : public BaseCache
                 MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
                 if ((MJL_diffDir_blk != nullptr) && MJL_diffDir_blk->isValid()) {
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
+                    MJL_conflictWBCount++;
                     if (MJL_diffDir_blk->isDirty()) {
                         writebacks.push_back(writebackBlk(MJL_diffDir_blk));
                     } else {

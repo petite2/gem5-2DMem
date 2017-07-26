@@ -343,7 +343,7 @@ AbstractMemory::access(PacketPtr pkt)
     uint8_t *hostAddr = pmemAddr + pkt->getAddr() - range.start();
 
     /* MJL_Begin */
-    /* MJL_Test: Packet information output */
+    /* MJL_Test: Packet information output 
     if (!pkt->req->isInstFetch()) {
         std::cout << this->name() << "::access()PreAcc";
         std::cout << ": PC(hex) = ";
@@ -371,7 +371,7 @@ AbstractMemory::access(PacketPtr pkt)
         }
         std::cout << ", Time: " << pkt->req->time() << std::endl;
     }
-    /* */
+     */
     /* MJL_End */
                     
 
@@ -540,7 +540,7 @@ AbstractMemory::access(PacketPtr pkt)
         pkt->makeResponse();
     }
     /* MJL_Begin */
-    /* MJL_Test: Packet information output */
+    /* MJL_Test: Packet information output 
     if (!pkt->req->isInstFetch() && pkt->isResponse()) {
         std::cout << this->name() << "::access()PostAcc";
         std::cout << ": PC(hex) = ";
@@ -568,7 +568,7 @@ AbstractMemory::access(PacketPtr pkt)
         }
         std::cout << ", Time: " << pkt->req->time() << std::endl;
     }
-    /* */
+     */
     /* MJL_End */
 }
 

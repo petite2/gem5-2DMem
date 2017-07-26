@@ -190,11 +190,11 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // To avoid that the assertion fail and setting the DataDir before actually having data
     CacheBlk::MJL_CacheBlkDir MJL_origDataDir = pkt->MJL_getDataDir();
     pkt->MJL_setDataDir(blk->MJL_blkDir);
-    if (pkt->isWrite() && pkt->getOffset(blkSize) + pkt->getSize() > blkSize) {
-        std::cout << "MJL_AssertFailure: pkt->getOffset(blkSize) + pkt->getSize() <= blkSize, addr = ";
-        std::cout << std::oct << pkt->getAddr();
-        std::cout << std::dec  << ", dataDir = " << pkt->MJL_getDataDir() << ", cmdDir = " << pkt->MJL_getCmdDir() << ", Size = " << pkt->getSize() << "\n";
-    }
+    // if (pkt->isWrite() && pkt->getOffset(blkSize) + pkt->getSize() > blkSize) {
+    //     std::cout << "MJL_AssertFailure: pkt->getOffset(blkSize) + pkt->getSize() <= blkSize, addr = ";
+    //     std::cout << std::oct << pkt->getAddr();
+    //     std::cout << std::dec  << ", dataDir = " << pkt->MJL_getDataDir() << ", cmdDir = " << pkt->MJL_getCmdDir() << ", Size = " << pkt->getSize() << "\n";
+    // }
     assert(!pkt->isWrite() || pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
     pkt->MJL_setDataDir(MJL_origDataDir);
     /* MJL_End */
@@ -610,6 +610,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             if (MJL_crossBlk && MJL_crossBlk->isValid()) {
                 // Invalidate for the written section of the write request
                 if (pkt->isWrite() && (MJL_offset <= pkt->getOffset(blkSize) || MJL_offset > pkt->getOffset(blkSize) + pkt->getSize())) {
+                    MJL_conflictWBCount++;
                     if (MJL_crossBlk->isDirty() || writebackClean) {
                         writebacks.push_back(writebackBlk(MJL_crossBlk));
                     } else {
@@ -618,6 +619,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                     invalidateBlock(MJL_crossBlk);
                 // Write back for read requests and non written sections of the write request if the crossing word is dirty
                 } else if (MJL_crossBlk->isDirty() && MJL_crossBlk->MJL_wordDirty[MJL_crossBlkOffset/sizeof(uint64_t)]){
+                    MJL_conflictWBCount++;
                     writebacks.push_back(MJL_writebackCachedBlk(MJL_crossBlk));
                 // Otherwise, just revoke writable
                 } else {
@@ -1823,6 +1825,7 @@ Cache::recvTimingResp(PacketPtr pkt)
         }
         
         if (MJL_postPkt) {
+            MJL_conflictWBCount++;
             MJL_postPkt->MJL_hasOrder = true;
             MJL_postPkt->MJL_order = MJL_order;
             writebacks.push_back(MJL_postPkt);
@@ -3160,7 +3163,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Packet information output */
+    /* MJL_Test: Packet information output 
     if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
         std::cout << this->name() << "::recvTimingReq";
         std::cout << ": PC(hex) = ";
@@ -3190,7 +3193,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
-    /* */
+     */
     
     // Column vector access handler
     if ((pkt->req->hasPC())
@@ -3354,7 +3357,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Request packet information output */ 
+    /* MJL_Test: Request packet information output  
     if (this->name().find("dcache") != std::string::npos) {
         std::cout << this->name() << "::recvAtomicPreAcc";
         std::cout << ": PC(hex) = ";
@@ -3384,7 +3387,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
-    /* */
+     */
 
     // Column vector access handler
     if ((pkt->req->hasPC())
