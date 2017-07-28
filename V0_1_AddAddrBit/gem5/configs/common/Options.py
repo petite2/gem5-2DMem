@@ -114,6 +114,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_row_width", type="int", default=512, help="Specify the size of a row (how many cachelines)")
     parser.add_option("--MJL_PC2DirFile", type="string", default="PC2Dir.txt", help="Specify the filename of the input file with mapping of PC to access direction")
     parser.add_option("--MJL_default_column", action="store_true", help="Set default preference of all data accesses to column")
+    parser.add_option("--MJL_Prefetcher", action="store_true", help="Set Prefetcher")
     # MJL_End
 
     # Enable Ruby

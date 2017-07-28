@@ -95,6 +95,10 @@ def config_cache(options, system):
         system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
         system.l2.cpu_side = system.tol2bus.master
         system.l2.mem_side = system.membus.slave
+        # MJL_Begin
+        if options.MJL_Prefetcher:
+            system.l2.prefetcher = L2StridePrefetcher() 
+        # MJL_End
 
     if options.memchecker:
         system.memchecker = MemChecker()
