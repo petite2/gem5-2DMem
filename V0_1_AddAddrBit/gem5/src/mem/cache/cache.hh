@@ -549,7 +549,7 @@ class Cache : public BaseCache
             // If the entry is not found
             // And that the address accessed is not at the end of a cacheline for a packet with first position
             // Or that the address accessed is not at the begining of a cacheline for a packet with second position 
-            } else if ( (MJL_ColVecList.at(pkt->req->getPC()).pos == 0 && pkt->getOffset(cache->blkSize) + 2 * pkt->getSize() < cache->blkSize) ||
+            } else if ( (MJL_ColVecList.at(pkt->req->getPC()).pos == 0 && pkt->getOffset(cache->blkSize) + 2 * pkt->getSize() <= cache->blkSize) ||
                         (MJL_ColVecList.at(pkt->req->getPC()).pos == 1 && pkt->getOffset(cache->blkSize) >= pkt->getSize()) ) {
                 // Add the entry if it is a column vector memory access
                 shouldSend = addNewVecWaiting(pkt);
