@@ -3148,6 +3148,10 @@ bool
 Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
 {
     /* MJL_Begin */ 
+    // Set common system information to propagate the information everywhere
+    pkt->req->MJL_cachelineSize = cache->blkSize;
+    pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
+
     // Assign direction preference to packet based on PC at L1D$
     if ((pkt->req->hasPC())
         && (this->name().find("dcache") != std::string::npos)
@@ -3163,9 +3167,9 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Packet information output  
+    /* MJL_Test: Packet information output 
     if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry
-         && pkt->req->getPC() > 4204041 && pkt->req->getPC() < 4204313) { // Debug for ssyr2k column vec
+         && cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() && pkt->MJL_cmdIsColumn()) { // Debug for column vec
         std::cout << this->name() << "::recvTimingReq";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
@@ -3276,8 +3280,6 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     }
 
     // Set common system information to propagate the information everywhere
-    pkt->req->MJL_cachelineSize = cache->blkSize;
-    pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     if (MJL_split) {
         MJL_sndPkt->req->MJL_cachelineSize = cache->blkSize;
         MJL_sndPkt->req->MJL_rowWidth = cache->MJL_rowWidth;

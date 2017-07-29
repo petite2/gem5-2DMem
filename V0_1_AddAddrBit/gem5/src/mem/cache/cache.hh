@@ -115,7 +115,7 @@ class Cache : public BaseCache
             assert(pkt->isResponse());
             if (this->name().find("dcache") != std::string::npos) {
                 /* MJL_Test: Packet information output 
-                if ( pkt->req->getPC() > 4204041 && pkt->req->getPC() < 4204313) { // Debug for ssyr2k column vec
+                if ( cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() && pkt->MJL_cmdIsColumn()) { // Debug for column vec
                     std::cout << this->name() << "::sendTimingResp";
                     std::cout << ": PC(hex) = ";
                     if (pkt->req->hasPC()) {
@@ -547,7 +547,10 @@ class Cache : public BaseCache
                 }
 
             // If the entry is not found
-            } else {
+            // And that the address accessed is not at the end of a cacheline for a packet with first position
+            // Or that the address accessed is not at the begining of a cacheline for a packet with second position 
+            } else if ( (MJL_ColVecList.at(pkt->req->getPC()).pos == 0 && pkt->getOffset(cache->blkSize) + 2 * pkt->getSize() < cache->blkSize) ||
+                        (MJL_ColVecList.at(pkt->req->getPC()).pos == 1 && pkt->getOffset(cache->blkSize) >= pkt->getSize()) ) {
                 // Add the entry if it is a column vector memory access
                 shouldSend = addNewVecWaiting(pkt);
             }
