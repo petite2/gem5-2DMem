@@ -167,7 +167,7 @@ class MSHR : public QueueEntry, public Printable
                Source _source, bool _markedPending, bool alloc_on_fill)
             : recvTime(curTick()), readyTime(_readyTime), order(_order),
               pkt(_pkt), source(_source), markedPending(_markedPending),
-              allocOnFill(alloc_on_fill)
+              allocOnFill(alloc_on_fill)/* MJL_Begin */,MJL_postInvalidate(false),MJL_postWriteback(false)/* MJL_End */
         {}
     };
 

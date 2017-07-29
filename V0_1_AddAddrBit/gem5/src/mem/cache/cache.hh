@@ -115,33 +115,35 @@ class Cache : public BaseCache
             assert(pkt->isResponse());
             if (this->name().find("dcache") != std::string::npos) {
                 /* MJL_Test: Packet information output 
-                std::cout << this->name() << "::sendTimingResp";
-                std::cout << ": PC(hex) = ";
-                if (pkt->req->hasPC()) {
-                    std::cout << std::hex << pkt->req->getPC() << std::dec;
-                } else {
-                    std::cout << "noPC";
+                if ( pkt->req->getPC() > 4204041 && pkt->req->getPC() < 4204313) { // Debug for ssyr2k column vec
+                    std::cout << this->name() << "::sendTimingResp";
+                    std::cout << ": PC(hex) = ";
+                    if (pkt->req->hasPC()) {
+                        std::cout << std::hex << pkt->req->getPC() << std::dec;
+                    } else {
+                        std::cout << "noPC";
+                    }
+                    std::cout << ", MemCmd = " << pkt->cmd.toString();
+                    std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+                    std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+                    std::cout << ", Size = " << pkt->getSize();
+                    std::cout << ", Data(hex) = ";
+                    if (pkt->hasData()) {
+                        uint64_t MJL_data = 0;
+                        std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+                        std::cout << "word[0] " << std::hex << MJL_data << std::dec;
+                        for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                            MJL_data = 0;
+                            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
+                            std::cout << " | word[" << i/sizeof(uint64_t) << "] " << std::hex <<  MJL_data << std::dec;
+                        }       
+                    } else {
+                        std::cout << ", noData";
+                    }
+                    std::cout << std::dec;
+                    std::cout << ", Time = " << pkt->req->time() ;
+                    std::cout << std::endl;
                 }
-                std::cout << ", MemCmd = " << pkt->cmd.toString();
-                std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
-                std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
-                std::cout << ", Size = " << pkt->getSize();
-                std::cout << ", Data(hex) = ";
-                if (pkt->hasData()) {
-                    uint64_t MJL_data = 0;
-                    std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
-                    std::cout << "word[0] " << std::hex << MJL_data << std::dec;
-                    for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                        MJL_data = 0;
-                        std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), pkt->getSize() - (Addr)i));
-                        std::cout << " | word[" << i/sizeof(uint64_t) << "] " << std::hex <<  MJL_data << std::dec;
-                    }       
-                } else {
-                    std::cout << ", noData";
-                }
-                std::cout << std::dec;
-                std::cout << ", Time = " << pkt->req->time() ;
-                std::cout << std::endl;
                  */
 
                 bool MJL_isUnaligned = false;
@@ -819,7 +821,7 @@ class Cache : public BaseCache
                 MJL_diffDir_blk = tags->MJL_findBlock(MJL_writtenWord_addr, MJL_diffDir, is_secure);
                 if ((MJL_diffDir_blk != nullptr) && MJL_diffDir_blk->isValid()) {
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
-                    MJL_conflictWBCount++;
+                    MJL_conflictWBCount4++;
                     if (MJL_diffDir_blk->isDirty()) {
                         writebacks.push_back(writebackBlk(MJL_diffDir_blk));
                     } else {

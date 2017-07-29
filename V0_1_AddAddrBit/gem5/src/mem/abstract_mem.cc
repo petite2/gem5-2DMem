@@ -344,7 +344,8 @@ AbstractMemory::access(PacketPtr pkt)
 
     /* MJL_Begin */
     /* MJL_Test: Packet information output 
-    if (!pkt->req->isInstFetch()) {
+    if (!pkt->req->isInstFetch()
+         && pkt->req->hasPC() && pkt->req->getPC() > 4204041 && pkt->req->getPC() < 4204313) { // Debug for ssyr2k column vec
         std::cout << this->name() << "::access()PreAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
@@ -541,7 +542,8 @@ AbstractMemory::access(PacketPtr pkt)
     }
     /* MJL_Begin */
     /* MJL_Test: Packet information output 
-    if (!pkt->req->isInstFetch() && pkt->isResponse()) {
+    if (!pkt->req->isInstFetch() && pkt->isResponse()
+         && pkt->req->hasPC() && pkt->req->getPC() > 4204041 && pkt->req->getPC() < 4204313) { // Debug for ssyr2k column vec
         std::cout << this->name() << "::access()PostAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {

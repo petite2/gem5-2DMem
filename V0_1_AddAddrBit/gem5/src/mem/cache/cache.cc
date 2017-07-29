@@ -609,8 +609,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             // If the crossing line exists
             if (MJL_crossBlk && MJL_crossBlk->isValid()) {
                 // Invalidate for the written section of the write request
-                if (pkt->isWrite() && (MJL_offset <= pkt->getOffset(blkSize) || MJL_offset > pkt->getOffset(blkSize) + pkt->getSize())) {
-                    MJL_conflictWBCount++;
+                if (pkt->isWrite() && (MJL_offset >= pkt->getOffset(blkSize) && MJL_offset < pkt->getOffset(blkSize) + pkt->getSize())) {
+                    MJL_conflictWBCount1++;
                     if (MJL_crossBlk->isDirty() || writebackClean) {
                         writebacks.push_back(writebackBlk(MJL_crossBlk));
                     } else {
@@ -619,7 +619,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                     invalidateBlock(MJL_crossBlk);
                 // Write back for read requests and non written sections of the write request if the crossing word is dirty
                 } else if (MJL_crossBlk->isDirty() && MJL_crossBlk->MJL_wordDirty[MJL_crossBlkOffset/sizeof(uint64_t)]){
-                    MJL_conflictWBCount++;
+                    MJL_conflictWBCount2++;
                     writebacks.push_back(MJL_writebackCachedBlk(MJL_crossBlk));
                 // Otherwise, just revoke writable
                 } else {
@@ -1825,7 +1825,7 @@ Cache::recvTimingResp(PacketPtr pkt)
         }
         
         if (MJL_postPkt) {
-            MJL_conflictWBCount++;
+            MJL_conflictWBCount3++;
             MJL_postPkt->MJL_hasOrder = true;
             MJL_postPkt->MJL_order = MJL_order;
             writebacks.push_back(MJL_postPkt);
@@ -3163,8 +3163,9 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Packet information output 
-    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry) {
+    /* MJL_Test: Packet information output  
+    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry
+         && pkt->req->getPC() > 4204041 && pkt->req->getPC() < 4204313) { // Debug for ssyr2k column vec
         std::cout << this->name() << "::recvTimingReq";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
