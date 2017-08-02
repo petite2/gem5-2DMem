@@ -301,7 +301,8 @@ public:
                           int context_src) override 
     {
         BlkType *blk = MJL_accessBlock(addr, MJL_cacheBlkDir, is_secure, lat, context_src);
-        if (blk == nullptr) {
+        Cycles templat = lat;
+        if (blk == nullptr && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) {
             if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
                 blk = MJL_accessBlock(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, lat, context_src);
             } else if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
@@ -309,6 +310,7 @@ public:
             } else {
                 assert( (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) || (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) );
             }
+            lat = templat + lat;
         }
 
         return blk;

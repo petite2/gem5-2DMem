@@ -511,10 +511,18 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // and leave it as is for a clean writeback
         if (pkt->cmd == MemCmd::WritebackDirty) {
             /* MJL_Begin */
-            assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
-            MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
-            blk->MJL_clearAllDirty();
-            blk->MJL_setWordDirtyPkt(pkt, blkSize);
+            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
+                // Taking the additional tag check latency into account
+                for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
+                    if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)]) {
+                        lat += lookupLatency;
+                    }
+                }
+                MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
+                blk->MJL_clearAllDirty();
+                blk->MJL_setWordDirtyPkt(pkt, blkSize);
+            }
             /* MJL_End */
             blk->status |= BlkDirty;
         }
@@ -561,7 +569,13 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             MJL_overallColumnHits++;
         }
 
-        if (pkt->isWrite()) {
+        if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) ) {
+            // Taking the additional tag check into account
+            for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
+                if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)]) {
+                    lat += lookupLatency;
+                }
+            }
             MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
         }
         /* MJL_End */
@@ -591,9 +605,10 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     /* MJL_Begin */
     // We are going to bring in a cache line, crossing lines with dirty data at the crossing needs to be written back
     // And if the access were a write, then the crossing lines to the write section needs to be invalidated as well
-    if (blk == nullptr) {
+    if (blk == nullptr && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) ) {
         CacheBlk *MJL_crossBlk = nullptr;
         Addr MJL_crossBlkAddr;
+        Cycles templat = lat;
         for (unsigned MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
             // Get the address of each word in the cache line
             MJL_crossBlkAddr = MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir(), MJL_offset);
@@ -606,6 +621,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 MJL_crossBlk = tags->MJL_accessBlock(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), lat, id);
                 MJL_crossBlkOffset = MJL_crossBlkAddr & Addr(blkSize - 1);
             }
+            templat = templat + lat;
             // If the crossing line exists
             if (MJL_crossBlk && MJL_crossBlk->isValid()) {
                 // Invalidate for the written section of the write request
@@ -627,6 +643,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 }
             }
         }
+        lat = templat;
     }
     /* MJL_End */
 

@@ -52,6 +52,9 @@
 #include "mem/request.hh"
 #include "params/X86TLB.hh"
 #include "sim/sim_object.hh"
+/* MJL_Begin */
+#include "base/statistics.hh"
+/* MJL_End */
 
 class ThreadContext;
 class Packet;
@@ -162,6 +165,13 @@ namespace X86ISA
          * @return A pointer to the walker master port
          */
         BaseMasterPort *getMasterPort() override;
+        /* MJL_Begin */
+        Stats::Scalar MJL_TLBHits;
+        Stats::Scalar MJL_TLBMisses;
+        Stats::Scalar MJL_TLBAccesses;
+        Stats::Formula MJL_TLBMissRate; 
+        void regStats() override;
+        /* MJL_End */
     };
 }
 

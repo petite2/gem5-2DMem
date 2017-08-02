@@ -336,9 +336,15 @@ TLB::translate(RequestPtr req, ThreadContext *tc, Translation *translation,
         // If paging is enabled, do the translation.
         if (m5Reg.paging) {
             DPRINTF(TLB, "Paging enabled.\n");
+            /* MJL_Begin */
+            MJL_TLBAccesses++;
+            /* MJL_End */
             // The vaddr already has the segment base applied.
             TlbEntry *entry = lookup(vaddr);
             if (!entry) {
+                /* MJL_Begin */
+                MJL_TLBMisses++;
+                /* MJL_End */
                 if (FullSystem) {
                     Fault fault = walker->start(tc, translation, req, mode);
                     if (timing || fault != NoFault) {
@@ -375,6 +381,11 @@ TLB::translate(RequestPtr req, ThreadContext *tc, Translation *translation,
                     DPRINTF(TLB, "Miss was serviced.\n");
                 }
             }
+            /* MJL_Begin */
+            else {
+                MJL_TLBHits++;
+            }
+            /* MJL_End */
 
             DPRINTF(TLB, "Entry found with paddr %#x, "
                     "doing protection checks.\n", entry->paddr);
@@ -492,6 +503,35 @@ TLB::getMasterPort()
 {
     return &walker->getMasterPort("port");
 }
+/* MJL_Begin */
+void
+TLB::regStats()
+{
+    BaseTLB::regStats();
+
+    MJL_TLBHits
+        .name(name() + ".MJL_TLBHits")
+        .desc("number of TLB hits")
+        ;
+    
+    MJL_TLBMisses
+        .name(name() + ".MJL_TLBMisses")
+        .desc("number of TLB misses")
+        ;
+    
+    MJL_TLBAccesses
+        .name(name() + ".MJL_TLBAccesses")
+        .desc("number of TLB accesses")
+        ;
+
+    MJL_TLBMissRate
+        .name(name() + ".MJL_TLBMissRate")
+        .desc("number of overall accesses with row preference")
+        ;
+    MJL_TLBMissRate = MJL_TLBMisses/MJL_TLBAccesses;
+
+}
+/* MJL_End */
 
 } // namespace X86ISA
 

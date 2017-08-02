@@ -614,6 +614,8 @@ class BaseCache : public MemObject
             }
         }
     }
+
+    unsigned MJL_getRowWidth() const { return MJL_rowWidth; }
     /* MJL_End */
 
     const AddrRangeList &getAddrRanges() const { return addrRanges; }

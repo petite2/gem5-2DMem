@@ -219,6 +219,10 @@ QueuedPrefetcher::insert(AddrPriority &pf_info, bool is_secure)
     /* Create a prefetch memory request */
     Request *pf_req =
         new Request(pf_info.first, blkSize, 0, masterId);
+    /* MJL_Begin */
+    pf_req->MJL_cachelineSize = blkSize;
+    pf_req->MJL_rowWidth = cache->MJL_getRowWidth();
+    /* MJL_End */
 
     if (is_secure) {
         pf_req->setFlags(Request::SECURE);
