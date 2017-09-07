@@ -261,6 +261,8 @@ class BaseCache : public MemObject
     /** Row size of this memory system in number of cachelines */
     const unsigned MJL_rowWidth;
     const bool MJL_defaultColumn;
+    /** Whether this cache physically 2D */
+    const bool MJL_2DCache;
     /* MJL_End */
 
     /**
@@ -459,6 +461,15 @@ class BaseCache : public MemObject
     /** The average overall latency of an MSHR miss. */
     Stats::Formula overallAvgMshrUncacheableLatency;
     /* MJL_Begin */
+    Stats::Scalar MJL_overallRowVecMisses;
+    Stats::Scalar MJL_overallColVecMisses;
+    Stats::Formula MJL_overallVecMisses;
+    Stats::Scalar MJL_overallRowVecHits;
+    Stats::Scalar MJL_overallColVecHits;
+    Stats::Formula MJL_overallVecHits;
+    Stats::Formula MJL_overallRowVecAccesses;
+    Stats::Formula MJL_overallColVecAccesses;
+    Stats::Formula MJL_overallVecAccesses;
     Stats::Scalar MJL_overallRowMisses;
     Stats::Scalar MJL_overallColumnMisses;
     Stats::Scalar MJL_overallRowHits;

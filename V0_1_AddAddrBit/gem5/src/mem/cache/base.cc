@@ -75,6 +75,7 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
       /* MJL_Begin */
       MJL_rowWidth(p->MJL_row_width),
       MJL_defaultColumn(p->MJL_default_column),
+      MJL_2DCache(p->MJL_2D_Cache),
       /* MJL_End */
       lookupLatency(p->tag_latency),
       dataLatency(p->data_latency),
@@ -763,6 +764,65 @@ BaseCache::regStats()
         overallAvgMshrUncacheableLatency.subname(i, system->getMasterName(i));
     }
     /* MJL_Begin */
+    MJL_overallRowVecMisses
+        .name(name() + ".MJL_overallRowVecMisses")
+        .desc("number of overall vector misses with row preference")
+        .flags(nozero)
+        ;
+
+    MJL_overallColVecMisses
+        .name(name() + ".MJL_overallColVecMisses")
+        .desc("number of overall vector misses with column preference")
+        .flags(nozero)
+        ;
+    
+    MJL_overallVecMisses
+        .name(name() + ".MJL_overallVecMisses")
+        .desc("number of overall vector misses")
+        .flags(total | nozero)
+        ;
+    MJL_overallVecMisses = MJL_overallRowVecMisses + MJL_overallColVecMisses;
+
+    MJL_overallRowVecHits
+        .name(name() + ".MJL_overallRowVecHits")
+        .desc("number of overall vector hits with row preference")
+        .flags(nozero)
+        ;
+
+    MJL_overallColVecHits
+        .name(name() + ".MJL_overallColVecHits")
+        .desc("number of overall vector hits with column preference")
+        .flags(nozero)
+        ;
+    
+    MJL_overallVecHits
+        .name(name() + ".MJL_overallVecHits")
+        .desc("number of overall vector hits")
+        .flags(total | nozero)
+        ;
+    MJL_overallVecHits = MJL_overallRowVecHits + MJL_overallColVecHits;
+
+    MJL_overallRowVecAccesses
+        .name(name() + ".MJL_overallRowVecAccesses")
+        .desc("number of overall vector accesses with row preference")
+        .flags(total | nozero)
+        ;
+    MJL_overallRowVecAccesses = MJL_overallRowVecHits + MJL_overallRowVecMisses;
+
+    MJL_overallColVecAccesses
+        .name(name() + ".MJL_overallColVecAccesses")
+        .desc("number of overall vector accesses with column preference")
+        .flags(total | nozero)
+        ;
+    MJL_overallColVecAccesses = MJL_overallColVecHits + MJL_overallColVecMisses;
+    
+    MJL_overallVecAccesses
+        .name(name() + ".MJL_overallVecAccesses")
+        .desc("number of overall vector accesses")
+        .flags(total | nozero)
+        ;
+    MJL_overallVecAccesses = MJL_overallRowVecAccesses + MJL_overallColVecAccesses;
+
     MJL_overallRowMisses
         .name(name() + ".MJL_overallRowMisses")
         .desc("number of overall misses with row preference")

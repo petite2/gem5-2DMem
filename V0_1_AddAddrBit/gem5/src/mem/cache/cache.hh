@@ -378,9 +378,18 @@ class Cache : public BaseCache
     std::map<Addr, CacheBlk::MJL_CacheBlkDir> MJL_PC2DirMap;
 
     /**
+     * The set that contains the PC number of vector instructions
+     */
+    std::set<Addr> MJL_VecListSet;
+
+    /**
      * The name of the input file that contains the mapping information from PC to direction
      */
     std::string MJL_PC2DirFilename;
+    /**
+     * The name of the input file that contains the list of vector instructions
+     */
+    std::string MJL_VecListFilename;
     /**
      * The method to read the map information from file
      * The file format should be the "PC Dir" with each line defining the direction for different instruction
@@ -430,6 +439,44 @@ class Cache : public BaseCache
             assert(MJL_PC2DirFile.is_open());
         }
         MJL_PC2DirFile.close();
+    }
+
+    /**
+     * The function that reads in the list of vector instructions from the file
+     */
+    void MJL_readVecList () {
+        std::ifstream MJL_VecListFile;
+        std::string line;
+        Addr tempPC;
+
+        assert(MJL_VecListFilename != "");
+        MJL_VecListFile.open(MJL_VecListFilename);
+        if (MJL_VecListFile.is_open()) {
+            std::cout << this->name() << "::Reading vector instruction PC from " << MJL_VecListFilename << ":" << std::endl;
+            /* MJL_Test: file information output */
+            std::cout << "Vec inst PC:"
+            /* */
+            while (getline(MJL_VecListFile, line)) {
+                std::stringstream(line) >> std::hex >> tempPC >> std::dec;
+                if (MJL_VecListSet.find(tempPC) != MJL_VecListSet.end()) {
+                    std::cout << "MJL_Warning: Repeated vector PC found in file!\n";
+                }
+                MJL_VecListSet.insert(tempPC);
+                /* MJL_Test: file information output */
+                if (MJL_VecListSet.find(tempPC) != MJL_VecListSet.end()) {
+                    std::cout << " " << std::hex << *(MJL_VecListSet.find(tempPC)) << std::dec;
+                }
+                /* */
+            }
+            /* MJL_Test: file information output */
+            std::cout << std::endl;
+            /* */
+        }
+        else {
+            std::cout << "MJL_Error: Could not open input file!\n";
+            assert(MJL_VecListFile.is_open());
+        }
+        MJL_VecListFile.close();
     }
 
     /**

@@ -73,7 +73,8 @@ Cache::Cache(const CacheParams *p)
       clusivity(p->clusivity),
       writebackClean(p->writeback_clean),
       tempBlockWriteback(nullptr),/* MJL_Begin */
-      MJL_PC2DirFilename(p->MJL_PC2DirFile), /* MJL_End */
+      MJL_PC2DirFilename(p->MJL_PC2DirFile),
+      MJL_VecListFilename(p->MJL_VecListFile), /* MJL_End */
       writebackTempBlockAtomicEvent(this, false,
                                     EventBase::Delayed_Writeback_Pri)
 {
@@ -92,6 +93,9 @@ Cache::Cache(const CacheParams *p)
     /* MJL_Begin */
     if (this->name().find("dcache") != std::string::npos) {
         MJL_readPC2DirMap();
+        if (MJL_VecListFilename != "") {
+            MJL_readVecList();
+        }
     }
     MJL_sndPacketWaiting = false;
     MJL_colVecHandler.cache = this;
@@ -181,7 +185,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // assert(!pkt->needsWritable() || blk->isWritable());
     /* MJL_Begin */
     // Packet's requested and Block data's direction should be the same, unless the requested size is less than a word sizeof(uint64_t)
-    assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) );
+    // In physically 2D cache case, the direction can be different as well 
+    assert( (pkt->MJL_getCmdDir() == blk->MJL_blkDir) || (pkt->getSize() <= sizeof(uint64_t)) 
+            || MJL_2DCache);
     // Test for L1D$
     if (this->name().find("dcache") != std::string::npos) {
        assert ((pkt->req->MJL_isVec()) || (pkt->getSize() <= sizeof(uint64_t)));
@@ -215,21 +221,65 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // Write or WriteLine at the first cache with block in writable state
         if (blk->checkWrite(pkt)) {
             /* MJL_Begin */
-            // Setting the direction to make sure that offset is calculated correctly. Maybe can also be used to collect the statistics on different directional hit?
-            pkt->MJL_setDataDir(blk->MJL_blkDir);
-            /* MJL_Test 
-            std::cout << "MJL_writeToBlock: set " << blk->set << std::endl;
-             */
+            if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
+                // Write to intermediate data structure and then put into corresponding blocks on cross directional write;
+                assert(pkt->getOffset(blkSize) == 0);
+                uint8_t MJL_tempData[blkSize];
+                pkt->writeDataToBlock(MJL_tempData, blkSize);
+                // Set the direction to get the cross direction offset
+                pkt->MJL_setDataDir(blk->MJL_blkDir);
+                for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                    memcpy((blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->data + pkt->getOffset(blkSize), MJL_tempData[i/sizeof(uint64_t)], sizeof(uint64_t));
+                }
+                // Reset the direction
+                pkt->MJL_setDataDir(MJL_getCmdDir);
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                // Setting the direction to make sure that offset is calculated correctly. Maybe can also be used to collect the statistics on different directional hit?
+                pkt->MJL_setDataDir(blk->MJL_blkDir);
+                /* MJL_Test 
+                std::cout << "MJL_writeToBlock: set " << blk->set << std::endl;
+                    */
+                pkt->writeDataToBlock(blk->data, blkSize);
+            } else {
+                pkt->writeDataToBlock(blk->data, blkSize);
+            }
             /* MJL_End */
+            /* MJL_Comment
             pkt->writeDataToBlock(blk->data, blkSize);
+            */
         }
         // Always mark the line as dirty (and thus transition to the
         // Modified state) even if we are a failed StoreCond so we
         // supply data to any snoops that have appended themselves to
         // this cache before knowing the store will fail.
         /* MJL_Begin */
-        for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t)) {
-            blk->MJL_setWordDirty(i/sizeof(uint64_t));
+        // If this is a physically 2D cache
+        if (MJL_2DCache) {
+            // Just set the dirty normally if the packet's direction align with that of the packet
+            if (pkt->MJL_getDataDir() == blk->MJL_blkDir) {
+                for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t)) {
+                    blk->MJL_setWordDirty(i/sizeof(uint64_t));
+                }
+            // Otherwise, set dirty for the words at the same position in different sets 
+            } else {
+                // MJL_Test: To see if the cross direction line/column access is correct.
+                std::cout << "MJL_Test: cross direction physical 2D cache write. Packet info: Addr(oct) " << std::oct << pkt->getAddr() << std::dec << ", Size " << pkt->getSize() << std::endl;
+                // Set the direction to get the cross direction offset
+                pkt->MJL_setDataDir(blk->MJL_blkDir);
+                for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                    // MJL_Test: The /8 is added due to some kind of address addition constraint.
+                    std::cout << "MJL_Test: write Set(oct) " << std::oct << (blk + i*tags->getNumWays()*sizeof(CacheBlk*)/8)->set << std::dec << ", Way " << (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->way << ", Tag(oct) " << std::oct << (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->tag << std::dec << std::endl;
+                    // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
+                    (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_setWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
+                }
+                // Reset the direction
+                pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
+            }
+        // If this is a physically 1D, logically 2D cache
+        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t)) {
+                blk->MJL_setWordDirty(i/sizeof(uint64_t));
+            }
         }
         /* MJL_End */
         blk->status |= BlkDirty;
@@ -242,13 +292,52 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // all read responses have a data payload
         assert(pkt->hasRespData());
         /* MJL_Begin */
-        pkt->MJL_setDataDir(blk->MJL_blkDir);
-        pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+        // If this is a physically 2D cache
+        if (MJL_2DCache) {
+            // In physically 2D cache, the cmd and the data direction should always align
+            assert(pkt->MJL_sameCmdDataDir());
+            // Copy the word dirty information directly from the blk if the directon aligns
+            if (pkt->MJL_getCmdDir() == blk->MJL_blkDir) {
+                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+            // Construct the word dirty from the blocks in sets forming a line/column, and pass the information to pkt
+            } else {
+                bool MJL_crossBlkWordDirty[pkt->getSize()];
+                // Set the direction to get the cross direction offset
+                pkt->MJL_setDataDir(blk->MJL_blkDir);
+                
+                for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                    MJL_crossBlkWordDirty[i] = (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_wordDirty[pkt->getOffset(blkSize)];
+                }
+                pkt->MJL_copyWordDirty(MJL_crossBlkWordDirty);
+                // Reset the direction
+                pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
+            }
+        // If this is a physically 1D, logically 2D cache
+        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            pkt->MJL_setDataDir(blk->MJL_blkDir);
+            pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+        }
         /* MJL_Test 
         std::cout << "MJL_setFromBlock: set " << blk->set << std::endl;
          */
+        // Gather data from blocks into an intermediate structure and then copy to packet
+        if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
+            uint8_t MJL_tempData[blkSize];
+            // Set the direction to get the cross direction offset
+            pkt->MJL_setDataDir(blk->MJL_blkDir);
+            for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                memcpy(MJL_tempData[i/sizeof(uint64_t)], (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->data + pkt->getOffset(blkSize), sizeof(uint64_t));
+            }
+            // Reset the direction
+            pkt->MJL_setDataDir(MJL_getCmdDir);
+            pkt->setDataFromBlock(MJL_tempData, blkSize);
+        } else {
+            pkt->setDataFromBlock(blk->data, blkSize);
+        }
         /* MJL_End */
+        /* MJL_Comment
         pkt->setDataFromBlock(blk->data, blkSize);
+        */
 
         // MJL_TODO: coherence things
         // determine if this read is from a (coherent) cache or not
@@ -266,10 +355,25 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 // keeps it marked dirty (in the modified state)
                 if (blk->isDirty()) {
                     pkt->setCacheResponding();
-                    blk->status &= ~BlkDirty;
                     /* MJL_Begin */
-                    blk->MJL_clearAllDirty();
+                    if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
+                        // Set the direction to get the cross direction offset
+                        pkt->MJL_setDataDir(blk->MJL_blkDir);
+                        for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                            // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
+                            (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_clearWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
+                            (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
+                        }
+                        // Reset the direction
+                        pkt->MJL_setDataDir(MJL_getCmdDir);
+                    } else {
+                        blk->MJL_clearAllDirty();
+                        blk->status &= ~BlkDirty;
+                    }
                     /* MJL_End */
+                    /* MJL_Comment
+                    blk->status &= ~BlkDirty;
+                    */
                 }
             } else if (blk->isWritable() && !pending_downgrade &&
                        !pkt->hasSharers() &&
@@ -306,10 +410,25 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                         // the cache hierarchy through a cache,
                         // and first snoop upwards in all other
                         // branches
-                        blk->status &= ~BlkDirty;
                         /* MJL_Begin */
-                        blk->MJL_clearAllDirty();
+                        if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
+                            // Set the direction to get the cross direction offset
+                            pkt->MJL_setDataDir(blk->MJL_blkDir);
+                            for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                                // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
+                                (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_clearWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
+                                (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
+                            }
+                            // Reset the direction
+                            pkt->MJL_setDataDir(MJL_getCmdDir);
+                        } else {
+                            blk->MJL_clearAllDirty();
+                            blk->status &= ~BlkDirty;
+                        }
                         /* MJL_End */
+                        /* MJL_Comment
+                        blk->status &= ~BlkDirty;
+                        */
                     } else {
                         // if we're responding after our own miss,
                         // there's a window where the recipient didn't
@@ -334,11 +453,28 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             // has the line in Shared state needs to be made aware
             // that the data it already has is in fact dirty
             pkt->setCacheResponding();
-            blk->status &= ~BlkDirty;
             /* MJL_Begin */
-            pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
-            blk->MJL_clearAllDirty();
+            if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
+                bool MJL_tempWordDirty[8];
+                // Set the direction to get the cross direction offset
+                pkt->MJL_setDataDir(blk->MJL_blkDir);
+                for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                    MJL_tempWordDirty[i/sizeof(uint64_t)] = (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_wordDirty[pkt->getOffset(blkSize)/sizeof(uint64_t)];
+                    // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
+                    (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_clearWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
+                    (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
+                }
+                // Reset the direction
+                pkt->MJL_setDataDir(MJL_getCmdDir);
+            } else {
+                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+                blk->MJL_clearAllDirty();
+                blk->status &= ~BlkDirty;
+            }
             /* MJL_End */
+            /* MJL_Comment
+            blk->status &= ~BlkDirty;
+            */
         }
     } else {
         assert(pkt->isInvalidate());
@@ -397,10 +533,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     // Here lat is the value passed as parameter to accessBlock() function
     // that can modify its value.
     /* MJL_Begin */
-    if ( pkt->getSize() <= sizeof(uint64_t) ) { // Less than a word, cross direction possible
+    if ( pkt->getSize() <= sizeof(uint64_t) && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) { // Less than a word, cross direction possible
         blk = tags->MJL_accessBlockOneWord(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
     } else {
         blk = tags->MJL_accessBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
+    }
+    // For physically 2D Cache, the cross direction should be checked too. Now we need the additional valid bits to see it a cross directional line/column is valid or not.
+    if (blk == nullptr && MJL_2DCache) {
+        ;
     }
     // MJL_TODO: may need to change lat if vector load/store is not possible
     /* MJL_End */
@@ -494,8 +634,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 /* MJL_Begin */
                 if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
                     MJL_overallRowMisses++;
+                    if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                        MJL_overallRowVecMisses++;
+                    }
                 } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
                     MJL_overallColumnMisses++;
+                    if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                        MJL_overallColVecMisses++;
+                    }
                 }
                 /* MJL_End */
                 return false;
@@ -540,8 +686,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         /* MJL_Begin */
         if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             MJL_overallRowHits++;
+            if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                MJL_overallRowVecHits++;
+            }
         } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
             MJL_overallColumnHits++;
+            if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                MJL_overallColVecHits++;
+            }
         }
         /* MJL_End */
         return true;
@@ -565,8 +717,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         /* MJL_Begin */
         if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             MJL_overallRowHits++;
+            if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                MJL_overallRowVecHits++;
+            }
         } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
             MJL_overallColumnHits++;
+            if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                MJL_overallColVecHits++;
+            }
         }
 
         if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) ) {
@@ -592,8 +750,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     /* MJL_Begin */
     if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
         MJL_overallRowMisses++;
+        if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+            MJL_overallRowVecMisses++;
+        }
     } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
         MJL_overallColumnMisses++;
+        if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+            MJL_overallColVecMisses++;
+        }
     }
     /* MJL_End */
 
