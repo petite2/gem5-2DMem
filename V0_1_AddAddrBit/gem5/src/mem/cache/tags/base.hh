@@ -70,6 +70,7 @@ class BaseTags : public ClockedObject
     /* MJL_Begin */
     /** The size of a row in the memory system (how many cachelines) */
     const unsigned MJL_rowWidth;
+    const Cycles MJL_timeStep;
     /* MJL_End */
     /** The size of the cache. */
     const unsigned size;
@@ -105,6 +106,13 @@ class BaseTags : public ClockedObject
     Stats::Vector replacements;
     /** Per cycle average of the number of tags that hold valid data. */
     Stats::Average tagsInUse;
+    /* MJL_Begin */
+    Stats::Scalar MJL_rowInUse;
+    Stats::Scalar MJL_colInUse;
+    Stats::Formula MJL_rowUtilization;
+    Stats::Formula MJL_colUtilization;
+    Stats::Formula MJL_utilization;
+    /* MJL_End */
 
     /** The total number of references to a block before it is replaced. */
     Stats::Scalar totalRefs;
@@ -285,6 +293,19 @@ class BaseTags : public ClockedObject
     virtual Addr MJL_swapRowColBits(Addr addr) const = 0;
     virtual Addr MJL_movColRight(Addr addr) const = 0;
     virtual Addr MJL_movColLeft(Addr addr) const = 0;
+
+    void MJL_printUtilization() {
+        if (!MJL_printUtilizationEvent.scheduled()) {
+            schedule(MJL_printUtilizationEvent, curTick() + 1);
+        } else {
+            std::cout << this->name() << "::MJL_intermOutput: Cycle[" << ticksToCycles(curTick()) << "], ";
+            std::cout << "Utilization(Row) " << MJL_rowInUse / float(numBlocks) << ", ";
+            std::cout << "Utilization(Col) " << MJL_colInUse / float(numBlocks) << ", ";
+            std::cout << "Utilization(All) " << (MJL_rowInUse + MJL_colInUse) / float(numBlocks) << std::endl;
+            reschedule(MJL_printUtilizationEvent, curTick() + cyclesToTicks(MJL_timeStep));
+        }
+    };
+    EventWrapper<BaseTags, &BaseTags::MJL_printUtilization> MJL_printUtilizationEvent;
     /* MJL_End */
     
     virtual void forEachBlk(CacheBlkVisitor &visitor) = 0;

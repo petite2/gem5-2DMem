@@ -201,6 +201,13 @@ public:
         assert(blk);
         assert(blk->isValid());
         tagsInUse--;
+        /* MJL_Begin */
+        if (blk->MJL_IsRow()) {
+            MJL_rowInUse--;
+        } else if (blk->MJL_IsColumn()) {
+            MJL_colInUse--;
+        }
+        /* MJL_End */
         assert(blk->srcMasterId < cache->system->maxMasters());
         occupancies[blk->srcMasterId]--;
         blk->srcMasterId = Request::invldMasterId;
@@ -381,6 +388,13 @@ public:
 
          if (!blk->isTouched) {
              tagsInUse++;
+             /* MJL_Begin */
+             if (blk->MJL_IsRow()) {
+                 MJL_rowInUse++;
+             } else if (blk->MJL_IsColumn()) {
+                 MJL_colInUse++;
+             }
+             /* MJL_End */
              blk->isTouched = true;
              if (!warmedUp && tagsInUse.value() >= warmupBound) {
                  warmedUp = true;

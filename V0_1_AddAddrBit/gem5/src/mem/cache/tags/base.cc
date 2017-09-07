@@ -55,7 +55,7 @@
 using namespace std;
 
 BaseTags::BaseTags(const Params *p)
-    : ClockedObject(p), blkSize(p->block_size)/* MJL_Begin */, MJL_rowWidth(p->MJL_rowWidth)/* MJL_End */, size(p->size),
+    : ClockedObject(p), blkSize(p->block_size)/* MJL_Begin */, MJL_rowWidth(p->MJL_rowWidth), MJL_timeStep(p->MJL_timeStep)/* MJL_End */, size(p->size),
       lookupLatency(p->tag_latency),
       accessLatency(p->sequential_access ?
                     p->tag_latency + p->data_latency :
@@ -64,8 +64,11 @@ BaseTags::BaseTags(const Params *p)
       warmedUp(false), numBlocks(0)
 {
     /* MJL_Begin */
-    // MJL_Test to see if the parameter of MJL_rowWidth has been passed in correctly
+    // MJL_Test: to see if the parameter of MJL_rowWidth has been passed in correctly
     std::cout << this->name() << "::MJL_rowWidth = " << MJL_rowWidth << "\n";
+    // MJL_Test: Test to see if the parameter of MJL_timeStep has been passed in correctly
+    std::cout << this->name() << "::MJL_timeStep = " << MJL_timeStep << std::endl;
+    MJL_printUtilization();
     /* MJL_End */
 }
 
@@ -94,6 +97,42 @@ BaseTags::regStats()
         .name(name() + ".tagsinuse")
         .desc("Cycle average of tags in use")
         ;
+
+    /* MJL_Begin */
+    MJL_rowInUse
+        .name(name() + ".MJL_rowInUse")
+        .desc("Number of valid cache blocks with row data")
+        .flags(nozero)
+        ;
+    
+    MJL_colInUse
+        .name(name() + ".MJL_colInUse")
+        .desc("Number of valid cache blocks with column data")
+        .flags(nozero)
+        ;
+
+    MJL_rowUtilization
+        .name(name() + ".MJL_utilization")
+        .desc("Percentage of valid cache blocks with row data in the cache")
+        .flags(nozero)
+        ;
+    MJL_rowUtilization = MJL_rowInUse / constant(float(numBlocks));
+
+    MJL_colUtilization
+        .name(name() + ".MJL_utilization")
+        .desc("Percentage of valid cache blocks with column data in the cache")
+        .flags(nozero)
+        ;
+    MJL_colUtilization = MJL_colInUse / constant(float(numBlocks));
+
+    MJL_utilization
+        .name(name() + ".MJL_utilization")
+        .desc("Percentage of valid cache blocks in the cache")
+        .flags(nozero)
+        ;
+    MJL_utilization = (MJL_rowInUse + MJL_colInUse) / constant(float(numBlocks));
+
+    /* MJL_End */
 
     totalRefs
         .name(name() + ".total_refs")

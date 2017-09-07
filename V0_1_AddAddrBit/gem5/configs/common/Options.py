@@ -113,8 +113,11 @@ def addNoISAOptions(parser):
     # MJL_Begin
     parser.add_option("--MJL_row_width", type="int", default=512, help="Specify the size of a row (how many cachelines)")
     parser.add_option("--MJL_PC2DirFile", type="string", default="PC2Dir.txt", help="Specify the filename of the input file with mapping of PC to access direction")
+    parser.add_option("--MJL_VecListFile", type="string", default="", help="The filename of the input file with the list PC of vector instructions")
     parser.add_option("--MJL_default_column", action="store_true", help="Set default preference of all data accesses to column")
     parser.add_option("--MJL_Prefetcher", action="store_true", help="Set Prefetcher")
+    parser.add_option("--MJL_2DL2Cache", action="store_true", help="Set L2 cache to physically 2D")
+    parser.add_option("--MJL_timeStep", action="store", type="int", default=10000000, help="Set the time step for intermediate outputs")
     # MJL_End
 
     # Enable Ruby

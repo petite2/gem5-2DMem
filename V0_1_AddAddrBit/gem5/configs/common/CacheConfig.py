@@ -89,6 +89,8 @@ def config_cache(options, system):
                                    assoc=options.l2_assoc\
                                    # MJL_Begin
                                    # , MJL_row_width=options.MJL_row_width\
+                                   , MJL_2D_Cache=options.MJL_2DL2Cache\
+                                   , MJL_timeStep=options.MJL_timeStep\
                                    # MJL_End
                                    )
 
@@ -109,6 +111,7 @@ def config_cache(options, system):
                                   assoc=options.l1i_assoc\
                                   # MJL_Begin
                                   # , MJL_row_width=options.MJL_row_width\
+                                  , MJL_timeStep=options.MJL_timeStep\
                                   # MJL_End
                                   )
             dcache = dcache_class(size=options.l1d_size,
@@ -116,6 +119,8 @@ def config_cache(options, system):
                                   # MJL_Begin
                                   # , MJL_row_width=options.MJL_row_width,
                                   , MJL_PC2DirFile=options.MJL_PC2DirFile\
+                                  , MJL_VecListFile=options.MJL_VecListFile\
+                                  , MJL_timeStep=options.MJL_timeStep\
                                   # MJL_End
                                   )
 

@@ -46,8 +46,11 @@ class BaseTags(ClockedObject):
     # Get the size from the parent (cache)
     size = Param.MemorySize(Parent.size, "capacity in bytes")
 
+    # MJL_Begin
     # Get the size of a row from the parent (cache) 
     MJL_rowWidth = Param.Int(Parent.MJL_row_width, "row size in number of cachelines")
+    MJL_timeStep = Param.Cycles(Parent.MJL_timeStep, "time step of intermediate output in cycles")
+    # MJL_End
 
     # Get the block size from the parent (system)
     block_size = Param.Int(Parent.cache_line_size, "block size in bytes")
