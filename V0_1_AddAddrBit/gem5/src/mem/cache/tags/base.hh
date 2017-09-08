@@ -295,16 +295,12 @@ class BaseTags : public ClockedObject
     virtual Addr MJL_movColLeft(Addr addr) const = 0;
 
     void MJL_printUtilization() {
-        if (!MJL_printUtilizationEvent.scheduled()) {
-            schedule(MJL_printUtilizationEvent, curTick() + 1);
-        } else {
-            std::cout << this->name() << "::MJL_intermOutput: Cycle[" << ticksToCycles(curTick()) << "], ";
-            std::cout << "Utilization(Row) " << MJL_rowInUse / float(numBlocks) << ", ";
-            std::cout << "Utilization(Col) " << MJL_colInUse / float(numBlocks) << ", ";
-            std::cout << "Utilization(All) " << (MJL_rowInUse + MJL_colInUse) / float(numBlocks) << std::endl;
-            reschedule(MJL_printUtilizationEvent, curTick() + cyclesToTicks(MJL_timeStep));
-        }
-    };
+        std::cout << this->name() << "::MJL_intermOutput: Cycle[" << ticksToCycles(curTick()) << "], ";
+        std::cout << "Utilization(Row) " << (MJL_rowInUse.value() / float(numBlocks)) << "[" << MJL_rowInUse.value() << "/" << numBlocks << "], ";
+        std::cout << "Utilization(Col) " << (MJL_colInUse.value() / float(numBlocks)) << "[" << MJL_colInUse.value() << "/" << numBlocks << "], ";
+        std::cout << "Utilization(All) " << ((MJL_rowInUse.value() + MJL_colInUse.value()) / float(numBlocks)) << "[" << MJL_rowInUse.value() + MJL_colInUse.value() << "/" << numBlocks << "]" << std::endl;
+        schedule(MJL_printUtilizationEvent, curTick() + cyclesToTicks(MJL_timeStep));
+    }
     EventWrapper<BaseTags, &BaseTags::MJL_printUtilization> MJL_printUtilizationEvent;
     /* MJL_End */
     

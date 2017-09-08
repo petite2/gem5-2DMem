@@ -229,10 +229,10 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 // Set the direction to get the cross direction offset
                 pkt->MJL_setDataDir(blk->MJL_blkDir);
                 for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                    memcpy((blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->data + pkt->getOffset(blkSize), MJL_tempData[i/sizeof(uint64_t)], sizeof(uint64_t));
+                    memcpy((blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->data + pkt->getOffset(blkSize), &MJL_tempData[i/sizeof(uint64_t)], sizeof(uint64_t));
                 }
                 // Reset the direction
-                pkt->MJL_setDataDir(MJL_getCmdDir);
+                pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
             } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
                 // Setting the direction to make sure that offset is calculated correctly. Maybe can also be used to collect the statistics on different directional hit?
                 pkt->MJL_setDataDir(blk->MJL_blkDir);
@@ -326,10 +326,10 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             // Set the direction to get the cross direction offset
             pkt->MJL_setDataDir(blk->MJL_blkDir);
             for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                memcpy(MJL_tempData[i/sizeof(uint64_t)], (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->data + pkt->getOffset(blkSize), sizeof(uint64_t));
+                memcpy(&MJL_tempData[i/sizeof(uint64_t)], (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->data + pkt->getOffset(blkSize), sizeof(uint64_t));
             }
             // Reset the direction
-            pkt->MJL_setDataDir(MJL_getCmdDir);
+            pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
             pkt->setDataFromBlock(MJL_tempData, blkSize);
         } else {
             pkt->setDataFromBlock(blk->data, blkSize);
@@ -365,7 +365,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                             (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
                         }
                         // Reset the direction
-                        pkt->MJL_setDataDir(MJL_getCmdDir);
+                        pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
                     } else {
                         blk->MJL_clearAllDirty();
                         blk->status &= ~BlkDirty;
@@ -420,7 +420,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                                 (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
                             }
                             // Reset the direction
-                            pkt->MJL_setDataDir(MJL_getCmdDir);
+                            pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
                         } else {
                             blk->MJL_clearAllDirty();
                             blk->status &= ~BlkDirty;
@@ -464,8 +464,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                     (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_clearWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
                     (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
                 }
+                pkt->MJL_setWordDirtyFromBlk(MJL_tempWordDirty, blkSize);
                 // Reset the direction
-                pkt->MJL_setDataDir(MJL_getCmdDir);
+                pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
             } else {
                 pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
                 blk->MJL_clearAllDirty();
@@ -3386,6 +3387,14 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         && (this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry
         && (cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() && !cache->MJL_colVecHandler.isSend(pkt, true))) {
         return true;
+    }
+
+    // MJL_Test: see if the input is correct on vector operations
+    if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && cache->MJL_VecListSet.find(pkt->req->getPC()) != cache->MJL_VecListSet.end()) {
+        if (pkt->getSize() <= sizeof(uint64_t)) {
+            std::cout << "NonVec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "]" << std::endl;
+        }
+        assert(pkt->getSize() > sizeof(uint64_t));
     }
 
 

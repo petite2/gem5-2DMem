@@ -56,7 +56,7 @@ class BaseCache(MemObject):
     MJL_row_width = Param.Int(Parent.MJL_row_width, "Row size in number of cachelines")
     MJL_default_column = Param.Bool(Parent.MJL_default_column, "Set default preference of all data accesses to column")
     MJL_2D_Cache = Param.Bool(False, "Set the corresponding cache to physically 2D cache")
-    MJL_timeStep = Param.Cycles(10000000, "Time step of intermediate output in cycles")
+    MJL_timeStep = Param.Cycles(0, "Time step of intermediate output in cycles")
     # MJL_End 
 
     tag_latency = Param.Cycles("Tag lookup latency")

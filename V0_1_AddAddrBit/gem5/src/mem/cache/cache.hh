@@ -454,7 +454,7 @@ class Cache : public BaseCache
         if (MJL_VecListFile.is_open()) {
             std::cout << this->name() << "::Reading vector instruction PC from " << MJL_VecListFilename << ":" << std::endl;
             /* MJL_Test: file information output */
-            std::cout << "Vec inst PC:"
+            std::cout << "Vec inst PC:";
             /* */
             while (getline(MJL_VecListFile, line)) {
                 std::stringstream(line) >> std::hex >> tempPC >> std::dec;

@@ -61,14 +61,16 @@ BaseTags::BaseTags(const Params *p)
                     p->tag_latency + p->data_latency :
                     std::max(p->tag_latency, p->data_latency)),
       cache(nullptr), warmupBound(0),
-      warmedUp(false), numBlocks(0)
+      warmedUp(false), numBlocks(0)/* MJL_Begin */, MJL_printUtilizationEvent(this)/* MJL_End */
 {
     /* MJL_Begin */
     // MJL_Test: to see if the parameter of MJL_rowWidth has been passed in correctly
     std::cout << this->name() << "::MJL_rowWidth = " << MJL_rowWidth << "\n";
     // MJL_Test: Test to see if the parameter of MJL_timeStep has been passed in correctly
     std::cout << this->name() << "::MJL_timeStep = " << MJL_timeStep << std::endl;
-    MJL_printUtilization();
+    if (MJL_timeStep > 0) {
+        schedule(MJL_printUtilizationEvent, curTick() + 1);
+    }
     /* MJL_End */
 }
 
@@ -112,14 +114,14 @@ BaseTags::regStats()
         ;
 
     MJL_rowUtilization
-        .name(name() + ".MJL_utilization")
+        .name(name() + ".MJL_rowUtilization")
         .desc("Percentage of valid cache blocks with row data in the cache")
         .flags(nozero)
         ;
     MJL_rowUtilization = MJL_rowInUse / constant(float(numBlocks));
 
     MJL_colUtilization
-        .name(name() + ".MJL_utilization")
+        .name(name() + ".MJL_colUtilization")
         .desc("Percentage of valid cache blocks with column data in the cache")
         .flags(nozero)
         ;

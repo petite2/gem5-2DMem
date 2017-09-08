@@ -117,7 +117,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_default_column", action="store_true", help="Set default preference of all data accesses to column")
     parser.add_option("--MJL_Prefetcher", action="store_true", help="Set Prefetcher")
     parser.add_option("--MJL_2DL2Cache", action="store_true", help="Set L2 cache to physically 2D")
-    parser.add_option("--MJL_timeStep", action="store", type="int", default=10000000, help="Set the time step for intermediate outputs")
+    parser.add_option("--MJL_timeStep", action="store", type="int", default=0, help="Set the time step for intermediate outputs, default no intermediate output")
     # MJL_End
 
     # Enable Ruby

@@ -202,10 +202,11 @@ public:
         assert(blk->isValid());
         tagsInUse--;
         /* MJL_Begin */
-        if (blk->MJL_IsRow()) {
+        if (blk->MJL_isRow()) {
             MJL_rowInUse--;
-        } else if (blk->MJL_IsColumn()) {
+        } else if (blk->MJL_isColumn()) {
             MJL_colInUse--;
+            //std::cout << "MJL_Test: colInUse--(" << MJL_colInUse.value() << ")" << std::endl;
         }
         /* MJL_End */
         assert(blk->srcMasterId < cache->system->maxMasters());
@@ -388,13 +389,6 @@ public:
 
          if (!blk->isTouched) {
              tagsInUse++;
-             /* MJL_Begin */
-             if (blk->MJL_IsRow()) {
-                 MJL_rowInUse++;
-             } else if (blk->MJL_IsColumn()) {
-                 MJL_colInUse++;
-             }
-             /* MJL_End */
              blk->isTouched = true;
              if (!warmedUp && tagsInUse.value() >= warmupBound) {
                  warmedUp = true;
@@ -407,6 +401,14 @@ public:
          // found block might not actually be replaced there if the
          // coherence protocol says it can't be.
          if (blk->isValid()) {
+             /* MJL_Begin */
+             if (blk->MJL_isRow()) {
+                 MJL_rowInUse--;
+             } else if (blk->MJL_isColumn()) {
+                 MJL_colInUse--;
+                 //std::cout << "MJL_Test: colInUse--(" << MJL_colInUse.value() << ")" << std::endl;
+             }
+             /* MJL_End */
              replacements[0]++;
              totalRefs += blk->refCount;
              ++sampledRefs;
@@ -428,6 +430,12 @@ public:
          /* MJL_Begin */
          blk->tag = MJL_extractTag(addr, pkt->MJL_getDataDir());
          blk->MJL_blkDir = pkt->MJL_getDataDir();
+         if (blk->MJL_isRow()) {
+             MJL_rowInUse++;
+         } else if (blk->MJL_isColumn()) {
+             MJL_colInUse++;
+             //std::cout << "MJL_Test: colInUse++(" << MJL_colInUse.value() << ")" << std::endl;
+         }
          /* MJL_End */
 
          // deal with what we are bringing in
