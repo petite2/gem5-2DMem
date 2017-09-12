@@ -3390,11 +3390,13 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     }
 
     // MJL_Test: see if the input is correct on vector operations
-    if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && cache->MJL_VecListSet.find(pkt->req->getPC()) != cache->MJL_VecListSet.end()) {
+    if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && !blocked && !mustSendRetry && cache->MJL_VecListSet.find(pkt->req->getPC()) != cache->MJL_VecListSet.end()) {
         if (pkt->getSize() <= sizeof(uint64_t)) {
-            std::cout << "NonVec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "]" << std::endl;
+            std::cout << "NonVec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "], Addr(oct) " << std::oct << pkt->getAddr() << std::dec << std::endl;
         }
         assert(pkt->getSize() > sizeof(uint64_t));
+        //std::cout << "Vec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "], Addr(oct) " << std::oct << pkt->getAddr() << std::dec << std::endl;
+
     }
 
 
