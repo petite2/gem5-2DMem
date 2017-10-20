@@ -1050,6 +1050,12 @@ Cache::recvTimingReq(PacketPtr pkt)
         // Note that lat is passed by reference here. The function
         // access() calls accessBlock() which can modify lat value.
         satisfied = access(pkt, blk, lat, writebacks);
+        /* MJL_Begin */
+        // Add the additional tag check latency for misses
+        if (!satisfied && (!pkt->req->isUncacheable() || pkt->isWriteback() || pkt->cmd == MemCmd::CleanEvict )) {
+            forward_time += (blkSize/sizeof(uint64_t) - 1) * clockEdge(forwardLatency);
+        }
+        /* MJL_End */
 
         // copy writebacks to write buffer here to ensure they logically
         // proceed anything happening below
