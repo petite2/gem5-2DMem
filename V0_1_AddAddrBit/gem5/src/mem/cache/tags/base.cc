@@ -134,6 +134,12 @@ BaseTags::regStats()
         ;
     MJL_utilization = (MJL_rowInUse + MJL_colInUse) / constant(float(numBlocks));
 
+    MJL_Duplicates
+        .name(name() + ".MJL_Duplicates")
+        .desc("Number of duplicate words in the cache")
+        ;
+    
+    MJL_DuplicatePercentage = MJL_Duplicates/(8 * (MJL_rowInUse + MJL_colInUse));
     /* MJL_End */
 
     totalRefs

@@ -208,6 +208,22 @@ public:
             MJL_colInUse--;
             //std::cout << "MJL_Test: colInUse--(" << MJL_colInUse.value() << ")" << std::endl;
         }
+        if (!cache->MJL_is2DCache()) {
+            CacheBlk * MJL_dupBlk = nullptr;
+            Addr baseAddr = MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
+            for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
+                MJL_dupBlk = nullptr;
+                Addr wordAddr = cache->MJL_addOffsetAddr(baseAddr, blk->MJL_blkDir, i);
+                if (blk->MJL_isRow()) {
+                    MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, blk->isSecure());
+                } else if (blk->MJL_isColumn()) {
+                    MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, blk->isSecure());
+                }
+                if (MJL_dupBlk) {
+                    MJL_Duplicates--;
+                }
+            }
+        }
         /* MJL_End */
         assert(blk->srcMasterId < cache->system->maxMasters());
         occupancies[blk->srcMasterId]--;
@@ -408,6 +424,22 @@ public:
                  MJL_colInUse--;
                  //std::cout << "MJL_Test: colInUse--(" << MJL_colInUse.value() << ")" << std::endl;
              }
+             if (!cache->MJL_is2DCache()) {
+                 CacheBlk * MJL_dupBlk = nullptr;
+                 Addr baseAddr = MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
+                 for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
+                     MJL_dupBlk = nullptr;
+                     Addr wordAddr = cache->MJL_addOffsetAddr(baseAddr, blk->MJL_blkDir, i);
+                     if (blk->MJL_isRow()) {
+                         MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, blk->isSecure());
+                     } else if (blk->MJL_isColumn()) {
+                         MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, blk->isSecure());
+                     }
+                     if (MJL_dupBlk) {
+                         MJL_Duplicates--;
+                     }
+                 }
+             }
              /* MJL_End */
              replacements[0]++;
              totalRefs += blk->refCount;
@@ -436,6 +468,21 @@ public:
              MJL_colInUse++;
              //std::cout << "MJL_Test: colInUse++(" << MJL_colInUse.value() << ")" << std::endl;
          }
+         if (!cache->MJL_is2DCache()) {
+            CacheBlk * MJL_dupBlk = nullptr;
+            for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
+                MJL_dupBlk = nullptr;
+                Addr wordAddr = cache->MJL_addOffsetAddr(addr, blk->MJL_blkDir, i);
+                if (blk->MJL_isRow()) {
+                    MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, pkt->isSecure());
+                } else if (blk->MJL_isColumn()) {
+                    MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure());
+                }
+                if (MJL_dupBlk) {
+                    MJL_Duplicates++;
+                }
+            }
+        }
          /* MJL_End */
 
          // deal with what we are bringing in

@@ -516,6 +516,9 @@ class BaseCache : public MemObject
 
     Addr blockAlign(Addr addr) const { return (addr & ~(Addr(blkSize - 1))); }
     /* MJL_Begin */
+    bool MJL_is2DCache() const {
+        return MJL_2DCache;
+    }
     Addr MJL_blockAlign(Addr addr, MemCmd::MJL_DirAttribute MJL_dir) const {
         if (MJL_dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             return (addr & ~(Addr(blkSize - 1)));

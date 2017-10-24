@@ -112,6 +112,8 @@ class BaseTags : public ClockedObject
     Stats::Formula MJL_rowUtilization;
     Stats::Formula MJL_colUtilization;
     Stats::Formula MJL_utilization;
+    Stats::Scalar MJL_Duplicates;
+    Stats::Formula MJL_DuplicatePercentage;
     /* MJL_End */
 
     /** The total number of references to a block before it is replaced. */
@@ -298,7 +300,8 @@ class BaseTags : public ClockedObject
         std::cout << this->name() << "::MJL_intermOutput: Cycle[" << ticksToCycles(curTick()) << "], ";
         std::cout << "Utilization(Row) " << (MJL_rowInUse.value() / float(numBlocks)) << "[" << MJL_rowInUse.value() << "/" << numBlocks << "], ";
         std::cout << "Utilization(Col) " << (MJL_colInUse.value() / float(numBlocks)) << "[" << MJL_colInUse.value() << "/" << numBlocks << "], ";
-        std::cout << "Utilization(All) " << ((MJL_rowInUse.value() + MJL_colInUse.value()) / float(numBlocks)) << "[" << MJL_rowInUse.value() + MJL_colInUse.value() << "/" << numBlocks << "]" << std::endl;
+        std::cout << "Utilization(All) " << ((MJL_rowInUse.value() + MJL_colInUse.value()) / float(numBlocks)) << "[" << MJL_rowInUse.value() + MJL_colInUse.value() << "/" << numBlocks << "], ";
+        std::cout << "Duplicate " << (MJL_Duplicates.value()/8/(MJL_rowInUse.value() + MJL_colInUse.value())) << "[" << MJL_Duplicates.value() << "/" << 8*(MJL_rowInUse.value() + MJL_colInUse.value()) << "]" << std::endl;
         schedule(MJL_printUtilizationEvent, curTick() + cyclesToTicks(MJL_timeStep));
     }
     EventWrapper<BaseTags, &BaseTags::MJL_printUtilization> MJL_printUtilizationEvent;
