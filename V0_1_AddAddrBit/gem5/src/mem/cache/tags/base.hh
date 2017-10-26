@@ -296,7 +296,38 @@ class BaseTags : public ClockedObject
     virtual Addr MJL_movColRight(Addr addr) const = 0;
     virtual Addr MJL_movColLeft(Addr addr) const = 0;
 
+    uint64_t MJL_tempUtilizationRow;
+    uint64_t MJL_tempUtilizationColumn;
+
+    class MJL_UtilizationVisitor : public CacheBlkVisitor
+    {
+      public:
+        MJL_UtilizationVisitor(BaseTags* tags): _tags(tags) {}
+
+        bool operator()(CacheBlk &blk) override {
+            if (blk.isValid()) {
+                if (blk.MJL_isRow()) {
+                    _tags->MJL_tempUtilizationRow++;
+                } else {
+                    _tags->MJL_tempUtilizationColumn++;
+                }
+            }
+            return true;
+        }
+      private:
+        BaseTags* _tags;
+    };
+
     void MJL_printUtilization() {
+        /* MJL_Test: see if utilization calculation is correct
+        MJL_tempUtilizationRow = 0;
+        MJL_tempUtilizationColumn = 0;
+        MJL_UtilizationVisitor MJL_utilizationVisitor(this);
+        forEachBlk(MJL_utilizationVisitor);
+        std::cout << this->name() << "::MJL_Test: Utilization(Row) foreach[" << MJL_tempUtilizationRow << "]/inuse[" << MJL_rowInUse.value() << "], Utilization(Col) foreach[" << MJL_tempUtilizationColumn << "]/inuse[" << MJL_colInUse.value() << "]" << std::endl;
+        assert(MJL_tempUtilizationRow == MJL_rowInUse.value());
+        assert(MJL_tempUtilizationColumn == MJL_colInUse.value());
+         */
         std::cout << this->name() << "::MJL_intermOutput: Cycle[" << ticksToCycles(curTick()) << "], ";
         std::cout << "Utilization(Row) " << (MJL_rowInUse.value() / float(numBlocks)) << "[" << MJL_rowInUse.value() << "/" << numBlocks << "], ";
         std::cout << "Utilization(Col) " << (MJL_colInUse.value() / float(numBlocks)) << "[" << MJL_colInUse.value() << "/" << numBlocks << "], ";

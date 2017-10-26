@@ -1052,8 +1052,10 @@ Cache::recvTimingReq(PacketPtr pkt)
         satisfied = access(pkt, blk, lat, writebacks);
         /* MJL_Begin */
         // Add the additional tag check latency for misses
-        if (!satisfied && (!pkt->req->isUncacheable() || pkt->isWriteback() || pkt->cmd == MemCmd::CleanEvict )) {
-            forward_time += (blkSize/sizeof(uint64_t) - 1) * clockEdge(forwardLatency);
+        if (!MJL_2DCache && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && 
+            ((!satisfied && !pkt->req->isUncacheable() && pkt->cmd != MemCmd::CleanEvict && !pkt->isWriteback())
+            || (satisfied && pkt->cmd == MemCmd::WritebackDirty))) {
+            forward_time = clockEdge(Cycles( blkSize/sizeof(uint64_t) * forwardLatency)) + pkt->headerDelay;
         }
         /* MJL_End */
 
@@ -3355,7 +3357,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Packet information output 
+    /* MJL_Test: Packet information output */
     if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry
          && cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() && pkt->MJL_cmdIsColumn()) { // Debug for column vec
         std::cout << this->name() << "::recvTimingReq";
@@ -3386,7 +3388,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
-     */
+    /* */
     
     // Column vector access handler
     if ((pkt->req->hasPC())
