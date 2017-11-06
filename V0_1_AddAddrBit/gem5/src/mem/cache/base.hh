@@ -638,18 +638,23 @@ class BaseCache : public MemObject
     MSHR *allocateMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
     {
         /* MJL_Begin */
+        MSHR *mshr = nullptr;
         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
-        MSHR *mshr = mshrQueue.allocate(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), blkSize,
+            mshr = mshrQueue.allocate(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), blkSize,
                                         pkt, time, order++,
                                         allocOnFill(pkt->cmd));
         } else {
+            mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
+                                        pkt, time, order++,
+                                        allocOnFill(pkt->cmd));
+        }
         /* MJL_End */
+        /* MJL_Comment 
         MSHR *mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
                                         pkt, time, order++,
                                         allocOnFill(pkt->cmd));
+        */
         /* MJL_Begin */
-        }
-
         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
             MJL_markBlockInfo(mshr);
         }

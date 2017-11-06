@@ -201,6 +201,7 @@ class BaseTags : public ClockedObject
     virtual CacheBlk * findBlock(Addr addr, bool is_secure) const = 0;
     /* MJL_Begin */
     virtual CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const = 0;
+    virtual CacheBlk * MJL_findCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, unsigned MJL_offset) const = 0;
     /* MJL_End */
 
     /**
@@ -236,6 +237,9 @@ class BaseTags : public ClockedObject
      * @return The cache block.
      */
     virtual CacheBlk *findBlockBySetAndWay(int set, int way) const = 0;
+    /* MJL_Begin */
+    virtual CacheBlk *MJL_findBlockByTile(CacheBlk *blk, int i) const = 0;
+    /* MJL_End */
 
     /**
      * Limit the allocation for the cache ways.
@@ -269,6 +273,10 @@ class BaseTags : public ClockedObject
                                   int context_src) = 0;
     virtual CacheBlk* MJL_accessBlockOneWord(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                           int context_src) = 0;
+    virtual CacheBlk* MJL_accessCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                          int context_src, unsigned MJL_offset) = 0;
+    virtual CacheBlk* MJL_findWritebackBlk(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, int MJL_offset) = 0;
+    virtual bool MJL_tileExists(Addr addr, bool is_secure) = 0;
     /* MJL_End */
 
     virtual Addr extractTag(Addr addr) const = 0;
@@ -292,6 +300,7 @@ class BaseTags : public ClockedObject
     virtual int extractSet(Addr addr) const = 0;
     /* MJL_Begin */
     virtual int MJL_extractSet(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const = 0;
+    virtual Addr MJL_blkAlign(Addr addr) const = 0;
     virtual Addr MJL_swapRowColBits(Addr addr) const = 0;
     virtual Addr MJL_movColRight(Addr addr) const = 0;
     virtual Addr MJL_movColLeft(Addr addr) const = 0;

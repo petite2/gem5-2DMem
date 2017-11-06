@@ -802,17 +802,17 @@ class Cache : public BaseCache
 
             void MJL_addFootPrint(Addr tag, int set, MemCmd::MJL_DirAttribute dir) {
                 if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
-                    MJL_footPrintLog[tag].MJL_rowFootPrint[set/sizeof(uint64_t)] = true;
+                    MJL_footPrintLog[tag]->MJL_rowFootPrint[set/sizeof(uint64_t)] = true;
                 } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-                    MJL_footPrintLog[tag].MJL_colFootPrint[set/sizeof(uint64_t)] = true;
+                    MJL_footPrintLog[tag]->MJL_colFootPrint[set/sizeof(uint64_t)] = true;
                 }
             }
 
             void MJL_clearFootPrint(Addr tag) {
-                MJL_FootPrintEntry clearEntry = MJL_footPrintLog[tag];
+                MJL_FootPrintEntry *clearEntry = MJL_footPrintLog[tag];
                 for (int i = 0; i < 8; ++i) {
-                    clearEntry.MJL_rowFootPrint[i] = false;
-                    clearEntry.MJL_colFootPrint[i] = false;
+                    clearEntry->MJL_rowFootPrint[i] = false;
+                    clearEntry->MJL_colFootPrint[i] = false;
                 }
             }
     };
@@ -827,24 +827,24 @@ class Cache : public BaseCache
             Addr colBlkAddr = tags->MJL_regenerateBlkAddr(triggerTag, MemCmd::MJL_DirAttribute::MJL_IsRow, triggerSet/sizeof(uint64_t)) + i * sizeof(uint64_t);
             if (triggerSet/sizeof(uint64_t) == i) {
                 if (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
-                    if (MJL_footPrint->MJL_footPrintLog[triggerTag].MJL_colFootPrint[i]) {
+                    if (MJL_footPrint->MJL_footPrintLog[triggerTag]->MJL_colFootPrint[i]) {
                         BlkAddrs->push_back(colBlkAddr);
-                        BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsColumn)
+                        BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsColumn);
                     }
                 } else if (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-                    if (MJL_footPrint->MJL_footPrintLog[triggerTag].MJL_rowFootPrint[i]) {
+                    if (MJL_footPrint->MJL_footPrintLog[triggerTag]->MJL_rowFootPrint[i]) {
                         BlkAddrs->push_back(rowBlkAddr);
-                        BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsRow)
+                        BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsRow);
                     }
                 }
                 continue;
             }
-            if (MJL_footPrint->MJL_footPrintLog[triggerTag].MJL_rowFootPrint[i]) {
+            if (MJL_footPrint->MJL_footPrintLog[triggerTag]->MJL_rowFootPrint[i]) {
                 BlkAddrs->push_back(rowBlkAddr);
-                BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsRow)
-            } else if (MJL_footPrint->MJL_footPrintLog[triggerTag].MJL_colFootPrint[i]) {
+                BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsRow);
+            } else if (MJL_footPrint->MJL_footPrintLog[triggerTag]->MJL_colFootPrint[i]) {
                 BlkAddrs->push_back(colBlkAddr);
-                BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsColumn)
+                BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsColumn);
             }
         }
 
@@ -854,7 +854,7 @@ class Cache : public BaseCache
     void MJL_allocateFootPrintMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
     {
         Addr triggerAddr = pkt->getAddr();
-        Addr triggerDir = pkt->MJL_getCmdDir();
+        MemCmd::MJL_DirAttribute triggerDir = pkt->MJL_getCmdDir();
         // Should only be used when the tile does not exist
         if (pkt->req->isUncacheable() || tags->MJL_tileExists(triggerAddr, pkt->isSecure())) {
             return;
@@ -863,7 +863,7 @@ class Cache : public BaseCache
         std::list<Addr> BlkAddrs;
         std::list<MemCmd::MJL_DirAttribute> BlkDirs;
         MJL_footPrintCachelines(triggerAddr, triggerDir, &BlkAddrs, &BlkDirs);
-        assert(BlkAddrs.size() == Blkdirs.size());
+        assert(BlkAddrs.size() == BlkDirs.size());
         // If the cache line is not in the mshr, then allocate a new mshr entry with target source footprint fill
         
         MSHR *mshr = nullptr;
@@ -873,7 +873,7 @@ class Cache : public BaseCache
             if (mshr == nullptr) {
                 mshr = mshrQueue.MJL_allocateFootPrint(MJL_blockAlign(*addr_it, *dir_it), *dir_it, blkSize,
                                                 pkt, time, order++,
-                                                allocOnFill(pkt->cmd))
+                                                allocOnFill(pkt->cmd));
 
                 if (mshrQueue.isFull()) {
                     setBlocked((BlockedCause)MSHRQueue_MSHRs);
@@ -951,6 +951,7 @@ class Cache : public BaseCache
      */
     void invalidateBlock(CacheBlk *blk);
     /* MJL_Begin */
+    void MJL_invalidateTile(CacheBlk *blk);
     // MJL_TODO: Make this happen, but probably after the only one core version happens
     /**
      * Invalidate blocks that are cross direction of the addresses written

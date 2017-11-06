@@ -434,7 +434,8 @@ public:
         CacheBlk* blk = nullptr;
         CacheBlk* retBlk = nullptr;
         int MJL_startOffset = set%sizeof(uint64_t);
-        for (int way = 0; way < assoc; ++way) {
+        int way = 0;
+        for (way = 0; way < assoc; ++way) {
             for (int i = -MJL_startOffset; i < blkSize/sizeof(uint64_t) - MJL_startOffset; ++i) {
                 blk = findBlockBySetAndWay(set + i, way);
                 if (blk->tag == tag && 
@@ -570,7 +571,7 @@ public:
          bool MJL_tileValid = false;
          if (cache->MJL_is2DCache()) {
              for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                    CacheBlk* tile_blk =  tags->MJL_findBlockByTile(blk, i);
+                    CacheBlk* tile_blk = MJL_findBlockByTile(blk, i);
                     // Get whether there are valid blocks in the tile
                     MJL_tileValid |= tile_blk->isValid();
                     MJL_tileValid |= tile_blk->MJL_hasCrossValid();
@@ -581,7 +582,7 @@ public:
                  // Get stats about tagsInUse, assume 8 sets in a tile, so only 1 tag for all 8 blocks, and only 1/8 size for the warmup bounds as well.
                  tagsInUse++;
                  for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                    tags->MJL_findBlockByTile(blk, i)->isTouched = true;
+                    MJL_findBlockByTile(blk, i)->isTouched = true;
                  }
                  if (!warmedUp && tagsInUse.value() >= warmupBound/sizeof(uint64_t)) {
                      warmedUp = true;
@@ -594,7 +595,7 @@ public:
                  replacements[0]++;
                  ++sampledRefs;
                  for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                     CacheBlk* tile_blk = tags->MJL_findBlockByTile(blk, i);
+                     CacheBlk* tile_blk = MJL_findBlockByTile(blk, i);
                      totalRefs += tile_blk->refCount;
                      tile_blk->refCount = 0;
                      assert(tile_blk->srcMasterId < cache->system->maxMasters());
@@ -605,7 +606,7 @@ public:
                  occupancies[blk->srcMasterId]--;
              }
              for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                CacheBlk* tile_blk =  tags->MJL_findBlockByTile(blk, i);
+                CacheBlk* tile_blk =  MJL_findBlockByTile(blk, i);
                 tile_blk->isTouched = true;
                 tile_blk->tag = MJL_extractTag(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
                 tile_blk->MJL_blkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;

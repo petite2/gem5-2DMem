@@ -236,8 +236,8 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 uint8_t MJL_tempData[blkSize];
                 int MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
                 pkt->writeDataToBlock(MJL_tempData, blkSize);
-                for (int i = pkt->MJL_getOffset(blkSize); i < pkt->MJL_getOffset(blkSize) + pkt->getSize(); i = i + (sizeof(uint64_t) - i%sizeof(uint64_t))) {
-                    memcpy(tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->data + MJL_offset + i%sizeof(uint64_t), &MJL_tempData[i], sizeof(uint64_t) - i%sizeof(uint64_t));
+                for (int i = pkt->MJL_getRowOffset(blkSize); i < pkt->MJL_getRowOffset(blkSize) + pkt->getSize(); i = i + (sizeof(uint64_t) - i%sizeof(uint64_t))) {
+                    memcpy(tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->data + MJL_offset + i%sizeof(uint64_t), &MJL_tempData[i * sizeof(uint64_t)], sizeof(uint64_t) - i%sizeof(uint64_t));
                 }
             } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
                 // Setting the direction to make sure that offset is calculated correctly. Maybe can also be used to collect the statistics on different directional hit?
@@ -295,7 +295,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             // Construct the word dirty from the blocks in sets forming a column, and pass the information to pkt
             bool MJL_crossBlkWordDirty[blkSize/sizeof(uint64_t)];
             for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                MJL_crossblkWordDirty[i] = false;
+                MJL_crossBlkWordDirty[i] = false;
             }
             for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
                 MJL_crossBlkWordDirty[i/sizeof(uint64_t)] = tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_wordDirty[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)];
@@ -316,7 +316,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             uint8_t MJL_tempData[blkSize];
             int MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
             
-            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i {
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                 // MJL_Test: See if this gets the rows correctly
                 std::cout << "MJL_Test: write Set(oct) " << std::oct << tags->MJL_findBlockByTile(blk, i)->set << std::dec << ", Way " << tags->MJL_findBlockByTile(blk, i)->way << ", Tag(oct) " << std::oct << tags->MJL_findBlockByTile(blk, i)->tag << std::dec << std::endl;
                 // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
@@ -561,12 +561,13 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // by crossbar.
         /* MJL_Begin */
         // MJL_TODO: Eviction should be from cache, so should be cacheline size requests. Writeback should be in order. Should we check the other direction as well for clean eviction?
+        WriteQueueEntry *wb_entry = nullptr;
         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
-            WriteQueueEntry *wb_entry = writeBuffer.MJL_findMatch(pkt->getAddr(),
+            wb_entry = writeBuffer.MJL_findMatch(pkt->getAddr(),
                                                                 pkt->MJL_getCmdDir(),
                                                                 pkt->isSecure());
         } else {
-            WriteQueueEntry *wb_entry = writeBuffer.findMatch(pkt->getAddr(),
+            wb_entry = writeBuffer.findMatch(pkt->getAddr(),
                                                           pkt->isSecure());
         }
         /* MJL_End */
@@ -1236,9 +1237,11 @@ Cache::recvTimingReq(PacketPtr pkt)
         // miss
 
         /* MJL_Begin */
+        Addr blk_addr;
+        MSHR *mshr = nullptr;
         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
-            Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
-            MSHR *mshr = pkt->req->isUncacheable() ? nullptr :
+            blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+            mshr = pkt->req->isUncacheable() ? nullptr :
                 mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), pkt->isSecure());
 
             if ( (!mshr) && (pkt->getSize() <= sizeof(uint64_t)) ) {
@@ -1255,9 +1258,9 @@ Cache::recvTimingReq(PacketPtr pkt)
                 }
             }
         } else {
-            Addr blk_addr = blockAlign(pkt->getAddr());
-            MSHR *mshr = pkt->req->isUncacheable() ? nullptr :
-            mshrQueue.findMatch(blk_addr, pkt->isSecure());
+            blk_addr = blockAlign(pkt->getAddr());
+            mshr = pkt->req->isUncacheable() ? nullptr :
+                mshrQueue.findMatch(blk_addr, pkt->isSecure());
         }
         /* MJL_End */
         /* MJL_Comment
@@ -1409,7 +1412,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                             MJL_blkValid |= blk->MJL_crossValid[i/sizeof(uint64_t)];
                         }
                     }
-                    if (blkValid) {
+                    if (MJL_blkValid) {
                         assert(!pkt->req->isUncacheable());
                         assert(pkt->needsWritable());
                         assert(!blk->isWritable());
@@ -2373,7 +2376,7 @@ Cache::MJL_writebackColBlk(CacheBlk *blk, unsigned MJL_offset, bool blkDirty)
     writebacks[Request::wbMasterId]++;
     // Get the column block address
     Addr wbAddr = tags->MJL_regenerateBlkAddr(blk->tag, MemCmd::MJL_DirAttribute::MJL_IsRow, blk->set) + MJL_offset;
-    wbAddr = tags->MJL_blkAlign(col_repl_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    wbAddr = tags->MJL_blkAlign(wbAddr, MemCmd::MJL_DirAttribute::MJL_IsColumn);
 
     Request *req = new Request(wbAddr, blkSize, 0, Request::wbMasterId);
     req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
@@ -2420,9 +2423,7 @@ Cache::MJL_writebackColBlk(CacheBlk *blk, unsigned MJL_offset, bool blkDirty)
         tile_blk->MJL_clearWordDirty(MJL_offset/sizeof(uint64_t));
         tile_blk->MJL_updateDirty();
         // Gather data from blks
-        for (int i = pkt->getOffset(); i < pkt->getOffset() + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
-            memcpy(&MJL_tempData[i], tile_blk->data + MJL_offset + i%sizeof(uint64_t), sizeof(uint64_t) - i%sizeof(uint64_t));
-        }
+        memcpy(&MJL_tempData[i * sizeof(uint64_t)], tile_blk->data + MJL_offset, sizeof(uint64_t));
     }
 
     pkt->MJL_setWordDirtyFromBlk(MJL_tempWordDirty, blkSize);
@@ -2694,7 +2695,7 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
             // Get the row block's pointer
             CacheBlk *tile_blk = tags->MJL_findBlockByTile(blk, i);
-            for (j = 0; j < blkSize/sizeof(uint64_t); ++j) {
+            for (int j = 0; j < blkSize/sizeof(uint64_t); ++j) {
                 MJL_colDirty[j] |= tile_blk->MJL_wordDirty[j];
             }
             MJL_tileValid &= tile_blk->isValid();
@@ -2722,7 +2723,7 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                 // Regenerate the column block address of this tile, and and check if it is waiting on an upgrade request. If it is, just return nullptr
                 Addr col_repl_addr = tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set) + i*sizeof(uint64_t);
                 col_repl_addr = tags->MJL_blkAlign(col_repl_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn);
-                MSHR *repl_mshr = mshrQueue.MJL_findMatch(col_repl_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn, tile_blk->isSecure());
+                MSHR *repl_mshr = mshrQueue.MJL_findMatch(col_repl_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn, blk->isSecure());
                 if (repl_mshr) {
                     // must be an outstanding upgrade request
                     // on a block we're about to replace...
@@ -3325,7 +3326,7 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
                 uint8_t MJL_tempData[blkSize];
                 unsigned MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
                 for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                    std::memcpy(&MJL_tempData[i * uint64_t], (tags->MJL_findBlockByTile(blk, i))->data + MJL_offset, sizeof(uint64_t));
+                    std::memcpy(&MJL_tempData[i * sizeof(uint64_t)], (tags->MJL_findBlockByTile(blk, i))->data + MJL_offset, sizeof(uint64_t));
                 }
                 doTimingSupplyResponse(pkt, MJL_tempData, is_deferred, pending_inval);
             } else {
@@ -3350,7 +3351,7 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
                     bool MJL_tempWordDirty[blkSize/sizeof(uint64_t)];
                     unsigned MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
                     for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                        std::memcpy(&MJL_tempData[i * uint64_t], (tags->MJL_findBlockByTile(blk, i))->data + MJL_offset, sizeof(uint64_t));
+                        std::memcpy(&MJL_tempData[i * sizeof(uint64_t)], (tags->MJL_findBlockByTile(blk, i))->data + MJL_offset, sizeof(uint64_t));
                         MJL_tempWordDirty[i] = (tags->MJL_findBlockByTile(blk, i))->MJL_wordDirty[MJL_offset/sizeof(uint64_t)];
                     }
                     pkt->setDataFromBlock(MJL_tempData, blkSize);
@@ -4070,11 +4071,6 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         }
         assert(pkt->getSize() > sizeof(uint64_t));
         //std::cout << "Vec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "], Addr(oct) " << std::oct << pkt->getAddr() << std::dec << std::endl;
-<<<<<<< HEAD
-        
-=======
-
->>>>>>> 31926394346913166fc68f853e09db4c87bd6208
     }
 
 
