@@ -71,6 +71,25 @@ MSHRQueue::allocate(Addr blk_addr, unsigned blk_size, PacketPtr pkt,
     allocated += 1;
     return mshr;
 }
+/* MJL_Begin */
+MSHR *
+MSHRQueue::MJL_allocateFootPrint(Addr blk_addr, MemCmd::MJL_DirAttribute blk_dir, unsigned blk_size, PacketPtr pkt,
+                    Tick when_ready, Counter order, bool alloc_on_fill)
+{
+    assert(!freeList.empty());
+    MSHR *mshr = freeList.front();
+    assert(mshr->getNumTargets() == 0);
+    freeList.pop_front();
+
+    mshr->MJL_allocateFootPrint(blk_addr, blk_dir, blk_size, pkt, when_ready, order, alloc_on_fill);
+    mshr->allocIter = allocatedList.insert(allocatedList.end(), mshr);
+    mshr->readyIter = addToReadyList(mshr);
+
+    allocated += 1;
+    return mshr;
+}
+
+/* MJL_End */
 
 void
 MSHRQueue::moveToFront(MSHR *mshr)

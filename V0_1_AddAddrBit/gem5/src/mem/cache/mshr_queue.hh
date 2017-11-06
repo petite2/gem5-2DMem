@@ -96,6 +96,10 @@ class MSHRQueue : public Queue<MSHR>
      */
     MSHR *allocate(Addr blk_addr, unsigned blk_size, PacketPtr pkt,
                    Tick when_ready, Counter order, bool alloc_on_fill);
+    /* MJL_Begin */
+    MSHR *MJL_allocateFootPrint(Addr blk_addr, MemCmd::MJL_DirAttribute blk_dir, unsigned blk_size, PacketPtr pkt,
+                    Tick when_ready, Counter order, bool alloc_on_fill);
+    /* MJL_End */
 
     /**
      * Moves the MSHR to the front of the pending list if it is not

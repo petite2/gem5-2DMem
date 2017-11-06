@@ -146,9 +146,22 @@ BaseSetAssoc::findBlock(Addr addr, bool is_secure) const
 CacheBlk* 
 BaseSetAssoc::MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
 {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
+        unsigned set = MJL_extractSet(addr, MJL_cacheBlkDir);
+        BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
+        return blk;
+    } else {
+        return findBlock(addr, is_secure);
+    }
+}
+
+CacheBlk* 
+BaseSetAssoc::MJL_findCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, unsigned MJL_offset) const
+{
     Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
     unsigned set = MJL_extractSet(addr, MJL_cacheBlkDir);
-    BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
+    BlkType *blk = sets[set].MJL_findCrossBlk(tag, MJL_cacheBlkDir, is_secure, MJL_offset);
     return blk;
 }
 /* MJL_End */

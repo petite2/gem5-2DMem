@@ -74,7 +74,9 @@ class CacheSet
     Blktype* findBlk(Addr tag, bool is_secure) const ;
     /* MJL_Begin */
     Blktype* MJL_findBlk(Addr tag, enum Blktype::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, int& way_id) const ;
+    Blktype* MJL_findCrossBlk(Addr tag, enum Blktype::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, int& way_id, unsigned MJL_offset) const ;
     Blktype* MJL_findBlk(Addr tag, enum Blktype::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const ;
+    Blktype* MJL_findCrossBlk(Addr tag, enum Blktype::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, unsigned MJL_offset) const ;
     /* MJL_End */
 
     /**
@@ -130,6 +132,27 @@ CacheSet<Blktype>::MJL_findBlk(Addr tag, enum Blktype::MJL_CacheBlkDir MJL_cache
     }
     return nullptr;
 }
+
+template <class Blktype>
+Blktype*
+CacheSet<Blktype>::MJL_findCrossBlk(Addr tag, enum Blktype::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, int& way_id, unsigned MJL_offset) const
+{
+    /**
+     * Way_id returns the id of the way that matches the block
+     * If no block is found way_id is set to assoc.
+     */
+    way_id = assoc;
+    for (int i = 0; i < assoc; ++i) {
+        if (blks[i]->tag == tag && 
+            blks[i]->MJL_blkDir == MJL_cacheBlkDir && 
+            blks[i]->MJL_crossValid[MJL_offset/sizeof(uint64_t)] &&
+            blks[i]->isSecure() == is_secure) {
+            way_id = i;
+            return blks[i];
+        }
+    }
+    return nullptr;
+}
 /* MJL_End */
 
 template <class Blktype>
@@ -146,6 +169,14 @@ CacheSet<Blktype>::MJL_findBlk(Addr tag, enum Blktype::MJL_CacheBlkDir MJL_cache
 {
     int ignored_way_id;
     return MJL_findBlk(tag, MJL_cacheBlkDir, is_secure, ignored_way_id);
+}
+
+template <class Blktype>
+Blktype*
+CacheSet<Blktype>::MJL_findCrossBlk(Addr tag, enum Blktype::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, unsigned MJL_offset) const
+{
+    int ignored_way_id;
+    return MJL_findCrossBlk(tag, MJL_cacheBlkDir, is_secure, ignored_way_id, MJL_offset);
 }
 /* MJL_End */
 

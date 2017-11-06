@@ -559,8 +559,8 @@ class Packet : public Printable
             MJL_wordDirty[i/sizeof(uint64_t)] = MJL_blkWordDirty[(i + getOffset(blkSize))/sizeof(uint64_t)];
         }
     }
-    void MJL_copyWordDirty( bool MJL_otherWordDirty[8]) {
-        for (int i = 0; i < 8; ++i) {
+    void MJL_copyWordDirty( bool MJL_otherWordDirty[]) {
+        for (int i = 0; i < size; ++i) {
             MJL_wordDirty[i] = MJL_otherWordDirty[i];
         }
     }
@@ -781,6 +781,16 @@ class Packet : public Printable
         int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
 
         return ((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift);
+    }
+
+    Addr MJL_getColOffset(unsigned int blk_size) const
+    {
+        return getAddr() & Addr(blk_size - 1);
+    }
+
+    Addr MJL_getRowOffset(unsigned int blk_size) const
+    {
+        return MJL_swapRowColBits(getAddr(), blk_size, req->MJL_rowWidth) & Addr(blk_size - 1);
     }
     /* MJL_End */
     Addr getOffset(unsigned int blk_size) const

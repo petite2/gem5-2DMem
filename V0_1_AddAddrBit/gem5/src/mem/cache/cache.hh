@@ -781,6 +781,112 @@ class Cache : public BaseCache
     };
 
     MJL_ColVecHandler MJL_colVecHandler;
+
+    // MJL_TODO: dummy functions for now
+    class MJL_FootPrint {
+        public:
+
+            class MJL_FootPrintEntry {
+                public:
+                    bool MJL_rowFootPrint[8];
+                    bool MJL_colFootPrint[8];
+
+                    MJL_FootPrintEntry() : MJL_rowFootPrint{false, false, false, false, false, false, false, false}, MJL_colFootPrint{false, false, false, false, false, false, false, false} {}
+            };
+
+            int logSize;
+            std::map<Addr, MJL_FootPrintEntry*> MJL_footPrintLog;
+            std::list<Addr> MJL_orderLog;
+
+            MJL_FootPrint(int size) : logSize(size) {}
+
+            void MJL_addFootPrint(Addr tag, int set, MemCmd::MJL_DirAttribute dir) {
+                if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    MJL_footPrintLog[tag].MJL_rowFootPrint[set/sizeof(uint64_t)] = true;
+                } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    MJL_footPrintLog[tag].MJL_colFootPrint[set/sizeof(uint64_t)] = true;
+                }
+            }
+
+            void MJL_clearFootPrint(Addr tag) {
+                MJL_FootPrintEntry clearEntry = MJL_footPrintLog[tag];
+                for (int i = 0; i < 8; ++i) {
+                    clearEntry.MJL_rowFootPrint[i] = false;
+                    clearEntry.MJL_colFootPrint[i] = false;
+                }
+            }
+    };
+
+    MJL_FootPrint *MJL_footPrint;
+
+    void MJL_footPrintCachelines(Addr triggerAddr, MemCmd::MJL_DirAttribute triggerDir, std::list<Addr>* BlkAddrs, std::list<MemCmd::MJL_DirAttribute>* BlkDirs) {
+        Addr triggerTag = tags->MJL_extractTag(triggerAddr, MemCmd::MJL_DirAttribute::MJL_IsRow);
+        int triggerSet = tags->MJL_extractSet(triggerAddr, MemCmd::MJL_DirAttribute::MJL_IsRow);
+        for (int i = 0; i < 8; ++i) {
+            Addr rowBlkAddr = tags->MJL_regenerateBlkAddr(triggerTag, MemCmd::MJL_DirAttribute::MJL_IsRow, triggerSet/sizeof(uint64_t) + i);
+            Addr colBlkAddr = tags->MJL_regenerateBlkAddr(triggerTag, MemCmd::MJL_DirAttribute::MJL_IsRow, triggerSet/sizeof(uint64_t)) + i * sizeof(uint64_t);
+            if (triggerSet/sizeof(uint64_t) == i) {
+                if (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    if (MJL_footPrint->MJL_footPrintLog[triggerTag].MJL_colFootPrint[i]) {
+                        BlkAddrs->push_back(colBlkAddr);
+                        BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsColumn)
+                    }
+                } else if (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    if (MJL_footPrint->MJL_footPrintLog[triggerTag].MJL_rowFootPrint[i]) {
+                        BlkAddrs->push_back(rowBlkAddr);
+                        BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsRow)
+                    }
+                }
+                continue;
+            }
+            if (MJL_footPrint->MJL_footPrintLog[triggerTag].MJL_rowFootPrint[i]) {
+                BlkAddrs->push_back(rowBlkAddr);
+                BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsRow)
+            } else if (MJL_footPrint->MJL_footPrintLog[triggerTag].MJL_colFootPrint[i]) {
+                BlkAddrs->push_back(colBlkAddr);
+                BlkDirs->push_back(MemCmd::MJL_DirAttribute::MJL_IsColumn)
+            }
+        }
+
+        MJL_footPrint->MJL_clearFootPrint(triggerTag);
+    }
+
+    void MJL_allocateFootPrintMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
+    {
+        Addr triggerAddr = pkt->getAddr();
+        Addr triggerDir = pkt->MJL_getCmdDir();
+        // Should only be used when the tile does not exist
+        if (pkt->req->isUncacheable() || tags->MJL_tileExists(triggerAddr, pkt->isSecure())) {
+            return;
+        }
+
+        std::list<Addr> BlkAddrs;
+        std::list<MemCmd::MJL_DirAttribute> BlkDirs;
+        MJL_footPrintCachelines(triggerAddr, triggerDir, &BlkAddrs, &BlkDirs);
+        assert(BlkAddrs.size() == Blkdirs.size());
+        // If the cache line is not in the mshr, then allocate a new mshr entry with target source footprint fill
+        
+        MSHR *mshr = nullptr;
+        std::list<MemCmd::MJL_DirAttribute>::iterator dir_it = BlkDirs.begin();
+        for (std::list<Addr>::iterator addr_it = BlkAddrs.begin(); addr_it != BlkAddrs.end(); ++addr_it, ++dir_it) {
+            mshr = mshrQueue.MJL_findMatch(*addr_it, *dir_it, pkt->isSecure());
+            if (mshr == nullptr) {
+                mshr = mshrQueue.MJL_allocateFootPrint(MJL_blockAlign(*addr_it, *dir_it), *dir_it, blkSize,
+                                                pkt, time, order++,
+                                                allocOnFill(pkt->cmd))
+
+                if (mshrQueue.isFull()) {
+                    setBlocked((BlockedCause)MSHRQueue_MSHRs);
+                }
+
+                if (sched_send) {
+                    // schedule the send
+                    schedMemSideSendEvent(time);
+                }
+            }
+        }
+
+    }
     /* MJL_End */
 
     /**
@@ -1071,6 +1177,38 @@ class Cache : public BaseCache
      * @return The writeback request for the block.
      */
     PacketPtr MJL_writebackCachedBlk(CacheBlk *blk);
+
+    /**
+     * Create a writeback request for the column block in physically 2D cache.
+     * Need to add clear writable, reset task_id and tickInserted in caller.
+     * @param blk The row block crossing with the column block to writeback.
+     * @param MJL_offset The column offset of the column block (which word of the row block is crossing with the column block).
+     * @param blkDirty Whether the column block is dirty.
+     * @return The writeback request for the block.
+     */
+    PacketPtr MJL_writebackColBlk(CacheBlk *blk, unsigned MJL_offset, bool blkDirty);
+
+    /**
+     * Clear the writable status of a tile.
+     * @param blk A block in the tile that needs clearing writable.
+     */
+    void MJL_clearTileWritable(CacheBlk *blk);
+
+    /**
+     * Reset task_id and tickInserted status of a tile.
+     * @param blk A block in the tile that needs reset tile task_id and tickInserted.
+     */
+    void MJL_resetTileInfo(CacheBlk *blk);
+
+    /**
+     * Create a CleanEvict request for the column block in physically 2D cache.
+     * Need to add reset task_id and tickInserted in caller.
+     * @param blk The row block crossing with the column block to evict.
+     * @param MJL_offset The column offset of the column block (which word of the row block is crossing with the column block).
+     * @param blkDirty Whether the column block is dirty.
+     * @return The CleanEvict request for the block.
+     */
+    PacketPtr MJL_cleanEvictColBlk(CacheBlk *blk, unsigned MJL_offset, bool blkDirty);
     /* MJL_End */
 
     /**

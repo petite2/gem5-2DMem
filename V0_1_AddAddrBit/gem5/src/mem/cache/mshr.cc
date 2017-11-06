@@ -274,6 +274,31 @@ MSHR::allocate(Addr blk_addr, unsigned blk_size, PacketPtr target,
     targets.add(target, when_ready, _order, source, true, alloc_on_fill);
     assert(deferredTargets.isReset());
 }
+/* MJL_Begin */
+void
+MSHR::MJL_allocateFootPrint(Addr blk_addr, MemCmd::MJL_DirAttribute blk_dir, unsigned blk_size, PacketPtr target,
+               Tick when_ready, Counter _order, bool alloc_on_fill)
+{
+    blkAddr = blk_addr;
+    blkSize = blk_size;
+    MJL_qEntryDir = blk_dir;
+    isSecure = target->isSecure();
+    readyTime = when_ready;
+    order = _order;
+    assert(target);
+    isForward = false;
+    _isUncacheable = target->req->isUncacheable();
+    assert(!_isUncacheable);
+    inService = false;
+    downstreamPending = false;
+    assert(targets.isReset());
+    // Don't know of a case where we would allocate a new MSHR for a
+    // snoop (mem-side request), so set source according to request here
+    Target::Source source = Target::MJL_FromFootPrintFetch;
+    targets.add(target, when_ready, _order, source, true, alloc_on_fill);
+    assert(deferredTargets.isReset());
+}
+/* MJL_End */
 
 
 void

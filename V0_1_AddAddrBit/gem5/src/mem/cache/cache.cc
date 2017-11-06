@@ -99,6 +99,10 @@ Cache::Cache(const CacheParams *p)
     }
     MJL_sndPacketWaiting = false;
     MJL_colVecHandler.cache = this;
+
+    if (MJL_2DCache) {
+        MJL_footPrint = new MJL_FootPrint(tags->getNumSets());
+    }
     /* MJL_End */
 }
 
@@ -175,7 +179,13 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
 {
     assert(pkt->isRequest());
 
+    /* MJL_Begin */
+    // With physically 2D cache, the blk can be only partially valid on the accessed column
+    assert(blk && ((MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)]) || blk->isValid()));
+    /* MJL_End */
+    /* MJL_Comment 
     assert(blk && blk->isValid());
+    */
     // Occasionally this is not true... if we are a lower-level cache
     // satisfying a string of Read and ReadEx requests from
     // upper-level caches, a Read will mark the block as shared but we
@@ -221,18 +231,14 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // Write or WriteLine at the first cache with block in writable state
         if (blk->checkWrite(pkt)) {
             /* MJL_Begin */
-            if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
+            if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
                 // Write to intermediate data structure and then put into corresponding blocks on cross directional write;
-                assert(pkt->getOffset(blkSize) == 0);
                 uint8_t MJL_tempData[blkSize];
+                int MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
                 pkt->writeDataToBlock(MJL_tempData, blkSize);
-                // Set the direction to get the cross direction offset
-                pkt->MJL_setDataDir(blk->MJL_blkDir);
-                for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                    memcpy((blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->data + pkt->getOffset(blkSize), &MJL_tempData[i/sizeof(uint64_t)], sizeof(uint64_t));
+                for (int i = pkt->MJL_getOffset(blkSize); i < pkt->MJL_getOffset(blkSize) + pkt->getSize(); i = i + (sizeof(uint64_t) - i%sizeof(uint64_t))) {
+                    memcpy(tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->data + MJL_offset + i%sizeof(uint64_t), &MJL_tempData[i], sizeof(uint64_t) - i%sizeof(uint64_t));
                 }
-                // Reset the direction
-                pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
             } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
                 // Setting the direction to make sure that offset is calculated correctly. Maybe can also be used to collect the statistics on different directional hit?
                 pkt->MJL_setDataDir(blk->MJL_blkDir);
@@ -253,36 +259,26 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // supply data to any snoops that have appended themselves to
         // this cache before knowing the store will fail.
         /* MJL_Begin */
-        // If this is a physically 2D cache
-        if (MJL_2DCache) {
-            // Just set the dirty normally if the packet's direction align with that of the packet
-            if (pkt->MJL_getDataDir() == blk->MJL_blkDir) {
-                for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t)) {
-                    blk->MJL_setWordDirty(i/sizeof(uint64_t));
-                }
-            // Otherwise, set dirty for the words at the same position in different sets 
-            } else {
-                // MJL_Test: To see if the cross direction line/column access is correct.
-                std::cout << "MJL_Test: cross direction physical 2D cache write. Packet info: Addr(oct) " << std::oct << pkt->getAddr() << std::dec << ", Size " << pkt->getSize() << std::endl;
-                // Set the direction to get the cross direction offset
-                pkt->MJL_setDataDir(blk->MJL_blkDir);
-                for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                    // MJL_Test: The /8 is added due to some kind of address addition constraint.
-                    std::cout << "MJL_Test: write Set(oct) " << std::oct << (blk + i*tags->getNumWays()*sizeof(CacheBlk*)/8)->set << std::dec << ", Way " << (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->way << ", Tag(oct) " << std::oct << (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->tag << std::dec << std::endl;
-                    // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
-                    (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_setWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
-                }
-                // Reset the direction
-                pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
+        // If this is a physically 2D cache and the access is column
+        if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+            // Set the column word dirty for each row 
+            for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
+                tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_setWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
+                tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->status |= BlkDirty;
             }
-        // If this is a physically 1D, logically 2D cache
+        // If the access is row or this is a physically 1D, logically 2D cache
         } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
             for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t)) {
                 blk->MJL_setWordDirty(i/sizeof(uint64_t));
             }
+            blk->status |= BlkDirty;
+        } else {
+            blk->status |= BlkDirty;
         }
         /* MJL_End */
+        /* MJL_Comment
         blk->status |= BlkDirty;
+        */
         DPRINTF(CacheVerbose, "%s for %s (write)\n", __func__, pkt->print());
     } else if (pkt->isRead()) {
         if (pkt->isLLSC()) {
@@ -292,27 +288,20 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // all read responses have a data payload
         assert(pkt->hasRespData());
         /* MJL_Begin */
-        // If this is a physically 2D cache
-        if (MJL_2DCache) {
+        // If this is a physically 2D cache and the access is column
+        if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
             // In physically 2D cache, the cmd and the data direction should always align
             assert(pkt->MJL_sameCmdDataDir());
-            // Copy the word dirty information directly from the blk if the directon aligns
-            if (pkt->MJL_getCmdDir() == blk->MJL_blkDir) {
-                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
-            // Construct the word dirty from the blocks in sets forming a line/column, and pass the information to pkt
-            } else {
-                bool MJL_crossBlkWordDirty[pkt->getSize()];
-                // Set the direction to get the cross direction offset
-                pkt->MJL_setDataDir(blk->MJL_blkDir);
-                
-                for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                    MJL_crossBlkWordDirty[i] = (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_wordDirty[pkt->getOffset(blkSize)];
-                }
-                pkt->MJL_copyWordDirty(MJL_crossBlkWordDirty);
-                // Reset the direction
-                pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
+            // Construct the word dirty from the blocks in sets forming a column, and pass the information to pkt
+            bool MJL_crossBlkWordDirty[blkSize/sizeof(uint64_t)];
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                MJL_crossblkWordDirty[i] = false;
             }
-        // If this is a physically 1D, logically 2D cache
+            for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
+                MJL_crossBlkWordDirty[i/sizeof(uint64_t)] = tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_wordDirty[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)];
+            }
+            pkt->MJL_copyWordDirty(MJL_crossBlkWordDirty);
+        // If the access is row or this is a physically 1D, logically 2D cache
         } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
             pkt->MJL_setDataDir(blk->MJL_blkDir);
             pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
@@ -320,16 +309,19 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         /* MJL_Test 
         std::cout << "MJL_setFromBlock: set " << blk->set << std::endl;
          */
-        // Gather data from blocks into an intermediate structure and then copy to packet
-        if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
+        // If this is a physically 2D cache and the access is column, gather data from blocks into an intermediate structure and then copy to packet
+        if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+            // MJL_Test: To see if the cross direction line/column access is correct.
+            std::cout << "MJL_Test: column physical 2D cache read. Packet info: Addr(oct) " << std::oct << pkt->getAddr() << std::dec << ", Size " << pkt->getSize() << std::endl;
             uint8_t MJL_tempData[blkSize];
-            // Set the direction to get the cross direction offset
-            pkt->MJL_setDataDir(blk->MJL_blkDir);
-            for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                memcpy(&MJL_tempData[i/sizeof(uint64_t)], (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->data + pkt->getOffset(blkSize), sizeof(uint64_t));
+            int MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
+            
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i {
+                // MJL_Test: See if this gets the rows correctly
+                std::cout << "MJL_Test: write Set(oct) " << std::oct << tags->MJL_findBlockByTile(blk, i)->set << std::dec << ", Way " << tags->MJL_findBlockByTile(blk, i)->way << ", Tag(oct) " << std::oct << tags->MJL_findBlockByTile(blk, i)->tag << std::dec << std::endl;
+                // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
+                memcpy(&MJL_tempData[i * sizeof(uint64_t)], tags->MJL_findBlockByTile(blk, i)->data + MJL_offset, sizeof(uint64_t));
             }
-            // Reset the direction
-            pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
             pkt->setDataFromBlock(MJL_tempData, blkSize);
         } else {
             pkt->setDataFromBlock(blk->data, blkSize);
@@ -356,18 +348,15 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 if (blk->isDirty()) {
                     pkt->setCacheResponding();
                     /* MJL_Begin */
-                    if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
-                        // Set the direction to get the cross direction offset
-                        pkt->MJL_setDataDir(blk->MJL_blkDir);
-                        for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                            // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
-                            (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_clearWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
-                            (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
+                    if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+                        for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
+                            tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_clearWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
+                            tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                         }
-                        // Reset the direction
-                        pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
-                    } else {
+                    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
                         blk->MJL_clearAllDirty();
+                        blk->status &= ~BlkDirty;
+                    } else {
                         blk->status &= ~BlkDirty;
                     }
                     /* MJL_End */
@@ -411,18 +400,16 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                         // and first snoop upwards in all other
                         // branches
                         /* MJL_Begin */
-                        if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
-                            // Set the direction to get the cross direction offset
-                            pkt->MJL_setDataDir(blk->MJL_blkDir);
-                            for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
+                        if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+                            for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
                                 // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
-                                (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_clearWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
-                                (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
+                                tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_clearWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
+                                tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                             }
-                            // Reset the direction
-                            pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
-                        } else {
+                        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
                             blk->MJL_clearAllDirty();
+                            blk->status &= ~BlkDirty;
+                        } else {
                             blk->status &= ~BlkDirty;
                         }
                         /* MJL_End */
@@ -454,22 +441,23 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             // that the data it already has is in fact dirty
             pkt->setCacheResponding();
             /* MJL_Begin */
-            if (MJL_2DCache && pkt->MJL_getCmdDir() != blk->MJL_blkDir) {
-                bool MJL_tempWordDirty[8];
-                // Set the direction to get the cross direction offset
-                pkt->MJL_setDataDir(blk->MJL_blkDir);
-                for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)) {
-                    MJL_tempWordDirty[i/sizeof(uint64_t)] = (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_wordDirty[pkt->getOffset(blkSize)/sizeof(uint64_t)];
+            if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+                bool MJL_tempWordDirty[blkSize/sizeof(uint64_t)];
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    MJL_tempWordDirty[i] = false;
+                }
+                for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
+                    MJL_tempWordDirty[i/sizeof(uint64_t)] = tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_wordDirty[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)];
                     // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
-                    (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_clearWordDirty(pkt->getOffset(blkSize)/sizeof(uint64_t));
-                    (blk + i/sizeof(uint64_t)*tags->getNumWays()*sizeof(CacheBlk*)/8)->MJL_updateDirty();
+                    tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_clearWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
+                    tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                 }
                 pkt->MJL_setWordDirtyFromBlk(MJL_tempWordDirty, blkSize);
-                // Reset the direction
-                pkt->MJL_setDataDir(pkt->MJL_getCmdDir());
-            } else {
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
                 pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
                 blk->MJL_clearAllDirty();
+                blk->status &= ~BlkDirty;
+            } else {
                 blk->status &= ~BlkDirty;
             }
             /* MJL_End */
@@ -479,7 +467,16 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         }
     } else {
         assert(pkt->isInvalidate());
+        /* MJL_Begin */
+        if (MJL_2DCache) {
+            MJL_invalidateTile(blk);
+        } else {
+            invalidateBlock(blk);
+        }
+        /* MJL_End */
+        /* MJL_Comment
         invalidateBlock(blk);
+        */
         DPRINTF(CacheVerbose, "%s for %s (invalidation)\n", __func__,
                 pkt->print());
     }
@@ -536,12 +533,12 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     /* MJL_Begin */
     if ( pkt->getSize() <= sizeof(uint64_t) && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) { // Less than a word, cross direction possible
         blk = tags->MJL_accessBlockOneWord(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
-    } else {
+    } else if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+        blk = tags->MJL_accessCrossBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), lat, id, pkt->MJL_getColOffset(blkSize));
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
         blk = tags->MJL_accessBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
-    }
-    // For physically 2D Cache, the cross direction should be checked too. Now we need the additional valid bits to see it a cross directional line/column is valid or not.
-    if (blk == nullptr && MJL_2DCache) {
-        ;
+    } else {
+        blk = tags->accessBlock(pkt->getAddr(), pkt->isSecure(), lat, id);
     }
     // MJL_TODO: may need to change lat if vector load/store is not possible
     /* MJL_End */
@@ -564,9 +561,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // by crossbar.
         /* MJL_Begin */
         // MJL_TODO: Eviction should be from cache, so should be cacheline size requests. Writeback should be in order. Should we check the other direction as well for clean eviction?
-        WriteQueueEntry *wb_entry = writeBuffer.MJL_findMatch(pkt->getAddr(),
-                                                          pkt->MJL_getCmdDir(),
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            WriteQueueEntry *wb_entry = writeBuffer.MJL_findMatch(pkt->getAddr(),
+                                                                pkt->MJL_getCmdDir(),
+                                                                pkt->isSecure());
+        } else {
+            WriteQueueEntry *wb_entry = writeBuffer.findMatch(pkt->getAddr(),
                                                           pkt->isSecure());
+        }
         /* MJL_End */
         /* MJL_Comment
         WriteQueueEntry *wb_entry = writeBuffer.findMatch(pkt->getAddr(),
@@ -610,7 +612,10 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // any ordering/decisions about ownership already taken
         if (pkt->cmd == MemCmd::WritebackClean &&
         /* MJL_Begin */
-            mshrQueue.MJL_findMatch(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure())) {
+            (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) 
+                && mshrQueue.MJL_findMatch(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure())) 
+            || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos) 
+                && mshrQueue.findMatch(pkt->getAddr(), pkt->isSecure()))) ) {
         /* MJL_End */
         /* MJL_Comment
             mshrQueue.findMatch(pkt->getAddr(), pkt->isSecure())) {
@@ -620,11 +625,29 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             return true;
         }
 
+        /* MJL_Begin */
+        // For physically 2D Cache, we should check if the tile exists, and if it does, the blk can be used directly for write back and should not do a replacement.
+        if (MJL_2DCache && blk == nullptr) {
+            // Set the direction to get the cross direction offset
+            int MJL_offset = pkt->getOffset(blkSize);
+            if (pkt->MJL_cmdIsRow()) {
+                MJL_offset = pkt->MJL_getRowOffset(blkSize);
+            } else if (pkt->MJL_cmdIsColumn()) {
+                MJL_offset = pkt->MJL_getColOffset(blkSize);
+            }
+            blk = tags->MJL_findWritebackBlk(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), MJL_offset);
+        }
+        /* MJL_End */
+
         if (blk == nullptr) {
             // need to do a replacement
             /* MJL_Begin */
-            assert(pkt->MJL_getCmdDir() == pkt->MJL_getDataDir());
-            blk = MJL_allocateBlock(pkt->getAddr(), pkt->MJL_getDataDir(), pkt->isSecure(), writebacks);
+            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                assert(pkt->MJL_getCmdDir() == pkt->MJL_getDataDir());
+                blk = MJL_allocateBlock(pkt->getAddr(), pkt->MJL_getDataDir(), pkt->isSecure(), writebacks);
+            } else {
+                blk = allocateBlock(pkt->getAddr(), pkt->isSecure(), writebacks);
+            }
             /* MJL_End */
             /* MJL_Comment
             blk = allocateBlock(pkt->getAddr(), pkt->isSecure(), writebacks);
@@ -633,32 +656,91 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 // no replaceable block available: give up, fwd to next level.
                 incMissCount(pkt);
                 /* MJL_Begin */
-                if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
-                    MJL_overallRowMisses++;
-                    if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-                        MJL_overallRowVecMisses++;
-                    }
-                } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-                    MJL_overallColumnMisses++;
-                    if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-                        MJL_overallColVecMisses++;
+                if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                    if (pkt->MJL_cmdIsRow()) {
+                        MJL_overallRowMisses++;
+                        if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                            MJL_overallRowVecMisses++;
+                        }
+                    } else if (pkt->MJL_cmdIsColumn()) {
+                        MJL_overallColumnMisses++;
+                        if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                            MJL_overallColVecMisses++;
+                        }
                     }
                 }
                 /* MJL_End */
                 return false;
             }
-            tags->insertBlock(pkt, blk);
 
+            tags->insertBlock(pkt, blk);
+            /* MJL_Begin */
+            // Physically 2D Cache should handle insert column block and the block status changes.
+            if (MJL_2DCache) {
+                bool MJL_readable = true;
+                bool MJL_secure = pkt->isSecure();
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    CacheBlk* tile_blk = tags->MJL_findBlockByTile(blk, i);
+                    if ((tile_blk->isValid() || tile_blk->MJL_hasCrossValid()) && !tile_blk->isReadable()) {
+                        MJL_readable = false;
+                    }
+                    if ((tile_blk->isValid() || tile_blk->MJL_hasCrossValid()) && MJL_secure != tile_blk->isSecure()) {
+                        MJL_secure = tile_blk->isSecure();
+                    }
+                }
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    CacheBlk* tile_blk = tags->MJL_findBlockByTile(blk, i);
+                    if (MJL_readable) {
+                        tile_blk->status |= BlkReadable;
+                    } else {
+                        tile_blk->status &= ~BlkReadable;
+                    }
+                    assert(pkt->isSecure() == MJL_secure);
+                    if (pkt->isSecure()) {
+                        tile_blk->status |= BlkSecure;
+                    }
+                }
+                if (pkt->MJL_cmdIsRow()) {
+                    blk->status |= BlkValid;
+                } else if (pkt->MJL_cmdIsColumn()) {
+                    int MJL_offset = pkt->MJL_getColOffset(blkSize);
+                    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        tags->MJL_findBlockByTile(blk, i)->MJL_crossValid[MJL_offset/sizeof(uint64_t)] = true;
+                    }
+                }
+            } else {
+
+                blk->status = (BlkValid | BlkReadable);
+                if (pkt->isSecure()) {
+                    blk->status |= BlkSecure;
+                }
+            }
+            /* MJL_End */
+            /* MJL_Comment
+    
             blk->status = (BlkValid | BlkReadable);
             if (pkt->isSecure()) {
                 blk->status |= BlkSecure;
             }
+            */
         }
         // only mark the block dirty if we got a writeback command,
         // and leave it as is for a clean writeback
         if (pkt->cmd == MemCmd::WritebackDirty) {
             /* MJL_Begin */
-            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            // No need for invalidation for physically 2D Cache, but the setting dirty status should change
+            if (MJL_2DCache) {
+                if (pkt->MJL_cmdIsColumn()) {
+                    unsigned MJL_offset = pkt->MJL_getColOffset(blkSize);
+                    for (unsigned i = 0; i < pkt->getSize()/sizeof(uint64_t); ++i) { // For writeback, pkt->getSize() == blkSize
+                        CacheBlk* tile_blk = tags->MJL_findBlockByTile(blk, i);
+                        tile_blk->MJL_setWordDirty(MJL_offset/sizeof(uint64_t));
+                        tile_blk->MJL_updateDirty();
+                    }
+                } else {
+                    blk->MJL_setWordDirtyPkt(pkt, blkSize);
+                }
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
                 assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
                 // Taking the additional tag check latency into account
                 for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
@@ -667,7 +749,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                     }
                 }
                 MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
-                blk->MJL_clearAllDirty();
+                //blk->MJL_clearAllDirty();
                 blk->MJL_setWordDirtyPkt(pkt, blkSize);
             }
             /* MJL_End */
@@ -676,21 +758,52 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // if the packet does not have sharers, it is passing
         // writable, and we got the writeback in Modified or Exclusive
         // state, if not we are in the Owned or Shared state
+        /* MJL_Begin */
+        if (MJL_2DCache) {
+            // In physically 2D cache, Writable should propagate to other blocks of the same tile as well
+            // MJL_TODO: although without other cores, there should be no sharers so this should work, but actually should change to check tile wise when the has sharers is set.
+            if (!pkt->hasSharers()) {
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    CacheBlk* tile_blk = tags->MJL_findBlockByTile(blk, i);
+                    tile_blk->status |= BlkWritable;
+                }
+            }
+        } else {
+            if (!pkt->hasSharers()) {
+                blk->status |= BlkWritable;
+            }
+        }
+        /* MJL_End */
+        /* MJL_Comment
         if (!pkt->hasSharers()) {
             blk->status |= BlkWritable;
         }
+        */
         // nothing else to do; writeback doesn't expect response
         assert(!pkt->needsResponse());
+        /* MJL_Begin */
+        // MJL_TODO: The data copy should be changed for physically 2D cache column access
+        if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+            unsigned MJL_offset = pkt->MJL_getColOffset(blkSize);
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) { // For writeback, pkt->getSize() == blkSize
+                std::memcpy(tags->MJL_findBlockByTile(blk, i)->data + MJL_offset, pkt->getConstPtr<uint8_t>() + i * sizeof(uint64_t), sizeof(uint64_t));
+            }
+        } else {
+            std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
+        }
+        /* MJL_End */
+        /* MJL_Comment
         std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
+        */
         DPRINTF(Cache, "%s new state is %s\n", __func__, blk->print());
         incHitCount(pkt);
         /* MJL_Begin */
-        if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+        if (pkt->MJL_cmdIsRow()) {
             MJL_overallRowHits++;
             if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
                 MJL_overallRowVecHits++;
             }
-        } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        } else if (pkt->MJL_cmdIsColumn()) {
             MJL_overallColumnHits++;
             if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
                 MJL_overallColVecHits++;
@@ -716,19 +829,19 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // OK to satisfy access
         incHitCount(pkt);
         /* MJL_Begin */
-        if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+        if (pkt->MJL_cmdIsRow()) {
             MJL_overallRowHits++;
             if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
                 MJL_overallRowVecHits++;
             }
-        } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        } else if (pkt->MJL_cmdIsColumn()) {
             MJL_overallColumnHits++;
             if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
                 MJL_overallColVecHits++;
             }
         }
 
-        if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) ) {
+        if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !MJL_2DCache ) {
             // Taking the additional tag check into account
             for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
                 if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)]) {
@@ -749,12 +862,12 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
 
     incMissCount(pkt);
     /* MJL_Begin */
-    if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+    if (pkt->MJL_cmdIsRow()) {
         MJL_overallRowMisses++;
         if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
             MJL_overallRowVecMisses++;
         }
-    } else if (pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+    } else if (pkt->MJL_cmdIsColumn()) {
         MJL_overallColumnMisses++;
         if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
             MJL_overallColVecMisses++;
@@ -770,7 +883,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     /* MJL_Begin */
     // We are going to bring in a cache line, crossing lines with dirty data at the crossing needs to be written back
     // And if the access were a write, then the crossing lines to the write section needs to be invalidated as well
-    if (blk == nullptr && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) ) {
+    // If the cache is physically 2D, then there's no need for all this
+    if (blk == nullptr && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !MJL_2DCache ) {
         CacheBlk *MJL_crossBlk = nullptr;
         Addr MJL_crossBlkAddr;
         Cycles templat = lat;
@@ -943,7 +1057,7 @@ Cache::promoteWholeLineWrites(PacketPtr pkt)
 {
     // Cache line clearing instructions
     /* MJL_Begin */
-    if (pkt->cmd == MemCmd::WriteReq) {
+    if (pkt->cmd == MemCmd::WriteReq && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) {
         // For writes, dataDir should be the same as cmdDir, and getOffset() works on MJL_dataDir
         assert(pkt->MJL_sameCmdDataDir());
     }
@@ -1050,6 +1164,14 @@ Cache::recvTimingReq(PacketPtr pkt)
         // Note that lat is passed by reference here. The function
         // access() calls accessBlock() which can modify lat value.
         satisfied = access(pkt, blk, lat, writebacks);
+        /* MJL_Begin */
+        // Add the additional tag check latency for misses
+        if (!MJL_2DCache && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && 
+            ((!satisfied && !pkt->req->isUncacheable() && pkt->cmd != MemCmd::CleanEvict && !pkt->isWriteback())
+            || (satisfied && pkt->cmd == MemCmd::WritebackDirty))) {
+            forward_time = clockEdge(Cycles( blkSize/sizeof(uint64_t) * forwardLatency)) + pkt->headerDelay;
+         }
+        /* MJL_End */
 
         // copy writebacks to write buffer here to ensure they logically
         // proceed anything happening below
@@ -1114,22 +1236,28 @@ Cache::recvTimingReq(PacketPtr pkt)
         // miss
 
         /* MJL_Begin */
-        Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
-        MSHR *mshr = pkt->req->isUncacheable() ? nullptr :
-            mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), pkt->isSecure());
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+            MSHR *mshr = pkt->req->isUncacheable() ? nullptr :
+                mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), pkt->isSecure());
 
-        if ( (!mshr) && (pkt->getSize() <= sizeof(uint64_t)) ) {
-            if (pkt->MJL_cmdIsRow()) {
-                blk_addr = MJL_blockAlign(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsColumn);
-                mshr = pkt->req->isUncacheable() ? nullptr :
-                        mshrQueue.MJL_findMatch(blk_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
-            } else if (pkt->MJL_cmdIsColumn()) {
-                blk_addr = MJL_blockAlign(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsRow);
-                mshr = pkt->req->isUncacheable() ? nullptr :
-                        mshrQueue.MJL_findMatch(blk_addr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
-            } else {
-                assert( pkt->MJL_cmdIsRow() || pkt->MJL_cmdIsColumn() );
+            if ( (!mshr) && (pkt->getSize() <= sizeof(uint64_t)) ) {
+                if (pkt->MJL_cmdIsRow()) {
+                    blk_addr = MJL_blockAlign(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                    mshr = pkt->req->isUncacheable() ? nullptr :
+                            mshrQueue.MJL_findMatch(blk_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
+                } else if (pkt->MJL_cmdIsColumn()) {
+                    blk_addr = MJL_blockAlign(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsRow);
+                    mshr = pkt->req->isUncacheable() ? nullptr :
+                            mshrQueue.MJL_findMatch(blk_addr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                } else {
+                    assert( pkt->MJL_cmdIsRow() || pkt->MJL_cmdIsColumn() );
+                }
             }
+        } else {
+            Addr blk_addr = blockAlign(pkt->getAddr());
+            MSHR *mshr = pkt->req->isUncacheable() ? nullptr :
+            mshrQueue.findMatch(blk_addr, pkt->isSecure());
         }
         /* MJL_End */
         /* MJL_Comment
@@ -1171,7 +1299,9 @@ Cache::recvTimingReq(PacketPtr pkt)
                                              pkt->req->masterId());
                 
                 /* MJL_Begin */
-                req->MJL_setReqDir(pkt->req->MJL_getReqDir());
+                if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                    req->MJL_setReqDir(pkt->req->MJL_getReqDir());
+                }
                 req->MJL_cachelineSize = blkSize;
                 req->MJL_rowWidth = MJL_rowWidth;
                 // MJL_TODO: not sure whether this would cause problem, but I would assume that reqDir should be the same as cmdDir
@@ -1224,7 +1354,9 @@ Cache::recvTimingReq(PacketPtr pkt)
                     mshr->allocateTarget(pkt, forward_time, order++,
                                          allocOnFill(pkt->cmd));
                     /* MJL_Begin */
-                    MJL_markBlockInfo(mshr);
+                    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                        MJL_markBlockInfo(mshr);
+                    }
                     /* MJL_End */
                     if (mshr->getNumTargets() == numTarget) {
                         noTargetMSHR = mshr;
@@ -1263,7 +1395,29 @@ Cache::recvTimingReq(PacketPtr pkt)
                 // uncached memory write, forwarded to WriteBuffer.
                 allocateWriteBuffer(pkt, forward_time);
             } else {
-                if (blk && blk->isValid()) {
+                /* MJL_Begin */ 
+                if (MJL_2DCache && blk) {
+                    // In a physically 2D cache, a write miss to a valid tile would need non-readable marked only when there is valid data in the write interval
+                    bool MJL_blkValid = blk->isValid();
+                    if (pkt->MJL_cmdIsColumn()) {
+                        MJL_blkValid = blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)];
+                        for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
+                            MJL_blkValid |= tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->isValid();
+                        }
+                    } else if (pkt->MJL_cmdIsRow()) {
+                        for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
+                            MJL_blkValid |= blk->MJL_crossValid[i/sizeof(uint64_t)];
+                        }
+                    }
+                    if (blkValid) {
+                        assert(!pkt->req->isUncacheable());
+                        assert(pkt->needsWritable());
+                        assert(!blk->isWritable());
+                        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                            tags->MJL_findBlockByTile(blk, i)->status &= ~BlkReadable;
+                        }
+                    }
+                } else /* MJL_End */if (blk && blk->isValid()) {
                     // should have flushed and have no valid block
                     assert(!pkt->req->isUncacheable());
 
@@ -1316,8 +1470,17 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
 {
     // should never see evictions here
     assert(!cpu_pkt->isEviction());
-
+    /* MJL_Begin */
+    bool blkValid = (blk != nullptr);
+    if (!MJL_2DCache || cpu_pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+        blkValid = blkValid && blk->isValid();
+    } else if (cpu_pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        blkValid = blkValid && blk->MJL_crossValid[cpu_pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)];
+    }
+    /* MJL_End */
+    /* MJL_Comment
     bool blkValid = blk && blk->isValid();
+    */
 
     if (cpu_pkt->req->isUncacheable() ||
         (!blkValid && cpu_pkt->isUpgrade()) ||
@@ -1343,7 +1506,9 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // MJL_TODO: coherence related
         cmd = MemCmd::InvalidateReq;
         /* MJL_Begin */
-        cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
+        }
         /* MJL_End */
     } else if (blkValid && useUpgrades) {
         // only reason to be here is that blk is read only and we need
@@ -1352,7 +1517,9 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         assert(!blk->isWritable());
         cmd = cpu_pkt->isLLSC() ? MemCmd::SCUpgradeReq : MemCmd::UpgradeReq;
         /* MJL_Begin */
-        cmd.MJL_setCmdDir(blk->MJL_blkDir);
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            cmd.MJL_setCmdDir(blk->MJL_blkDir);
+        }
         /* MJL_End */
     } else if (cpu_pkt->cmd == MemCmd::SCUpgradeFailReq ||
                cpu_pkt->cmd == MemCmd::StoreCondFailReq) {
@@ -1362,14 +1529,18 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // all caches not being on the same local bus.
         cmd = MemCmd::SCUpgradeFailReq;
         /* MJL_Begin */
-        cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
+        }
         /* MJL_End */
     } else {
         // block is invalid
         cmd = needsWritable ? MemCmd::ReadExReq :
             (isReadOnly ? MemCmd::ReadCleanReq : MemCmd::ReadSharedReq);
         /* MJL_Begin */
-        cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
+        }
         /* MJL_End */
     }
     PacketPtr pkt = new Packet(cpu_pkt->req, cmd, blkSize);
@@ -1389,7 +1560,11 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
 
     // the packet should be block aligned
     /* MJL_Begin */
-    assert(pkt->getAddr() == MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()));
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        assert(pkt->getAddr() == MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()));
+    } else {
+        assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
+    }
     /* MJL_End */
     /* MJL_Comment
     assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
@@ -1519,7 +1694,12 @@ Cache::recvAtomic(PacketPtr pkt)
             delete bus_pkt;
         }
 
-        if (is_invalidate && blk && blk->isValid()) {
+        /* MJL_Begin */
+        if (is_invalidate && MJL_2DCache && blk && (blk != tempBlock)) {
+            if (blk->isValid() || blk->MJL_hasCrossValid()) {
+                MJL_invalidateTile(blk);
+            }
+        } else /* MJL_End */if (is_invalidate && blk && blk->isValid()) {
             invalidateBlock(blk);
         }
     }
@@ -1793,7 +1973,15 @@ Cache::recvTimingResp(PacketPtr pkt)
         (pkt->isRead() || pkt->cmd == MemCmd::UpgradeResp);
 
     /* MJL_Begin */
-    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
+    CacheBlk *blk = nullptr;
+    if (MJL_2DCache && pkt->MJL_dataIsColumn()) {
+        assert(pkt->MJL_sameCmdDataDir());
+        blk = tags->MJL_findCrossBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), pkt->MJL_getColOffset(blkSize));
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
+    } else {
+        blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
+    }
     /* MJL_End */
     /* MJL_Comment
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
@@ -1912,7 +2100,10 @@ Cache::recvTimingResp(PacketPtr pkt)
                 // responding (if the block was previously dirty) to
                 // snoops as they should snoop the caches above where
                 // they will get the response from.
-                if (is_invalidate && blk && blk->isValid()) {
+                /* MJL_Begin */
+                if (MJL_2DCache && is_invalidate && blk && (blk->isValid() || blk->MJL_hasCrossValid())) {
+                    MJL_invalidateTile(blk);
+                } else /* MJL_End */if (is_invalidate && blk && blk->isValid()) {
                     invalidateBlock(blk);
                 }
                 // not a cache fill, just forwarding response
@@ -1953,6 +2144,10 @@ Cache::recvTimingResp(PacketPtr pkt)
             delete tgt_pkt->req;
             delete tgt_pkt;
             break;
+          /* MJL_Begin */
+          case MSHR::Target::MJL_FromFootPrintFetch:
+            break;
+          /* MJL_End */
 
           case MSHR::Target::FromSnoop:
             // I don't believe that a snoop can be in an error state
@@ -1978,15 +2173,17 @@ Cache::recvTimingResp(PacketPtr pkt)
             panic("Illegal target->source enum %d\n", target.source);
         }
         /* MJL_Begin */
-        MJL_writeback |= target.MJL_postWriteback;
-        MJL_invalidate |= target.MJL_postInvalidate;
-        assert(!target.MJL_postInvalidate || (&target == &targets.back())); 
-        if (target.MJL_postWriteback) {
-            MJL_order = target.order;
-        } else if (!MJL_writeback && target.MJL_postInvalidate) {
-            MJL_order = target.order;
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            MJL_writeback |= target.MJL_postWriteback;
+            MJL_invalidate |= target.MJL_postInvalidate;
+            assert(!target.MJL_postInvalidate || (&target == &targets.back())); 
+            if (target.MJL_postWriteback) {
+                MJL_order = target.order;
+            } else if (!MJL_writeback && target.MJL_postInvalidate) {
+                MJL_order = target.order;
+            }
+            target.MJL_clearBlocking();
         }
-        target.MJL_clearBlocking();
         /* MJL_End */
     }
 
@@ -1995,22 +2192,26 @@ Cache::recvTimingResp(PacketPtr pkt)
     // MJL_TODO: probably coherence handling
     if (blk && blk->isValid()) {
         /* MJL_Begin */
-        PacketPtr MJL_postPkt = nullptr;
-        if (MJL_invalidate && (blk->isDirty() || writebackClean)) {
-            MJL_postPkt = writebackBlk(blk);
-        } else if (MJL_invalidate) {
-            MJL_postPkt = cleanEvictBlk(blk);
-        } else if (MJL_writeback && blk->isDirty()) {
-            MJL_postPkt = MJL_writebackCachedBlk(blk);
-        } else if (MJL_writeback) {
-            blk->status &= ~BlkWritable;
-        }
-        
-        if (MJL_postPkt) {
-            MJL_conflictWBCount3++;
-            MJL_postPkt->MJL_hasOrder = true;
-            MJL_postPkt->MJL_order = MJL_order;
-            writebacks.push_back(MJL_postPkt);
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            PacketPtr MJL_postPkt = nullptr;
+            if (MJL_invalidate && (blk->isDirty() || writebackClean)) {
+                MJL_postPkt = writebackBlk(blk);
+            } else if (MJL_invalidate) {
+                MJL_postPkt = cleanEvictBlk(blk);
+            } else if (MJL_writeback && blk->isDirty()) {
+                MJL_postPkt = MJL_writebackCachedBlk(blk);
+            } else if (MJL_writeback) {
+                blk->status &= ~BlkWritable;
+            }
+            
+            if (MJL_postPkt) {
+                // physically 2D cache should not have this problem
+                assert(!MJL_2DCache);
+                MJL_conflictWBCount3++;
+                MJL_postPkt->MJL_hasOrder = true;
+                MJL_postPkt->MJL_order = MJL_order;
+                writebacks.push_back(MJL_postPkt);
+            }
         }
         /* MJL_End */
         // an invalidate response stemming from a write line request
@@ -2089,9 +2290,15 @@ Cache::writebackBlk(CacheBlk *blk)
 
     writebacks[Request::wbMasterId]++;
     /* MJL_Begin */
-    Request *req = new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
+    Request *req = nullptr;
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        req = new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
                                blkSize, 0, Request::wbMasterId);
-    req->MJL_setReqDir(blk->MJL_blkDir);
+        req->MJL_setReqDir(blk->MJL_blkDir);
+    } else {
+        req = new Request(tags->regenerateBlkAddr(blk->tag, blk->set),
+                               blkSize, 0, Request::wbMasterId);
+    }
     req->MJL_cachelineSize = blkSize;
     req->MJL_rowWidth = MJL_rowWidth;
     /* MJL_End */
@@ -2110,9 +2317,11 @@ Cache::writebackBlk(CacheBlk *blk)
         new Packet(req, blk->isDirty() ?
                    MemCmd::WritebackDirty : MemCmd::WritebackClean);
     /* MJL_Begin */
-    pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
-    pkt->MJL_setDataDir(req->MJL_getReqDir());
-    pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
+        pkt->MJL_setDataDir(req->MJL_getReqDir());
+        pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+    }
     /* MJL_End */
 
     DPRINTF(Cache, "Create Writeback %s writable: %d, dirty: %d\n",
@@ -2129,14 +2338,18 @@ Cache::writebackBlk(CacheBlk *blk)
 
     // make sure the block is not marked dirty
     /* MJL_Begin */
-    blk->MJL_clearAllDirty();
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        blk->MJL_clearAllDirty();
+    }
     /* MJL_End */
     blk->status &= ~BlkDirty;
 
     pkt->allocate();
     std::memcpy(pkt->getPtr<uint8_t>(), blk->data, blkSize);
     /* MJL_Begin */
-    pkt->MJL_setDataDir(blk->MJL_blkDir);
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        pkt->MJL_setDataDir(blk->MJL_blkDir);
+    }
     /* MJL_End */
 
     return pkt;
@@ -2146,6 +2359,137 @@ PacketPtr
 Cache::MJL_writebackCachedBlk(CacheBlk *blk) {
     PacketPtr pkt = writebackBlk(blk);
     pkt->setBlockCached();
+    return pkt;
+}
+
+PacketPtr
+Cache::MJL_writebackColBlk(CacheBlk *blk, unsigned MJL_offset, bool blkDirty)
+{
+    chatty_assert(!isReadOnly || writebackClean,
+                  "Writeback from read-only cache");
+    assert(blk && blk->MJL_crossValid[MJL_offset/sizeof(uint64_t)] && (blkDirty|| writebackClean));
+    assert(MJL_2DCache);
+
+    writebacks[Request::wbMasterId]++;
+    // Get the column block address
+    Addr wbAddr = tags->MJL_regenerateBlkAddr(blk->tag, MemCmd::MJL_DirAttribute::MJL_IsRow, blk->set) + MJL_offset;
+    wbAddr = tags->MJL_blkAlign(col_repl_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn);
+
+    Request *req = new Request(wbAddr, blkSize, 0, Request::wbMasterId);
+    req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    req->MJL_cachelineSize = blkSize;
+    req->MJL_rowWidth = MJL_rowWidth;
+    
+    if (blk->isSecure())
+        req->setFlags(Request::SECURE);
+
+    req->taskId(blk->task_id);
+
+    PacketPtr pkt =
+        new Packet(req, blkDirty ?
+                   MemCmd::WritebackDirty : MemCmd::WritebackClean);
+                   
+    pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
+    pkt->MJL_setDataDir(req->MJL_getReqDir());
+
+    DPRINTF(Cache, "Create Writeback %s writable: %d, dirty: %d\n",
+            pkt->print(), blk->isWritable(), blk->isDirty());
+
+    if (blk->isWritable()) {
+        // MJL_Note: Not clearing the BlkWritable here, clearing it later in caller.
+        // not asserting shared means we pass the block in modified
+        // state, mark our own block non-writeable
+        // blk->status &= ~BlkWritable;
+    } else {
+        // we are in the Owned state, tell the receiver
+        pkt->setHasSharers();
+    }
+
+    // Gather word dirty, data information from blocks
+    bool MJL_tempWordDirty[blkSize/sizeof(uint64_t)];
+    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+        MJL_tempWordDirty[i] = false;
+    }
+    uint8_t MJL_tempData[blkSize];
+    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+        // Get pointer to blks
+        CacheBlk *tile_blk = tags->MJL_findBlockByTile(blk, i);
+        // Gather word dirty information from blks
+        MJL_tempWordDirty[i] = tile_blk->MJL_wordDirty[MJL_offset/sizeof(uint64_t)];
+        // make sure the block is not marked dirty
+        tile_blk->MJL_clearWordDirty(MJL_offset/sizeof(uint64_t));
+        tile_blk->MJL_updateDirty();
+        // Gather data from blks
+        for (int i = pkt->getOffset(); i < pkt->getOffset() + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
+            memcpy(&MJL_tempData[i], tile_blk->data + MJL_offset + i%sizeof(uint64_t), sizeof(uint64_t) - i%sizeof(uint64_t));
+        }
+    }
+
+    pkt->MJL_setWordDirtyFromBlk(MJL_tempWordDirty, blkSize);
+
+    pkt->allocate();
+    std::memcpy(pkt->getPtr<uint8_t>(), MJL_tempData, blkSize);
+    pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+
+    return pkt;
+}
+
+void
+Cache::MJL_clearTileWritable(CacheBlk *blk)
+{
+    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+        // Get pointer to blks
+        CacheBlk *tile_blk =  tags->MJL_findBlockByTile(blk, i);
+        if (tile_blk->isWritable()) {
+            // mark our own block non-writeable
+            tile_blk->status &= ~BlkWritable;
+        }
+    }
+}
+
+void
+Cache::MJL_resetTileInfo(CacheBlk *blk)
+{
+    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+        // Get pointer to blks
+        CacheBlk *tile_blk =  tags->MJL_findBlockByTile(blk, i);
+        tile_blk->task_id = ContextSwitchTaskId::Unknown;
+        tile_blk->tickInserted = curTick();
+    }
+}
+
+PacketPtr
+Cache::MJL_cleanEvictColBlk(CacheBlk *blk, unsigned MJL_offset, bool blkDirty)
+{
+    assert(!writebackClean);
+    assert(blk && blk->MJL_crossValid[MJL_offset/sizeof(uint64_t)] && !blkDirty);
+
+    // Get the column block address
+    Addr wbAddr = tags->MJL_regenerateBlkAddr(blk->tag, MemCmd::MJL_DirAttribute::MJL_IsRow, blk->set) + MJL_offset;
+    wbAddr = tags->MJL_blkAlign(col_repl_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    // Creating a zero sized write, a message to the snoop filter
+    Request *req =
+        new Request(wbAddr, blkSize, 0, Request::wbMasterId);
+
+    req->MJL_setReqDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    req->MJL_cachelineSize = blkSize;
+    req->MJL_rowWidth = MJL_rowWidth;
+    
+    if (blk->isSecure())
+        req->setFlags(Request::SECURE);
+
+    req->taskId(blk->task_id);
+    // blk->task_id = ContextSwitchTaskId::Unknown;
+    // blk->tickInserted = curTick();
+
+    PacketPtr pkt = new Packet(req, MemCmd::CleanEvict);
+    
+    pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsColumn);
+    
+    pkt->allocate();
+    DPRINTF(Cache, "Create CleanEvict %s\n", pkt->print());
+
     return pkt;
 }
 /* MJL_End */
@@ -2158,9 +2502,15 @@ Cache::cleanEvictBlk(CacheBlk *blk)
     // Creating a zero sized write, a message to the snoop filter
     Request *req =
     /* MJL_Begin */
-        new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blkSize, 0,
+        nullptr;
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        req = new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blkSize, 0,
                         Request::wbMasterId);
     req->MJL_setReqDir(blk->MJL_blkDir);
+    } else {
+        req = new Request(tags->regenerateBlkAddr(blk->tag, blk->set), blkSize, 0,
+                        Request::wbMasterId);
+    }
     req->MJL_cachelineSize = blkSize;
     req->MJL_rowWidth = MJL_rowWidth;
     /* MJL_End */
@@ -2177,9 +2527,10 @@ Cache::cleanEvictBlk(CacheBlk *blk)
 
     PacketPtr pkt = new Packet(req, MemCmd::CleanEvict);
     /* MJL_Begin */
-    pkt->cmd.MJL_setCmdDir(blk->MJL_blkDir);
-    pkt->MJL_setDataDir(blk->MJL_blkDir);
-    pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        pkt->cmd.MJL_setCmdDir(blk->MJL_blkDir);
+        pkt->MJL_setDataDir(blk->MJL_blkDir);
+    }
     /* MJL_End */
     pkt->allocate();
     DPRINTF(Cache, "Create CleanEvict %s\n", pkt->print());
@@ -2311,48 +2662,151 @@ Cache::allocateBlock(Addr addr, bool is_secure, PacketList &writebacks)
 CacheBlk*
 Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, PacketList &writebacks)
 {
+    /* MJL_Begin */
+    CacheBlk *blk = nullptr;
+    if (MJL_2DCache) {
+        blk = tags->MJL_findVictim(addr, MemCmd::MJL_DirAttribute::MJL_IsRow);
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        blk = tags->MJL_findVictim(addr, MJL_cacheBlkDir);
+    } else {
+        return allocateBlock(addr, is_secure, writebacks);
+    }
+    /* MJL_End */
+    /* MJL_Comment
     CacheBlk *blk = tags->MJL_findVictim(addr, MJL_cacheBlkDir);
+    */
 
     // It is valid to return nullptr if there is no victim
     if (!blk)
         return nullptr;
 
-    if (blk->isValid()) {
-        Addr repl_addr = tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
-        MSHR *repl_mshr = mshrQueue.MJL_findMatch(repl_addr, blk->MJL_blkDir, blk->isSecure());
-        if (repl_mshr) {
-            // must be an outstanding upgrade request
-            // on a block we're about to replace...
-            assert(!blk->isWritable() || blk->isDirty());
-            assert(repl_mshr->needsWritable());
-            // too hard to replace block with transient state
-            // allocation failed, block not inserted
-            return nullptr;
-        } else {
-            DPRINTF(Cache, "replacement: replacing %#llx (%s) with %#llx "
-                    "(%s): %s\n", repl_addr, blk->isSecure() ? "s" : "ns",
-                    addr, is_secure ? "s" : "ns",
-                    blk->isDirty() ? "writeback" : "clean");
+    // If the cache is a physically 2D cache
+    if (MJL_2DCache) {
+        // Get the dirty status of each column
+        bool MJL_colDirty[blkSize/sizeof(uint64_t)];
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            MJL_colDirty[i] = false;
+        }
+        // Get if the whole tile is valid
+        bool MJL_tileValid = true;
 
-            if (blk->wasPrefetched()) {
-                unusedPrefetches++;
+        // For each set(row) in this tile
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            // Get the row block's pointer
+            CacheBlk *tile_blk = tags->MJL_findBlockByTile(blk, i);
+            for (j = 0; j < blkSize/sizeof(uint64_t); ++j) {
+                MJL_colDirty[j] |= tile_blk->MJL_wordDirty[j];
             }
-            // Will send up Writeback/CleanEvict snoops via isCachedAbove
-            // when pushing this writeback list into the write buffer.
-            if (blk->isDirty() || writebackClean) {
-                // Save writeback packet for handling by caller
-                writebacks.push_back(writebackBlk(blk));
+            MJL_tileValid &= tile_blk->isValid();
+            // If the row block is valid
+            if (tile_blk->isValid()) {
+                // Regenerate the block address of the row block and check if it is waiting on an upgrade request. If it is, just return nullptr
+                Addr repl_addr = tags->MJL_regenerateBlkAddr(tile_blk->tag, tile_blk->MJL_blkDir, tile_blk->set);
+                MSHR *repl_mshr = mshrQueue.MJL_findMatch(repl_addr, tile_blk->MJL_blkDir, tile_blk->isSecure());
+                if (repl_mshr) {
+                    // must be an outstanding upgrade request
+                    // on a block we're about to replace...
+                    // MJL_Note: Ignoring writable status for column, assuming it's the same as the row (actually the whole tile should have the same...)
+                    assert(!tile_blk->isWritable() || tile_blk->isDirty());
+                    assert(repl_mshr->needsWritable());
+                    // too hard to replace block with transient state
+                    // allocation failed, block not inserted
+                    return nullptr;
+                }
+            }
+        }
+        // For each column in this tile
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            // if the column is valid
+            if (blk->MJL_crossValid[i]) {
+                // Regenerate the column block address of this tile, and and check if it is waiting on an upgrade request. If it is, just return nullptr
+                Addr col_repl_addr = tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set) + i*sizeof(uint64_t);
+                col_repl_addr = tags->MJL_blkAlign(col_repl_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn);
+                MSHR *repl_mshr = mshrQueue.MJL_findMatch(col_repl_addr, MemCmd::MJL_DirAttribute::MJL_IsColumn, tile_blk->isSecure());
+                if (repl_mshr) {
+                    // must be an outstanding upgrade request
+                    // on a block we're about to replace...
+                    assert(!blk->isWritable() || MJL_colDirty[i]);
+                    assert(repl_mshr->needsWritable());
+                    // too hard to replace block with transient state
+                    // allocation failed, block not inserted
+                    return nullptr;
+                }
+            }
+        }
+        // Now no row or column of the tile should be waiting on a upgrade, the blks can be evicted
+        // If the whole tile is valid, then favorize row treatments, otherwise treat columns first
+        if (!MJL_tileValid) {
+            // For each column in this tile
+            for (int i = 0; i < 8; ++i) {
+                // If the column is valid
+                if (blk->MJL_crossValid[i]) {
+                    // MJL_Note: Ignoring prefetch stat calculation (no additional prefetch status bits)
+                    if (MJL_colDirty[i] || writebackClean) {
+                        writebacks.push_back(MJL_writebackColBlk(blk, i, MJL_colDirty[i]));
+                    } else {
+                        writebacks.push_back(MJL_cleanEvictColBlk(blk, i, MJL_colDirty[i]));
+                    }
+                }
+            }
+        }
+        // For each row in this tile
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            CacheBlk *tile_blk = tags->MJL_findBlockByTile(blk, i);
+            if (tile_blk->isValid()) {
+                if (tile_blk->wasPrefetched()) {
+                    unusedPrefetches++;
+                }
+                // Will send up Writeback/CleanEvict snoops via isCachedAbove
+                // when pushing this writeback list into the write buffer.
+                if (tile_blk->isDirty() || writebackClean) {
+                    // Save writeback packet for handling by caller
+                    writebacks.push_back(writebackBlk(tile_blk));
+                } else {
+                    writebacks.push_back(cleanEvictBlk(tile_blk));
+                }
+            }
+        }
+        MJL_clearTileWritable(blk);
+        MJL_resetTileInfo(blk);
+    } else {
+        if (blk->isValid()) {
+            Addr repl_addr = tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
+            MSHR *repl_mshr = mshrQueue.MJL_findMatch(repl_addr, blk->MJL_blkDir, blk->isSecure());
+            if (repl_mshr) {
+                // must be an outstanding upgrade request
+                // on a block we're about to replace...
+                assert(!blk->isWritable() || blk->isDirty());
+                assert(repl_mshr->needsWritable());
+                // too hard to replace block with transient state
+                // allocation failed, block not inserted
+                return nullptr;
             } else {
-                writebacks.push_back(cleanEvictBlk(blk));
+                DPRINTF(Cache, "replacement: replacing %#llx (%s) with %#llx "
+                        "(%s): %s\n", repl_addr, blk->isSecure() ? "s" : "ns",
+                        addr, is_secure ? "s" : "ns",
+                        blk->isDirty() ? "writeback" : "clean");
+
+                if (blk->wasPrefetched()) {
+                    unusedPrefetches++;
+                }
+                // Will send up Writeback/CleanEvict snoops via isCachedAbove
+                // when pushing this writeback list into the write buffer.
+                if (blk->isDirty() || writebackClean) {
+                    // Save writeback packet for handling by caller
+                    writebacks.push_back(writebackBlk(blk));
+                } else {
+                    writebacks.push_back(cleanEvictBlk(blk));
+                }
+                /* MJL_Test: what evict caused problem? 
+                std::cout << this->name() << "::MJL_allocateBlock()Evict";
+                std::cout << ": Addr(oct) = " << std::oct << repl_addr << std::dec;
+                std::cout << ", BlkDir = " << blk->MJL_blkDir;
+                std::cout << ", IsSecure = " << blk->isSecure();
+                std::cout << ", IsDirty = " << blk->isDirty();
+                std::cout << std::endl;
+                */ 
             }
-            /* MJL_Test: what evict caused problem? 
-            std::cout << this->name() << "::MJL_allocateBlock()Evict";
-            std::cout << ": Addr(oct) = " << std::oct << repl_addr << std::dec;
-            std::cout << ", BlkDir = " << blk->MJL_blkDir;
-            std::cout << ", IsSecure = " << blk->isSecure();
-            std::cout << ", IsDirty = " << blk->isDirty();
-            std::cout << std::endl;
-             */ 
         }
     }
 
@@ -2367,6 +2821,21 @@ Cache::invalidateBlock(CacheBlk *blk)
         tags->invalidate(blk);
     blk->invalidate();
 }
+/* MJL_Begin */
+void
+Cache::MJL_invalidateTile(CacheBlk *blk)
+{
+    assert (blk != tempBlock);
+    CacheBlk * tile_blk = nullptr;
+    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+        tile_blk = tags->MJL_findBlockByTile(blk, i);
+        tags->invalidate(tile_blk);
+        tile_blk->MJL_clearAllDirty();
+        tile_blk->MJL_clearCrossValid();
+        tile_blk->invalidate();
+    }
+}
+/* MJL_End */
 
 // Note that the reason we return a list of writebacks rather than
 // inserting them directly in the write buffer is that this function
@@ -2421,8 +2890,16 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             assert(!tempBlock->isValid());
             blk = tempBlock;
             /* MJL_Begin */
-            tempBlock->set = tags->MJL_extractSet(addr, pkt->MJL_getDataDir());
-            tempBlock->tag = tags->MJL_extractTag(addr, pkt->MJL_getDataDir());
+            if (MJL_2DCache) {
+                tempBlock->set = tags->MJL_extractSet(addr, MemCmd::MJL_DirAttribute::MJL_IsRow);
+                tempBlock->tag = tags->MJL_extractTag(addr, MemCmd::MJL_DirAttribute::MJL_IsRow);
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                tempBlock->set = tags->MJL_extractSet(addr, pkt->MJL_getDataDir());
+                tempBlock->tag = tags->MJL_extractTag(addr, pkt->MJL_getDataDir());
+            } else {
+                tempBlock->set = tags->extractSet(addr);
+                tempBlock->tag = tags->extractTag(addr);
+            }
             /* MJL_End */
             /* MJL_Comment 
             tempBlock->set = tags->extractSet(addr);
@@ -2436,11 +2913,33 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         }
 
         // we should never be overwriting a valid block
+        /* MJL_Begin */
+        if (MJL_2DCache) {
+            bool MJL_tileValid = false;
+            for (int i = 0; i < 8; ++i) {
+                MJL_tileValid |= blk->MJL_crossValid[i];
+            }
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                MJL_tileValid |= (tags->MJL_findBlockByTile(blk, i))->isValid();
+            }
+            assert(!MJL_tileValid);
+        } else {
+            assert(!blk->isValid());
+        }
+        /* MJL_End */
+        /* MJL_Comment
         assert(!blk->isValid());
+        */
     } else {
         // existing block... probably an upgrade
         /* MJL_Begin */
-        assert((blk->MJL_blkDir == pkt->MJL_getCmdDir()) && (blk->tag == tags->MJL_extractTag(addr, pkt->MJL_getCmdDir())));
+        if (MJL_2DCache) {
+            assert((blk->MJL_blkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) && (blk->tag == tags->MJL_extractTag(addr, MemCmd::MJL_DirAttribute::MJL_IsRow)));
+        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            assert((blk->MJL_blkDir == pkt->MJL_getCmdDir()) && (blk->tag == tags->MJL_extractTag(addr, pkt->MJL_getCmdDir())));
+        } else {
+            assert(blk->tag == tags->extractTag(addr));
+        }
         /* MJL_End */
         /* MJL_Comment
         assert(blk->tag == tags->extractTag(addr));
@@ -2451,8 +2950,22 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         // don't want to lose that
     }
 
+    /* MJL_Begin */
+    if (MJL_2DCache) {
+        if (is_secure) {
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                (tags->MJL_findBlockByTile(blk, i))->status |= BlkSecure;
+            }
+        }
+    } else {
+        if (is_secure)
+            blk->status |= BlkSecure;
+    }
+    /* MJL_End */
+    /* MJL_Comment
     if (is_secure)
         blk->status |= BlkSecure;
+    */
     blk->status |= BlkValid | BlkReadable;
 
     // sanity check for whole-line writes, which should always be
@@ -2470,6 +2983,24 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
     // Shared, Exclusive or Modified, see Packet::setCacheResponding
     // for more details
     if (!pkt->hasSharers()) {
+        /* MJL_Begin */
+        if (MJL_2DCache) {
+            unsigned MJL_offset = pkt->MJL_getColOffset(blkSize);
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                (tags->MJL_findBlockByTile(blk, i))->status |= BlkWritable;
+            }
+            if (pkt->cacheResponding()) {
+                if (pkt->MJL_dataIsRow()) {
+                    blk->MJL_setWordDirtyPkt(pkt, blkSize);
+                    blk->MJL_updateDirty();
+                } else if (pkt->MJL_dataIsColumn()) {
+                    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        (tags->MJL_findBlockByTile(blk, i))->MJL_wordDirty[MJL_offset/sizeof(uint64_t)] = pkt->MJL_wordDirty[i];
+                    }
+                }
+            }
+        } else {
+        /* MJL_End */
         // we could get a writable line from memory (rather than a
         // cache) even in a read-only cache, note that we set this bit
         // even for a read-only cache, possibly revisit this decision
@@ -2482,13 +3013,18 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             // owners copy
             blk->status |= BlkDirty;
             /* MJL_Begin */
-            blk->MJL_clearAllDirty();
-            blk->MJL_setWordDirtyPkt(pkt, blkSize);
+            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                blk->MJL_clearAllDirty();
+                blk->MJL_setWordDirtyPkt(pkt, blkSize);
+            }
             /* MJL_End */
 
             chatty_assert(!isReadOnly, "Should never see dirty snoop response "
                           "in read-only cache %s\n", name());
         }
+        /* MJL_Begin */
+        }
+        /* MJL_End */
     }
 
     DPRINTF(Cache, "Block addr %#llx (%s) moving from state %x to %s\n",
@@ -2501,11 +3037,27 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         assert(pkt->hasData());
         assert(pkt->getSize() == blkSize);
         /* MJL_Begin */
+        if (MJL_2DCache && pkt->MJL_dataIsColumn()) {
+            unsigned MJL_offset = pkt->MJL_getColOffset(blkSize);
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                CacheBlk * tile_blk = tags->MJL_findBlockByTile(blk, i);
+                pkt->MJL_wordDirty[i] = tile_blk->MJL_wordDirty[MJL_offset/sizeof(uint64_t)];
+                std::memcpy(tile_blk->data + MJL_offset, pkt->getConstPtr<uint8_t>() + i*sizeof(uint64_t), sizeof(uint64_t));
+            }
+        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            assert(pkt->MJL_getDataDir() == blk->MJL_blkDir);
+            pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+            std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
+        } else {
+            std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
+        }
+        // MJL_TODO: needs to be changed for 2D Cache
         assert(pkt->MJL_getDataDir() == blk->MJL_blkDir);
-        pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
         /* MJL_End */
 
+        /* MJL_Comment
         std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
+        */
     }
     // We pay for fillLatency here.
     blk->whenReady = clockEdge() + fillLatency * clockPeriod() +
@@ -2640,7 +3192,24 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
         }
     }
 
-    if (!blk || !blk->isValid()) {
+    /* MJL_Begin */
+    if (MJL_2DCache && (!blk || (!blk->isValid() && !blk->MJL_hasCrossValid()))) {
+        DPRINTF(CacheVerbose, "%s: snoop miss for %s\n", __func__,
+                pkt->print());
+        if (is_deferred) {
+            // we no longer have the block, and will not respond, but a
+            // packet was allocated in MSHR::handleSnoop and we have
+            // to delete it
+            assert(pkt->needsResponse());
+
+            // we have passed the block to a cache upstream, that
+            // cache should be responding
+            assert(pkt->cacheResponding());
+
+            delete pkt;
+        }
+        return snoop_delay;
+    } else /* MJL_End */if (!blk || !blk->isValid()) {
         DPRINTF(CacheVerbose, "%s: snoop miss for %s\n", __func__,
                 pkt->print());
         if (is_deferred) {
@@ -2670,7 +3239,22 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
     // and then do it later. We respond to all snoops that need
     // responses provided we have the block in dirty state. The
     // invalidation itself is taken care of below.
+    /* MJL_Begin */
+    bool respond = false;
+    if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+        bool MJL_colDirty = false;
+        unsigned MJL_offset = pkt->MJL_getColOffset(blkSize);
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            MJL_colDirty |= (tags->MJL_findBlockByTile(blk, i))->MJL_wordDirty[MJL_offset/sizeof(uint64_t)];
+        }
+        respond = MJL_colDirty && pkt->needsResponse();
+    } else {
+        respond = blk->isDirty() && pkt->needsResponse();
+    }
+    /* MJL_End */
+    /* MJL_Comment
     bool respond = blk->isDirty() && pkt->needsResponse();
+    */
     bool have_writable = blk->isWritable();
 
     // Invalidate any prefetch's from below that would strip write permissions
@@ -2694,8 +3278,18 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
         // which means we go from Modified to Owned (and will respond
         // below), remain in Owned (and will respond below), from
         // Exclusive to Shared, or remain in Shared
-        if (!pkt->req->isUncacheable())
+        if (!pkt->req->isUncacheable())/* MJL_Begin */ {
+            if (MJL_2DCache) {
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    (tags->MJL_findBlockByTile(blk, i))->status &= ~BlkWritable;
+                }
+            } else {
+                blk->status &= ~BlkWritable;
+            }
+        }/* MJL_End */
+            /* MJL_Comment
             blk->status &= ~BlkWritable;
+            */
     }
 
     if (respond) {
@@ -2726,7 +3320,21 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
                  "but keeping the block", name(), pkt->print());
 
         if (is_timing) {
+            /* MJL_Begin */
+            if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+                uint8_t MJL_tempData[blkSize];
+                unsigned MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    std::memcpy(&MJL_tempData[i * uint64_t], (tags->MJL_findBlockByTile(blk, i))->data + MJL_offset, sizeof(uint64_t));
+                }
+                doTimingSupplyResponse(pkt, MJL_tempData, is_deferred, pending_inval);
+            } else {
+                doTimingSupplyResponse(pkt, blk->data, is_deferred, pending_inval);
+            }
+            /* MJL_End */
+            /* MJL_Comment
             doTimingSupplyResponse(pkt, blk->data, is_deferred, pending_inval);
+            */
         } else {
             pkt->makeAtomicResponse();
             // packets such as upgrades do not actually have any data
@@ -2737,8 +3345,22 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
                 /* MJL_Test 
                 std::cout << "MJL_setFromBlock: set " << blk->set << std::endl;
                  */
-                pkt->setDataFromBlock(blk->data, blkSize);
-                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty,blkSize);
+                if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+                    uint8_t MJL_tempData[blkSize];
+                    bool MJL_tempWordDirty[blkSize/sizeof(uint64_t)];
+                    unsigned MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
+                    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        std::memcpy(&MJL_tempData[i * uint64_t], (tags->MJL_findBlockByTile(blk, i))->data + MJL_offset, sizeof(uint64_t));
+                        MJL_tempWordDirty[i] = (tags->MJL_findBlockByTile(blk, i))->MJL_wordDirty[MJL_offset/sizeof(uint64_t)];
+                    }
+                    pkt->setDataFromBlock(MJL_tempData, blkSize);
+                    pkt->MJL_setWordDirtyFromBlk(MJL_tempWordDirty,blkSize);
+                } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                    pkt->setDataFromBlock(blk->data, blkSize);
+                    pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty,blkSize);
+                } else {
+                    pkt->setDataFromBlock(blk->data, blkSize);
+                }
             }
             /* MJL_End */
             /* MJL_Comment 
@@ -2764,6 +3386,11 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
     // Do this last in case it deallocates block data or something
     // like that
     if (invalidate) {
+        /* MJL_Begin */
+        if (MJL_2DCache && (blk != tempBlock)) {
+            MJL_invalidateTile(blk);
+        } else 
+        /* MJL_End */
         invalidateBlock(blk);
     }
 
@@ -2788,10 +3415,25 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
 
     bool is_secure = pkt->isSecure();
     /* MJL_Begin */
-    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
+    CacheBlk *blk = nullptr;
+    Addr blk_addr;
+    MSHR *mshr = nullptr;
+    if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+        blk = tags->MJL_findCrossBlock(pkt->getAddr(),CacheBlk::MJL_CacheBlkDir::MJL_IsRow, is_secure, pkt->MJL_getColOffset(blkSize));
 
-    Addr blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
-    MSHR *mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+        blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+        mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
+
+        blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+        mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+    } else {
+        blk = tags->findBlock(pkt->getAddr(), is_secure);
+
+        blk_addr = blockAlign(pkt->getAddr());
+        mshr = mshrQueue.findMatch(blk_addr, is_secure);
+    }
     /* MJL_End */
     /* MJL_Comment 
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), is_secure);
@@ -2928,7 +3570,15 @@ Cache::recvAtomicSnoop(PacketPtr pkt)
     }
 
     /* MJL_Begin */
-    CacheBlk *blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
+    // MJL_TODO: needs to be changed for 2D Cache
+    CacheBlk *blk = nullptr;
+    if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
+        blk = tags->MJL_findCrossBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), pkt->MJL_getColOffset(blkSize));
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
+    } else {
+        blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
+    }
     /* MJL_End */
     /* MJL_Comment
     CacheBlk *blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
@@ -2953,32 +3603,38 @@ Cache::getNextQueueEntry()
         // need to search MSHR queue for conflicting earlier miss.
         MSHR *conflict_mshr =
         /* MJL_Begin */
-            mshrQueue.MJL_findPending(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, 
+            nullptr;
+        if (!MJL_2DCache && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) {
+            conflict_mshr = mshrQueue.MJL_findPending(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, 
                                   wq_entry->isSecure);
 
-        // Check other direction conflict
-        Addr MJL_crossBlkAddr = wq_entry->blkAddr;
-        MSHR *temp_conflict_mshr = conflict_mshr;
-        for (Addr MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
-            MJL_crossBlkAddr = MJL_addOffsetAddr(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, MJL_offset);
-            if (wq_entry->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
-                MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
-                temp_conflict_mshr = mshrQueue.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, 
-                                    wq_entry->isSecure);
-            } else if (wq_entry->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
-                MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
-                temp_conflict_mshr = mshrQueue.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, 
-                                    wq_entry->isSecure);
-            }
-            if (conflict_mshr) {
-                if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr->order < wq_entry->order)) {
-                    conflict_mshr = temp_conflict_mshr;
+            // Check other direction conflict
+            Addr MJL_crossBlkAddr = wq_entry->blkAddr;
+            MSHR *temp_conflict_mshr = conflict_mshr;
+            for (Addr MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
+                MJL_crossBlkAddr = MJL_addOffsetAddr(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, MJL_offset);
+                if (wq_entry->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+                    MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+                    temp_conflict_mshr = mshrQueue.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, 
+                                        wq_entry->isSecure);
+                } else if (wq_entry->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+                    MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+                    temp_conflict_mshr = mshrQueue.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, 
+                                        wq_entry->isSecure);
                 }
-            } else {
-                if (temp_conflict_mshr && (temp_conflict_mshr->order < wq_entry->order)) {
-                    conflict_mshr = temp_conflict_mshr;
+                if (conflict_mshr) {
+                    if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr->order < wq_entry->order)) {
+                        conflict_mshr = temp_conflict_mshr;
+                    }
+                } else {
+                    if (temp_conflict_mshr && (temp_conflict_mshr->order < wq_entry->order)) {
+                        conflict_mshr = temp_conflict_mshr;
+                    }
                 }
             }
+        } else {
+            conflict_mshr = mshrQueue.findPending(wq_entry->blkAddr,
+                                  wq_entry->isSecure);
         }
         /* MJL_End */
         /* MJL_Comment
@@ -2999,32 +3655,38 @@ Cache::getNextQueueEntry()
         // need to check for conflicting earlier writeback
         WriteQueueEntry *conflict_mshr =
         /* MJL_Begin */
-            writeBuffer.MJL_findPending(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, 
+            nullptr;
+        if (!MJL_2DCache && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) {
+            conflict_mshr = writeBuffer.MJL_findPending(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, 
                                     miss_mshr->isSecure);
 
-        // Check other direction conflict
-        Addr MJL_crossBlkAddr = miss_mshr->blkAddr;
-        WriteQueueEntry *temp_conflict_mshr = conflict_mshr;
-        for (Addr MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
-            MJL_crossBlkAddr = MJL_addOffsetAddr(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, MJL_offset);
-            if (miss_mshr->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
-                MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
-                temp_conflict_mshr = writeBuffer.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, 
-                                    miss_mshr->isSecure);
-            } else if (miss_mshr->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
-                MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
-                temp_conflict_mshr = writeBuffer.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, 
-                                    miss_mshr->isSecure);
-            }
-            if (conflict_mshr) {
-                if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr->order < miss_mshr->order)) {
-                    conflict_mshr = temp_conflict_mshr;
+            // Check other direction conflict
+            Addr MJL_crossBlkAddr = miss_mshr->blkAddr;
+            WriteQueueEntry *temp_conflict_mshr = conflict_mshr;
+            for (Addr MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
+                MJL_crossBlkAddr = MJL_addOffsetAddr(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, MJL_offset);
+                if (miss_mshr->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+                    MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+                    temp_conflict_mshr = writeBuffer.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, 
+                                        miss_mshr->isSecure);
+                } else if (miss_mshr->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+                    MJL_crossBlkAddr = MJL_blockAlign(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+                    temp_conflict_mshr = writeBuffer.MJL_findPending(MJL_crossBlkAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, 
+                                        miss_mshr->isSecure);
                 }
-            } else {
-                if (temp_conflict_mshr && (temp_conflict_mshr->order < miss_mshr->order)) {
-                    conflict_mshr = temp_conflict_mshr;
+                if (conflict_mshr) {
+                    if (temp_conflict_mshr && (temp_conflict_mshr->order < conflict_mshr->order) && (temp_conflict_mshr->order < miss_mshr->order)) {
+                        conflict_mshr = temp_conflict_mshr;
+                    }
+                } else {
+                    if (temp_conflict_mshr && (temp_conflict_mshr->order < miss_mshr->order)) {
+                        conflict_mshr = temp_conflict_mshr;
+                    }
                 }
             }
+        } else {
+            conflict_mshr = writeBuffer.findPending(miss_mshr->blkAddr,
+                                    miss_mshr->isSecure);
         }
         /* MJL_End */
         /* MJL_Comment
@@ -3060,10 +3722,17 @@ Cache::getNextQueueEntry()
         PacketPtr pkt = prefetcher->getPacket();
         if (pkt) {
             /* MJL_Begin */
-            Addr pf_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
-            if (!tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
+            Addr pf_addr;
+            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                pf_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+            } else {
+                pf_addr = blockAlign(pkt->getAddr());
+            }
+            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
                 !mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
-                !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
+                !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos) && (!tags->findBlock(pf_addr, pkt->isSecure()) &&
+                !mshrQueue.findMatch(pf_addr, pkt->isSecure()) &&
+                !writeBuffer.findMatch(pf_addr, pkt->isSecure())))) {
             /* MJL_End */
             /* MJL_Comment
             Addr pf_addr = blockAlign(pkt->getAddr());
@@ -3146,7 +3815,12 @@ Cache::sendMSHRQueuePacket(MSHR* mshr)
     DPRINTF(Cache, "%s: MSHR %s\n", __func__, tgt_pkt->print());
 
     /* MJL_Begin */
-    CacheBlk *blk = tags->MJL_findBlock(mshr->blkAddr, mshr->MJL_qEntryDir, mshr->isSecure);
+    CacheBlk *blk = nullptr;
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        blk = tags->MJL_findBlock(mshr->blkAddr, mshr->MJL_qEntryDir, mshr->isSecure);
+    } else {
+        blk = tags->findBlock(mshr->blkAddr, mshr->isSecure);
+    }
     /* MJL_End */
     /* MJL_Comment
     CacheBlk *blk = tags->findBlock(mshr->blkAddr, mshr->isSecure);
@@ -3390,11 +4064,13 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     }
 
     // MJL_Test: see if the input is correct on vector operations
-    if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && cache->MJL_VecListSet.find(pkt->req->getPC()) != cache->MJL_VecListSet.end()) {
+    if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && !blocked && !mustSendRetry && cache->MJL_VecListSet.find(pkt->req->getPC()) != cache->MJL_VecListSet.end()) {
         if (pkt->getSize() <= sizeof(uint64_t)) {
-            std::cout << "NonVec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "]" << std::endl;
+            std::cout << "NonVec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "], Addr(oct) " << std::oct << pkt->getAddr() << std::dec << std::endl;
         }
         assert(pkt->getSize() > sizeof(uint64_t));
+        //std::cout << "Vec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "], Addr(oct) " << std::oct << pkt->getAddr() << std::dec << std::endl;
+        
     }
 
 

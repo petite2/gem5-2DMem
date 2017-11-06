@@ -192,6 +192,22 @@ public:
      */
     CacheBlk *findBlockBySetAndWay(int set, int way) const override;
 
+    /* MJL_Begin */
+    /**
+     * Find the i-th row block in the tile
+     * @param blk A cache block in the tile to be searched
+     * @param i The row of the block in the tile to be returned
+     * @return The cache block
+     */
+    CacheBlk *MJL_findBlockByTile(CacheBlk *blk, int i) const override
+    {
+        int set = blk->set;
+        int way = blk->way;
+        int MJL_startOffset = set % (blkSize/sizeof(uint64_t));
+        return sets[set - MJL_startOffset + i].blks[way];
+    }
+    /* MJL_End */
+
     /**
      * Invalidate the given block.
      * @param blk The block to invalidate.
@@ -199,7 +215,15 @@ public:
     void invalidate(CacheBlk *blk) override
     {
         assert(blk);
+        /* MJL_Begin */
+        if (!cache->MJL_is2DCache()) {
+            assert(blk->isValid());
+        }
+        /* MJL_End */
+        /* MJL_Comment
         assert(blk->isValid());
+        */
+        // MJL_Note: Guess I'll just assume that every thing is 1/8 of the presented value in physically 2D cache
         tagsInUse--;
         /* MJL_Begin */
         if (blk->MJL_isRow()) {
@@ -207,6 +231,22 @@ public:
         } else if (blk->MJL_isColumn()) {
             MJL_colInUse--;
             //std::cout << "MJL_Test: colInUse--(" << MJL_colInUse.value() << ")" << std::endl;
+        }
+        if (!cache->MJL_is2DCache()) {
+            CacheBlk * MJL_dupBlk = nullptr;
+            Addr baseAddr = MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
+            for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
+                MJL_dupBlk = nullptr;
+                Addr wordAddr = MJL_addOffsetAddr(baseAddr, blk->MJL_blkDir, i);
+                if (blk->MJL_isRow()) {
+                    MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, blk->isSecure());
+                } else if (blk->MJL_isColumn()) {
+                    MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, blk->isSecure());
+                }
+                if (MJL_dupBlk) {
+                    MJL_Duplicates--;
+                }
+            }
         }
         /* MJL_End */
         assert(blk->srcMasterId < cache->system->maxMasters());
@@ -269,9 +309,65 @@ public:
     CacheBlk* MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                           int context_src) override
     {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
+            int set = MJL_extractSet(addr, MJL_cacheBlkDir);
+            BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
+
+            // Access all tags in parallel, hence one in each way.  The data side
+            // either accesses all blocks in parallel, or one block sequentially on
+            // a hit.  Sequential access with a miss doesn't access data.
+            tagAccesses += allocAssoc;
+            if (sequentialAccess) {
+                if (blk != nullptr) {
+                    dataAccesses += 1;
+                }
+            } else {
+                dataAccesses += allocAssoc;
+            }
+
+            if (blk != nullptr) {
+                // If a cache hit
+                lat = accessLatency;
+                // Check if the block to be accessed is available. If not,
+                // apply the accessLatency on top of block->whenReady.
+                if (blk->whenReady > curTick() &&
+                    cache->ticksToCycles(blk->whenReady - curTick()) >
+                    accessLatency) {
+                    lat = cache->ticksToCycles(blk->whenReady - curTick()) +
+                    accessLatency;
+                }
+                blk->refCount += 1;
+            } else {
+                // If a cache miss
+                lat = lookupLatency;
+            }
+
+            return blk;
+        } else {
+            return accessBlock(addr, is_secure, lat, context_src);
+        }
+    }
+
+    /**
+     * Access column block in a physically 2D cache and update replacement data. May not succeed, in which case
+     * nullptr is returned. This has all the implications of a cache
+     * access and should only be used as such. Returns the access latency as a
+     * side effect.
+     * @param addr The address to find.
+     * @param MJL_cacheBlkDir Should be row because all cache blocks have row block.
+     * @param is_secure True if the target memory space is secure.
+     * @param asid The address space ID.
+     * @param lat The access latency.
+     * @param MJL_offset Which column of the row is this being accessed.
+     * @return Pointer to the cache block if found.
+     */
+    CacheBlk* MJL_accessCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                          int context_src, unsigned MJL_offset) override
+    {
         Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
         int set = MJL_extractSet(addr, MJL_cacheBlkDir);
-        BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
+        BlkType *blk = sets[set].MJL_findCrossBlk(tag, MJL_cacheBlkDir, is_secure, MJL_offset);
 
         // Access all tags in parallel, hence one in each way.  The data side
         // either accesses all blocks in parallel, or one block sequentially on
@@ -310,7 +406,7 @@ public:
     {
         BlkType *blk = MJL_accessBlock(addr, MJL_cacheBlkDir, is_secure, lat, context_src);
         Cycles templat = lat;
-        if (blk == nullptr && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) {
+        if (blk == nullptr && (cache->name().find("dcache") != std::string::npos || cache->name().find("l2") != std::string::npos)) {
             if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
                 blk = MJL_accessBlock(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, lat, context_src);
             } else if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
@@ -322,6 +418,69 @@ public:
         }
 
         return blk;
+    }
+
+    /**
+     * In physically 2D cache, even if the cache line is not valid,
+     * as long as the tile is valid, a writeback can be served.
+     * Here a block is returned if such tile exists, and the block is set to valid.
+     * @param addr An address in the tile that needs to be checked
+     * @param MJL_offset Which column is the requested block
+     * @return Pointer to the blk that is not valid but the tile is
+     */
+    CacheBlk* MJL_findWritebackBlk(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, int MJL_offset) {
+        Addr tag = MJL_extractTag(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+        int set = MJL_extractSet(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+        CacheBlk* blk = nullptr;
+        CacheBlk* retBlk = nullptr;
+        int MJL_startOffset = set%sizeof(uint64_t);
+        for (int way = 0; way < assoc; ++way) {
+            for (int i = -MJL_startOffset; i < blkSize/sizeof(uint64_t) - MJL_startOffset; ++i) {
+                blk = findBlockBySetAndWay(set + i, way);
+                if (blk->tag == tag && 
+                    blk->MJL_blkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow && 
+                    blk->isSecure() == is_secure && 
+                    (blk->isValid() || blk->MJL_hasCrossValid())) {
+                    if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+                        retBlk = findBlockBySetAndWay(set - MJL_startOffset, way);
+                    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+                        retBlk = findBlockBySetAndWay(set, way);
+                    }
+                    assert((MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow && !retBlk->isValid())|| (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn && !retBlk->MJL_crossValid[MJL_offset/sizeof(uint64_t)]));
+                    break;
+                }
+            }
+        }
+        if (retBlk && MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            for (int i = -MJL_startOffset; i < blkSize/sizeof(uint64_t) - MJL_startOffset; ++i) {
+                findBlockBySetAndWay(set + i, way)->MJL_crossValid[MJL_offset/sizeof(uint64_t)] = true;
+            }
+        } else if (retBlk && MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            retBlk->status |= BlkValid;
+        }
+        return retBlk;
+    }
+
+    bool MJL_tileExists(Addr addr, bool is_secure) {
+        bool tileExists = false;
+        Addr tag = MJL_extractTag(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+        int set = MJL_extractSet(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+        CacheBlk* blk = nullptr;
+        int MJL_startOffset = set%sizeof(uint64_t);
+        for (int way = 0; way < assoc; ++way) {
+            for (int i = -MJL_startOffset; i < blkSize/sizeof(uint64_t) - MJL_startOffset; ++i) {
+                blk = findBlockBySetAndWay(set + i, way);
+                if (blk->tag == tag && 
+                    blk->MJL_blkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow && 
+                    blk->isSecure() == is_secure && 
+                    (blk->isValid() || blk->MJL_hasCrossValid())) {
+                    tileExists = true;
+                    break;
+                }
+            }
+        }
+        
+        return tileExists;
     }
     /* MJL_End */
 
@@ -336,6 +495,7 @@ public:
     CacheBlk* findBlock(Addr addr, bool is_secure) const override;
     /* MJL_Begin */
     CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override;
+    CacheBlk * MJL_findCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, unsigned MJL_offset) const override;
     /* MJL_End */
 
     /**
@@ -362,17 +522,35 @@ public:
     /* MJL_Begin */
     CacheBlk* MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) override
     {
-        BlkType *blk = nullptr;
-        int set = MJL_extractSet(addr, MJL_cacheBlkDir);
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            BlkType *blk = nullptr;
+            int set = MJL_extractSet(addr, MJL_cacheBlkDir);
 
-        // prefer to evict an invalid block
-        for (int i = 0; i < allocAssoc; ++i) {
-            blk = sets[set].blks[i];
-            if (!blk->isValid())
-                break;
+            // prefer to evict an invalid block
+            for (int i = 0; i < allocAssoc; ++i) {
+                // For physically 2D cache, the whole tile should be checked to see it it's invalid
+                if (cache->MJL_is2DCache()) {
+                    bool MJL_valid = false;
+                    int MJL_startOffset = set%sizeof(uint64_t);
+
+                    for (int j = -MJL_startOffset; j < getBlockSize()/sizeof(uint64_t) - MJL_startOffset; ++j) {
+                        MJL_valid |= sets[set + j].blks[i]->isValid();
+                        MJL_valid |= sets[set + j].blks[i]->MJL_hasCrossValid();
+                    };
+                    if (!MJL_valid)
+                        break;
+                } else {
+                    blk = sets[set].blks[i];
+
+                    if (!blk->isValid())
+                        break;
+                }
+            }
+
+            return blk;
+        } else {
+            return findVictim(addr);
         }
-
-        return blk;
     }
     /* MJL_End */
 
@@ -387,6 +565,66 @@ public:
          MasterID master_id = pkt->req->masterId();
          uint32_t task_id = pkt->req->taskId();
 
+         /* MJL_Begin */
+         bool MJL_tileIsTouched = false;
+         bool MJL_tileValid = false;
+         if (cache->MJL_is2DCache()) {
+             for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    CacheBlk* tile_blk =  tags->MJL_findBlockByTile(blk, i);
+                    // Get whether there are valid blocks in the tile
+                    MJL_tileValid |= tile_blk->isValid();
+                    MJL_tileValid |= tile_blk->MJL_hasCrossValid();
+                    // Get whether the tile has been touched
+                    MJL_tileIsTouched |= blk->isTouched;
+             }
+             if (!MJL_tileIsTouched) {
+                 // Get stats about tagsInUse, assume 8 sets in a tile, so only 1 tag for all 8 blocks, and only 1/8 size for the warmup bounds as well.
+                 tagsInUse++;
+                 for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    tags->MJL_findBlockByTile(blk, i)->isTouched = true;
+                 }
+                 if (!warmedUp && tagsInUse.value() >= warmupBound/sizeof(uint64_t)) {
+                     warmedUp = true;
+                     warmupCycle = curTick();
+                 }
+             }
+             if (MJL_tileValid) {
+                 // Get stats about replacement and ref count
+                 MJL_rowInUse--; 
+                 replacements[0]++;
+                 ++sampledRefs;
+                 for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                     CacheBlk* tile_blk = tags->MJL_findBlockByTile(blk, i);
+                     totalRefs += tile_blk->refCount;
+                     tile_blk->refCount = 0;
+                     assert(tile_blk->srcMasterId < cache->system->maxMasters());
+                     tile_blk->invalidate();
+                     tile_blk->MJL_clearCrossValid();
+                 }
+                 // deal with evicted block
+                 occupancies[blk->srcMasterId]--;
+             }
+             for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                CacheBlk* tile_blk =  tags->MJL_findBlockByTile(blk, i);
+                tile_blk->isTouched = true;
+                tile_blk->tag = MJL_extractTag(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+                tile_blk->MJL_blkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+
+                tile_blk->srcMasterId = master_id;
+                tile_blk->task_id = task_id;
+                tile_blk->tickInserted = curTick();
+            }
+            MJL_rowInUse++;
+            // deal with what we are bringing in
+            assert(master_id < cache->system->maxMasters());
+            occupancies[master_id]++;
+
+            // We only need to write into one tag and one data block.
+            tagAccesses += 1;
+            dataAccesses += 1;
+
+         } else {
+         /* MJL_End */
          if (!blk->isTouched) {
              tagsInUse++;
              blk->isTouched = true;
@@ -408,6 +646,22 @@ public:
                  MJL_colInUse--;
                  //std::cout << "MJL_Test: colInUse--(" << MJL_colInUse.value() << ")" << std::endl;
              }
+             if (!cache->MJL_is2DCache()) {
+                 CacheBlk * MJL_dupBlk = nullptr;
+                 Addr baseAddr = MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
+                 for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
+                     MJL_dupBlk = nullptr;
+                     Addr wordAddr = MJL_addOffsetAddr(baseAddr, blk->MJL_blkDir, i);
+                     if (blk->MJL_isRow()) {
+                         MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, blk->isSecure());
+                     } else if (blk->MJL_isColumn()) {
+                         MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, blk->isSecure());
+                     }
+                     if (MJL_dupBlk) {
+                         MJL_Duplicates--;
+                     }
+                 }
+             }
              /* MJL_End */
              replacements[0]++;
              totalRefs += blk->refCount;
@@ -428,7 +682,11 @@ public:
          blk->tag = extractTag(addr);
          */
          /* MJL_Begin */
-         blk->tag = MJL_extractTag(addr, pkt->MJL_getDataDir());
+         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+             blk->tag = MJL_extractTag(addr, pkt->MJL_getDataDir());
+         } else {
+             blk->tag = extractTag(addr);
+         }
          blk->MJL_blkDir = pkt->MJL_getDataDir();
          if (blk->MJL_isRow()) {
              MJL_rowInUse++;
@@ -436,6 +694,21 @@ public:
              MJL_colInUse++;
              //std::cout << "MJL_Test: colInUse++(" << MJL_colInUse.value() << ")" << std::endl;
          }
+         if (!cache->MJL_is2DCache()) {
+            CacheBlk * MJL_dupBlk = nullptr;
+            for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
+                MJL_dupBlk = nullptr;
+                Addr wordAddr = MJL_addOffsetAddr(addr, blk->MJL_blkDir, i);
+                if (blk->MJL_isRow()) {
+                    MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, pkt->isSecure());
+                } else if (blk->MJL_isColumn()) {
+                    MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure());
+                }
+                if (MJL_dupBlk) {
+                    MJL_Duplicates++;
+                }
+            }
+        }
          /* MJL_End */
 
          // deal with what we are bringing in
@@ -448,6 +721,9 @@ public:
          // We only need to write into one tag and one data block.
          tagAccesses += 1;
          dataAccesses += 1;
+         /* MJL_Begin */
+         }
+         /* MJL_End */
      }
 
     /**

@@ -118,6 +118,7 @@ class CacheBlk
     /** block data direction */
     MJL_CacheBlkDir MJL_blkDir;
     bool MJL_wordDirty[8];
+    bool MJL_crossValid[8];
     /* MJL_End */
 
     /** Which curTick() will this block be accessable */
@@ -272,6 +273,7 @@ class CacheBlk
           /* MJL_Begin */ 
           MJL_blkDir(MJL_CacheBlkDir::MJL_IsRow),
           MJL_wordDirty{false, false, false, false, false, false, false, false},
+          MJL_crossValid{false, false, false, false, false, false, false, false},
           /* MJL_End */
            whenReady(0),
           set(-1), way(-1), isTouched(false), refCount(0),
@@ -430,6 +432,40 @@ class CacheBlk
         int offset = pkt->getOffset(blkSize)/sizeof(uint64_t);
         for (int i = 0; i < pkt->getSize(); i = i + sizeof(uint64_t)){
             MJL_wordDirty[(i + offset)/sizeof(uint64_t)] |= pkt->MJL_wordDirty[i/sizeof(uint64_t)];
+        }
+    }
+
+    /**
+     * Check if there's a crossing column block valid in physically 2D Cache 
+     */
+    bool MJL_hasCrossValid()
+    {
+        bool MJL_crossIsValid = false;
+        for (int i = 0; i < 8; ++i) {
+            MJL_crossIsValid |= MJL_crossValid[i];
+        }
+        return MJL_crossIsValid;
+    }
+
+    /**
+     * Check if all crossing blocks are valid in physically 2D Cache
+     */
+    bool MJL_allCrossValid()
+    {
+        bool MJL_allValid = true;
+        for (int i = 0; i < 8; ++i) {
+            MJL_allValid &= MJL_crossValid[i];
+        }
+        return MJL_allValid;
+    }
+
+    /**
+     * Clear the valid bits for all columns
+     */
+    void MJL_clearCrossValid()
+    {
+        for (int i = 0; i < 8; ++i) {
+            MJL_crossValid[i] = false;
         }
     }
     /* MJL_End */

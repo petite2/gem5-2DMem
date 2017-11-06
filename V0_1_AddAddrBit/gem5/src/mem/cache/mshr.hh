@@ -118,7 +118,9 @@ class MSHR : public QueueEntry, public Printable
         enum Source {
             FromCPU,
             FromSnoop,
-            FromPrefetcher
+            FromPrefetcher/* MJL_Begin */,
+            MJL_FromFootPrintFetch
+            /* MJL_End */
         };
 
         const Tick recvTime;  //!< Time when request was received (for stats)
@@ -303,6 +305,10 @@ class MSHR : public QueueEntry, public Printable
      */
     void allocate(Addr blk_addr, unsigned blk_size, PacketPtr pkt,
                   Tick when_ready, Counter _order, bool alloc_on_fill);
+    /* MJL_Begin */
+    void MJL_allocateFootPrint(Addr blk_addr, MemCmd::MJL_DirAttribute blk_dir, unsigned blk_size, PacketPtr target,
+               Tick when_ready, Counter _order, bool alloc_on_fill);
+    /* MJL_End */
 
     void markInService(bool pending_modified_resp);
 

@@ -516,6 +516,10 @@ class BaseCache : public MemObject
 
     Addr blockAlign(Addr addr) const { return (addr & ~(Addr(blkSize - 1))); }
     /* MJL_Begin */
+    bool MJL_is2DCache() const {
+        return MJL_2DCache;
+    }
+
     Addr MJL_blockAlign(Addr addr, MemCmd::MJL_DirAttribute MJL_dir) const {
         if (MJL_dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             return (addr & ~(Addr(blkSize - 1)));
@@ -633,16 +637,22 @@ class BaseCache : public MemObject
 
     MSHR *allocateMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
     {
-        /* MJL_Comment
-        MSHR *mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
-        */
         /* MJL_Begin */
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
         MSHR *mshr = mshrQueue.allocate(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), blkSize,
+                                        pkt, time, order++,
+                                        allocOnFill(pkt->cmd));
+        } else {
         /* MJL_End */
+        MSHR *mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
                                         pkt, time, order++,
                                         allocOnFill(pkt->cmd));
         /* MJL_Begin */
-        MJL_markBlockInfo(mshr);
+        }
+
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            MJL_markBlockInfo(mshr);
+        }
         /* MJL_End */
 
         if (mshrQueue.isFull()) {

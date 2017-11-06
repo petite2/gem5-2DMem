@@ -76,16 +76,53 @@ LRU::MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool 
 {
     CacheBlk *blk = BaseSetAssoc::MJL_accessBlock(addr, MJL_cacheBlkDir, is_secure, lat, master_id);
 
-    if (blk != nullptr) {
-        // move this block to head of the MRU list
-        sets[blk->set].moveToHead(blk);
-        DPRINTF(CacheRepl, "set %x: moving blk %x (%s) to MRU\n",
-                blk->set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
-                is_secure ? "s" : "ns");
+    if (cache->MJL_is2DCache() && blk != nullptr) {
+        int MJL_startOffset = blk->set%sizeof(uint64_t);
+        int MJL_way = blk->way;
+
+        for (int i = -MJL_startOffset; i < getBlockSize()/sizeof(uint64_t) - MJL_startOffset; ++i) {
+            sets[blk->set + i].moveToHead(BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way));
+        }
+    } else {
+        if (blk != nullptr) {
+            // move this block to head of the MRU list
+            sets[blk->set].moveToHead(blk);
+            DPRINTF(CacheRepl, "set %x: moving blk %x (%s) to MRU\n",
+                    blk->set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
+                    is_secure ? "s" : "ns");
+        }
     }
 
     return blk;
 }
+
+CacheBlk*
+LRU::MJL_accessCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                          int context_src, unsigned MJL_offset)
+{
+    CacheBlk *blk = BaseSetAssoc::MJL_accessCrossBlock(addr, MJL_cacheBlkDir, is_secure, lat, master_id, MJL_offset);
+
+    if (cache->MJL_is2DCache() && blk != nullptr) {
+        int MJL_startOffset = blk->set%sizeof(uint64_t);
+        int MJL_way = blk->way;
+
+        for (int i = -MJL_startOffset; i < getBlockSize()/sizeof(uint64_t) - MJL_startOffset; ++i) {
+            assert(blk->tag == BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way)->tag || (!BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way)->isValid() && !BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way)->MJL_hasCrossValid()));
+            sets[blk->set + i].moveToHead(BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way));
+        }
+    } else {
+        if (blk != nullptr) {
+            // move this block to head of the MRU list
+            sets[blk->set].moveToHead(blk);
+            DPRINTF(CacheRepl, "set %x: moving blk %x (%s) to MRU\n",
+                    blk->set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
+                    is_secure ? "s" : "ns");
+        }
+    }
+
+    return blk;
+}
+
 CacheBlk*
 LRU::MJL_accessBlockOneWord(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                           int master_id)
@@ -135,24 +172,28 @@ LRU::findVictim(Addr addr)
 CacheBlk*
 LRU::MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir)
 {
-    int set = MJL_extractSet(addr, MJL_cacheBlkDir);
-    // grab a replacement candidate
-    BlkType *blk = nullptr;
-    for (int i = assoc - 1; i >= 0; i--) {
-        BlkType *b = sets[set].blks[i];
-        if (b->way < allocAssoc) {
-            blk = b;
-            break;
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        int set = MJL_extractSet(addr, MJL_cacheBlkDir);
+        // grab a replacement candidate
+        BlkType *blk = nullptr;
+        for (int i = assoc - 1; i >= 0; i--) {
+            BlkType *b = sets[set].blks[i];
+            if (b->way < allocAssoc) {
+                blk = b;
+                break;
+            }
         }
-    }
-    assert(!blk || blk->way < allocAssoc);
+        assert(!blk || blk->way < allocAssoc);
 
-    if (blk && blk->isValid()) {
-        DPRINTF(CacheRepl, "set %x: selecting blk %x for replacement\n",
-                set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, set));
-    }
+        if (blk && blk->isValid()) {
+            DPRINTF(CacheRepl, "set %x: selecting blk %x for replacement\n",
+                    set, MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, set));
+        }
 
-    return blk;
+        return blk;
+    } else {
+        return findVictim(addr);
+    }
 }
 /* MJL_End */
 
@@ -162,14 +203,32 @@ LRU::insertBlock(PacketPtr pkt, BlkType *blk)
     BaseSetAssoc::insertBlock(pkt, blk);
 
     /* MJL_Begin */
-    int set = MJL_extractSet(pkt->getAddr(), pkt->MJL_getDataDir());
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        int set = MJL_extractSet(pkt->getAddr(), pkt->MJL_getDataDir());
+        if (cache->MJL_is2DCache()) {
+            set = MJL_extractSet(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsRow);
+            int MJL_startOffset = set%sizeof(uint64_t);
+            int MJL_way = blk->way;
+
+            for (int i = -MJL_startOffset; i < getBlockSize()/sizeof(uint64_t) - MJL_startOffset; ++i) {
+                assert(blk->tag == BaseSetAssoc::findBlockBySetAndWay(set + i, MJL_way)->tag || (!BaseSetAssoc::findBlockBySetAndWay(set + i, MJL_way)->isValid() && !BaseSetAssoc::findBlockBySetAndWay(set + i, MJL_way)->MJL_hasCrossValid()));
+                sets[set + i].moveToHead(BaseSetAssoc::findBlockBySetAndWay(set + i, MJL_way));
+            };
+        } else {
+            sets[set].moveToHead(blk);
+        }
+    } else {
+        int set = extractSet(pkt->getAddr());
+        sets[set].moveToHead(blk);
+    }
     /* MJL_End */
     /* MJL_Comment
     int set = extractSet(pkt->getAddr());
-    */
     sets[set].moveToHead(blk);
+    */
 }
 
+// MJL_TODO: Needs to change for 2D Cache?
 void
 LRU::invalidate(CacheBlk *blk)
 {
