@@ -237,7 +237,7 @@ public:
             Addr baseAddr = MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
             for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
                 MJL_dupBlk = nullptr;
-                Addr wordAddr = MJL_addOffsetAddr(baseAddr, blk->MJL_blkDir, i);
+                Addr wordAddr = cache->MJL_addOffsetAddr(baseAddr, blk->MJL_blkDir, i);
                 if (blk->MJL_isRow()) {
                     MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, blk->isSecure());
                 } else if (blk->MJL_isColumn()) {
@@ -651,7 +651,7 @@ public:
                  Addr baseAddr = MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set);
                  for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
                      MJL_dupBlk = nullptr;
-                     Addr wordAddr = MJL_addOffsetAddr(baseAddr, blk->MJL_blkDir, i);
+                     Addr wordAddr = cache->MJL_addOffsetAddr(baseAddr, blk->MJL_blkDir, i);
                      if (blk->MJL_isRow()) {
                          MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, blk->isSecure());
                      } else if (blk->MJL_isColumn()) {
@@ -698,7 +698,7 @@ public:
             CacheBlk * MJL_dupBlk = nullptr;
             for (int i = 0; i < blkSize; i += sizeof(uint64_t)) {
                 MJL_dupBlk = nullptr;
-                Addr wordAddr = MJL_addOffsetAddr(addr, blk->MJL_blkDir, i);
+                Addr wordAddr = cache->MJL_addOffsetAddr(addr, blk->MJL_blkDir, i);
                 if (blk->MJL_isRow()) {
                     MJL_dupBlk = MJL_findBlock(wordAddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, pkt->isSecure());
                 } else if (blk->MJL_isColumn()) {

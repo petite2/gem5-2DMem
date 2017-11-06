@@ -1170,7 +1170,7 @@ Cache::recvTimingReq(PacketPtr pkt)
             ((!satisfied && !pkt->req->isUncacheable() && pkt->cmd != MemCmd::CleanEvict && !pkt->isWriteback())
             || (satisfied && pkt->cmd == MemCmd::WritebackDirty))) {
             forward_time = clockEdge(Cycles( blkSize/sizeof(uint64_t) * forwardLatency)) + pkt->headerDelay;
-         }
+        }
         /* MJL_End */
 
         // copy writebacks to write buffer here to ensure they logically
@@ -4023,7 +4023,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Packet information output 
+    /* MJL_Test: Packet information output */
     if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry
          && cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() && pkt->MJL_cmdIsColumn()) { // Debug for column vec
         std::cout << this->name() << "::recvTimingReq";
@@ -4054,7 +4054,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
-     */
+    /* */
     
     // Column vector access handler
     if ((pkt->req->hasPC())
@@ -4070,7 +4070,11 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         }
         assert(pkt->getSize() > sizeof(uint64_t));
         //std::cout << "Vec: " << std::hex << pkt->req->getPC() << std::dec << "[" << pkt->getSize() << "], Addr(oct) " << std::oct << pkt->getAddr() << std::dec << std::endl;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 31926394346913166fc68f853e09db4c87bd6208
     }
 
 
