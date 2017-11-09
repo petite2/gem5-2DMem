@@ -856,7 +856,7 @@ class Cache : public BaseCache
         Addr triggerAddr = pkt->getAddr();
         MemCmd::MJL_DirAttribute triggerDir = pkt->MJL_getCmdDir();
         // Should only be used when the tile does not exist
-        if (pkt->req->isUncacheable() || tags->MJL_tileExists(triggerAddr, pkt->isSecure())) {
+        if (pkt->req->isUncacheable() || tags->MJL_tileExists(triggerAddr, pkt->isSecure())!=(int)tags->getNumWays()) {
             return;
         }
 

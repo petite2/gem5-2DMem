@@ -196,11 +196,27 @@ CacheSet<Blktype>::moveToHead(Blktype *blk)
     int i = 0;
     Blktype *next = blk;
 
+    /* MJL_Test: way */
+    for (int j = 0; j < assoc; ++j) {
+        assert(blks[j]->way == j);
+    }
+    /* */
     do {
         assert(i < assoc);
-        std::swap(blks[i], next);
-        ++i;
+	std::swap(blks[i], next);
+        
+	++i;
     } while (next != blk);
+    /* MJL_Begin */
+    for (int i = 0; i < assoc; ++i) {
+        blks[i]->way = i;
+    }
+    /* MJL_End */
+    /* MJL_Test: way */
+    for (int i = 0; i < assoc; ++i) {
+        assert(blks[i]->way == i);
+    }
+    /* */
 }
 
 template <class Blktype>
@@ -217,12 +233,19 @@ CacheSet<Blktype>::moveToTail(Blktype *blk)
     // start by setting up to write 'blk' into tail
     int i = assoc - 1;
     Blktype *next = blk;
-
+    
     do {
         assert(i >= 0);
+
         std::swap(blks[i], next);
         --i;
     } while (next != blk);
+    /* MJL_Begin */
+    for (int i = 0; i < assoc; ++i) {
+        blks[i]->way = i;
+    }
+    /* MJL_End */
+    
 }
 
 #endif

@@ -208,6 +208,19 @@ public:
     {
         return accessBlock(addr, is_secure, lat, context_src, 0);
     }
+    CacheBlk* MJL_accessCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
+                          int context_src, unsigned MJL_offset) 
+    {
+        return nullptr;
+    }
+    CacheBlk* MJL_findWritebackBlk(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, int MJL_offset)
+    {
+        return nullptr;
+    }
+    int MJL_tileExists(Addr addr, bool is_secure)
+    {
+        return false;
+    }
     /* MJL_End */
 
     /**
@@ -220,6 +233,10 @@ public:
     CacheBlk* findBlock(Addr addr, bool is_secure) const override;
     /* MJL_Begin */
     CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override 
+    {
+        return findBlock(addr, is_secure);
+    }
+     CacheBlk * MJL_findCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, unsigned MJL_offset) const override
     {
         return findBlock(addr, is_secure);
     }
@@ -287,6 +304,11 @@ public:
      * @return The cache block.
      */
     CacheBlk* findBlockBySetAndWay(int set, int way) const override;
+    /* MJL_Begin */
+    CacheBlk *MJL_findBlockByTile(CacheBlk *blk, int i) const override {
+        return nullptr;
+    }
+    /* MJL_End */
 
     /**
      * Align an address to the block size.
@@ -297,6 +319,12 @@ public:
     {
         return (addr & ~(Addr)(blkSize-1));
     }
+    /* MJL_Begin */
+    Addr MJL_blkAlign(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const override
+    {
+        return blkAlign(addr);
+    }
+    /* MJL_End */
 
     /**
      * Generate the tag from the addres. For fully associative this is just the

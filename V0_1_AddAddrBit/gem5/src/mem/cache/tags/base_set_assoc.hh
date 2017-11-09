@@ -436,8 +436,8 @@ public:
         int MJL_startOffset = set%sizeof(uint64_t);
         int way = 0;
         for (way = 0; way < assoc; ++way) {
-            for (int i = -MJL_startOffset; i < blkSize/sizeof(uint64_t) - MJL_startOffset; ++i) {
-                blk = findBlockBySetAndWay(set + i, way);
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                blk = findBlockBySetAndWay(set + i - MJL_startOffset, way);
                 if (blk->tag == tag && 
                     blk->MJL_blkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow && 
                     blk->isSecure() == is_secure && 
@@ -451,33 +451,52 @@ public:
                     break;
                 }
             }
+            if (retBlk) {
+                break;
+            }
         }
         if (retBlk && MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
-            for (int i = -MJL_startOffset; i < blkSize/sizeof(uint64_t) - MJL_startOffset; ++i) {
-                findBlockBySetAndWay(set + i, way)->MJL_crossValid[MJL_offset/sizeof(uint64_t)] = true;
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                CacheBlk * tile_blk = findBlockBySetAndWay(set + i - MJL_startOffset, way);
+                tile_blk->MJL_crossValid[MJL_offset/sizeof(uint64_t)] = true;
+                if (tile_blk->MJL_allCrossValid()) {
+                    tile_blk->status |= BlkValid;
+                }
             }
         } else if (retBlk && MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             retBlk->status |= BlkValid;
+            bool all_valid = true;
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                all_valid &= findBlockBySetAndWay(set + i - MJL_startOffset, way)->isValid();
+            }
+            if (all_valid) {
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    findBlockBySetAndWay(set + i - MJL_startOffset, way)->MJL_setAllCrossValid();
+                }
+            }
         }
         return retBlk;
     }
 
-    bool MJL_tileExists(Addr addr, bool is_secure) {
-        bool tileExists = false;
+    int MJL_tileExists(Addr addr, bool is_secure) {
+        int tileExists = assoc;
         Addr tag = MJL_extractTag(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
         int set = MJL_extractSet(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
         CacheBlk* blk = nullptr;
         int MJL_startOffset = set%sizeof(uint64_t);
         for (int way = 0; way < assoc; ++way) {
-            for (int i = -MJL_startOffset; i < blkSize/sizeof(uint64_t) - MJL_startOffset; ++i) {
-                blk = findBlockBySetAndWay(set + i, way);
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                blk = findBlockBySetAndWay(set + i - MJL_startOffset, way);
                 if (blk->tag == tag && 
                     blk->MJL_blkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow && 
                     blk->isSecure() == is_secure && 
                     (blk->isValid() || blk->MJL_hasCrossValid())) {
-                    tileExists = true;
+                    tileExists = way;
                     break;
                 }
+            }
+            if (tileExists != assoc) {
+                break;
             }
         }
         
@@ -534,9 +553,9 @@ public:
                     bool MJL_valid = false;
                     int MJL_startOffset = set%sizeof(uint64_t);
 
-                    for (int j = -MJL_startOffset; j < getBlockSize()/sizeof(uint64_t) - MJL_startOffset; ++j) {
-                        MJL_valid |= sets[set + j].blks[i]->isValid();
-                        MJL_valid |= sets[set + j].blks[i]->MJL_hasCrossValid();
+                    for (int j = 0; j < getBlockSize()/sizeof(uint64_t); ++j) {
+                        MJL_valid |= sets[set + j - MJL_startOffset].blks[i]->isValid();
+                        MJL_valid |= sets[set + j - MJL_startOffset].blks[i]->MJL_hasCrossValid();
                     };
                     if (!MJL_valid)
                         break;
@@ -579,19 +598,18 @@ public:
                     MJL_tileIsTouched |= blk->isTouched;
              }
              if (!MJL_tileIsTouched) {
-                 // Get stats about tagsInUse, assume 8 sets in a tile, so only 1 tag for all 8 blocks, and only 1/8 size for the warmup bounds as well.
-                 tagsInUse++;
+                 // Get stats about tagsInUse, assume 8 sets in a tile.
                  for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    tagsInUse++;
                     MJL_findBlockByTile(blk, i)->isTouched = true;
                  }
-                 if (!warmedUp && tagsInUse.value() >= warmupBound/sizeof(uint64_t)) {
+                 if (!warmedUp && tagsInUse.value() >= warmupBound) {
                      warmedUp = true;
                      warmupCycle = curTick();
                  }
              }
              if (MJL_tileValid) {
                  // Get stats about replacement and ref count
-                 MJL_rowInUse--; 
                  replacements[0]++;
                  ++sampledRefs;
                  for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
@@ -599,11 +617,22 @@ public:
                      totalRefs += tile_blk->refCount;
                      tile_blk->refCount = 0;
                      assert(tile_blk->srcMasterId < cache->system->maxMasters());
+                     // deal with evicted block
+                     /* MJL_Test 
+                     std::cout << "MJL_Debug: point C occupancies[" << blk->srcMasterId << "]=" << occupancies[tile_blk->srcMasterId].value() << std::endl;
+                     if (i == blk->set%(blkSize/sizeof(uint64_t))) {
+                         assert(blk == findBlockBySetAndWay(blk->set, blk->way));
+                         assert(blk == tile_blk);
+                     }
+                      */
+                     occupancies[blk->srcMasterId]--;
+                     /* MJL_Test 
+                     std::cout << "MJL_Debug: point D occupancies[" << blk->srcMasterId << "]=" << occupancies[tile_blk->srcMasterId].value() << std::endl;
+                      */
                      tile_blk->invalidate();
                      tile_blk->MJL_clearCrossValid();
+                     MJL_rowInUse--; 
                  }
-                 // deal with evicted block
-                 occupancies[blk->srcMasterId]--;
              }
              for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                 CacheBlk* tile_blk =  MJL_findBlockByTile(blk, i);
@@ -614,11 +643,11 @@ public:
                 tile_blk->srcMasterId = master_id;
                 tile_blk->task_id = task_id;
                 tile_blk->tickInserted = curTick();
+                MJL_rowInUse++;
+                // deal with what we are bringing in
+                assert(master_id < cache->system->maxMasters());
+                occupancies[master_id]++;
             }
-            MJL_rowInUse++;
-            // deal with what we are bringing in
-            assert(master_id < cache->system->maxMasters());
-            occupancies[master_id]++;
 
             // We only need to write into one tag and one data block.
             tagAccesses += 1;

@@ -343,9 +343,10 @@ AbstractMemory::access(PacketPtr pkt)
     uint8_t *hostAddr = pmemAddr + pkt->getAddr() - range.start();
 
     /* MJL_Begin */
-    /* MJL_Test: Packet information output 
+    /* MJL_Test: Packet information output */ 
     if (!pkt->req->isInstFetch()
-         && pkt->MJL_cmdIsColumn()) { // Debug for column vec
+         //&& pkt->MJL_cmdIsColumn()
+         ) { // Debug for column vec
         std::cout << this->name() << "::access()PreAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
@@ -370,9 +371,9 @@ AbstractMemory::access(PacketPtr pkt)
             }
             std::cout << std::dec;
         }
-        std::cout << ", Time: " << pkt->req->time() << std::endl;
+        std::cout << /*", Time: " << pkt->req->time() <<*/ std::endl;
     }
-     */
+    /* */
     /* MJL_End */
                     
 
@@ -541,9 +542,9 @@ AbstractMemory::access(PacketPtr pkt)
         pkt->makeResponse();
     }
     /* MJL_Begin */
-    /* MJL_Test: Packet information output 
+    /* MJL_Test: Packet information output */ 
     if (!pkt->req->isInstFetch() && pkt->isResponse()
-         && pkt->req->hasPC() && pkt->req->getPC() > 4204041 && pkt->req->getPC() < 4204313) { // Debug for ssyr2k column vec
+         && pkt->req->hasPC()) { // Debug for ssyr2k column vec
         std::cout << this->name() << "::access()PostAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
@@ -568,9 +569,9 @@ AbstractMemory::access(PacketPtr pkt)
             }
             std::cout << std::dec;
         }
-        std::cout << ", Time: " << pkt->req->time() << std::endl;
+        std::cout << /*", Time: " << pkt->req->time() <<*/ std::endl;
     }
-     */
+    /* */
     /* MJL_End */
 }
 

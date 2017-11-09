@@ -468,6 +468,16 @@ class CacheBlk
             MJL_crossValid[i] = false;
         }
     }
+
+    /**
+     * Set the valid bits for all columns
+     */
+    void MJL_setAllCrossValid()
+    {
+        for (int i = 0; i < 8; ++i) {
+            MJL_crossValid[i] = true;
+        }
+    }
     /* MJL_End */
 
     /**

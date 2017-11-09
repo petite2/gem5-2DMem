@@ -276,7 +276,7 @@ class BaseTags : public ClockedObject
     virtual CacheBlk* MJL_accessCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                           int context_src, unsigned MJL_offset) = 0;
     virtual CacheBlk* MJL_findWritebackBlk(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, int MJL_offset) = 0;
-    virtual bool MJL_tileExists(Addr addr, bool is_secure) = 0;
+    virtual int MJL_tileExists(Addr addr, bool is_secure) = 0;
     /* MJL_End */
 
     virtual Addr extractTag(Addr addr) const = 0;
@@ -300,7 +300,7 @@ class BaseTags : public ClockedObject
     virtual int extractSet(Addr addr) const = 0;
     /* MJL_Begin */
     virtual int MJL_extractSet(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const = 0;
-    virtual Addr MJL_blkAlign(Addr addr) const = 0;
+    virtual Addr MJL_blkAlign(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) const = 0;
     virtual Addr MJL_swapRowColBits(Addr addr) const = 0;
     virtual Addr MJL_movColRight(Addr addr) const = 0;
     virtual Addr MJL_movColLeft(Addr addr) const = 0;

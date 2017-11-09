@@ -80,8 +80,8 @@ LRU::MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool 
         int MJL_startOffset = blk->set%sizeof(uint64_t);
         int MJL_way = blk->way;
 
-        for (int i = -MJL_startOffset; i < getBlockSize()/sizeof(uint64_t) - MJL_startOffset; ++i) {
-            sets[blk->set + i].moveToHead(BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way));
+        for (int i = 0; i < getBlockSize()/sizeof(uint64_t); ++i) {
+            sets[blk->set + i - MJL_startOffset].moveToHead(BaseSetAssoc::findBlockBySetAndWay(blk->set + i - MJL_startOffset, MJL_way));
         }
     } else {
         if (blk != nullptr) {
@@ -100,15 +100,15 @@ CacheBlk*
 LRU::MJL_accessCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                           int context_src, unsigned MJL_offset)
 {
-    CacheBlk *blk = BaseSetAssoc::MJL_accessCrossBlock(addr, MJL_cacheBlkDir, is_secure, lat, master_id, MJL_offset);
+    CacheBlk *blk = BaseSetAssoc::MJL_accessCrossBlock(addr, MJL_cacheBlkDir, is_secure, lat, context_src, MJL_offset);
 
     if (cache->MJL_is2DCache() && blk != nullptr) {
         int MJL_startOffset = blk->set%sizeof(uint64_t);
         int MJL_way = blk->way;
 
-        for (int i = -MJL_startOffset; i < getBlockSize()/sizeof(uint64_t) - MJL_startOffset; ++i) {
-            assert(blk->tag == BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way)->tag || (!BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way)->isValid() && !BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way)->MJL_hasCrossValid()));
-            sets[blk->set + i].moveToHead(BaseSetAssoc::findBlockBySetAndWay(blk->set + i, MJL_way));
+        for (int i = 0; i < getBlockSize()/sizeof(uint64_t); ++i) {
+            assert(blk->tag == BaseSetAssoc::findBlockBySetAndWay(blk->set + i - MJL_startOffset, MJL_way)->tag || (!BaseSetAssoc::findBlockBySetAndWay(blk->set + i - MJL_startOffset, MJL_way)->isValid() && !BaseSetAssoc::findBlockBySetAndWay(blk->set + i - MJL_startOffset, MJL_way)->MJL_hasCrossValid()));
+            sets[blk->set + i - MJL_startOffset].moveToHead(BaseSetAssoc::findBlockBySetAndWay(blk->set + i - MJL_startOffset, MJL_way));
         }
     } else {
         if (blk != nullptr) {
@@ -210,9 +210,9 @@ LRU::insertBlock(PacketPtr pkt, BlkType *blk)
             int MJL_startOffset = set%sizeof(uint64_t);
             int MJL_way = blk->way;
 
-            for (int i = -MJL_startOffset; i < getBlockSize()/sizeof(uint64_t) - MJL_startOffset; ++i) {
-                assert(blk->tag == BaseSetAssoc::findBlockBySetAndWay(set + i, MJL_way)->tag || (!BaseSetAssoc::findBlockBySetAndWay(set + i, MJL_way)->isValid() && !BaseSetAssoc::findBlockBySetAndWay(set + i, MJL_way)->MJL_hasCrossValid()));
-                sets[set + i].moveToHead(BaseSetAssoc::findBlockBySetAndWay(set + i, MJL_way));
+            for (int i = 0; i < getBlockSize()/sizeof(uint64_t); ++i) {
+                assert(blk->tag == BaseSetAssoc::findBlockBySetAndWay(set + i - MJL_startOffset, MJL_way)->tag || (!BaseSetAssoc::findBlockBySetAndWay(set + i - MJL_startOffset, MJL_way)->isValid() && !BaseSetAssoc::findBlockBySetAndWay(set + i - MJL_startOffset, MJL_way)->MJL_hasCrossValid()));
+                sets[set + i - MJL_startOffset].moveToHead(BaseSetAssoc::findBlockBySetAndWay(set + i - MJL_startOffset, MJL_way));
             };
         } else {
             sets[set].moveToHead(blk);
