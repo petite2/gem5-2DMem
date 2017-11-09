@@ -2029,6 +2029,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     /* MJL_Begin */
     bool MJL_writeback = false;
     bool MJL_invalidate = false;
+    bool MJL_unreadable = false;
     Counter MJL_order = initial_tgt->order;
     /* MJL_End */
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
@@ -2213,9 +2214,14 @@ Cache::recvTimingResp(PacketPtr pkt)
     maintainClusivity(from_cache, blk);
 
     // MJL_TODO: probably coherence handling
+    /* MJL_Comment
     if (blk && blk->isValid()) {
-        /* MJL_Begin */
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    */
+    /* MJL_Begin */
+    if (blk 
+        && (blk->isValid() 
+            || (MJL_2DCache && blk->MJL_hasCrossValid())) {
+        if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !MJL_2DCache) {
             PacketPtr MJL_postPkt = nullptr;
             if (MJL_invalidate && (blk->isDirty() || writebackClean)) {
                 MJL_postPkt = writebackBlk(blk);
@@ -2241,8 +2247,18 @@ Cache::recvTimingResp(PacketPtr pkt)
         // should not invalidate the block, so check if the
         // invalidation should be discarded
         if (/* MJL_Begin */MJL_invalidate || /* MJL_End */is_invalidate || mshr->hasPostInvalidate()) {
+            /* MJL_Begin */
+            if (MJL_2DCache) {
+                MJL_invalidateTile(blk);
+            } else
+            /* MJL_End */
             invalidateBlock(blk);
         } else if (mshr->hasPostDowngrade()) {
+            /* MJL_Begin */
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                blk->status &= ~BlkWritable;
+            } else
+            /* MJL_End */
             blk->status &= ~BlkWritable;
         }
     }
@@ -2250,9 +2266,12 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (mshr->promoteDeferredTargets()) {
         // avoid later read getting stale data while write miss is
         // outstanding.. see comment in timingAccess()
-        if (blk) {
+        if (blk/* MJL_Begin */ && !MJL_2DCache/* MJL_End */) {
             blk->status &= ~BlkReadable;
+        }/* MJL_Begin */ else if (blk && MJL_2DCache) {
+            MJL_unreadable = true;
         }
+        /* MJL_End */
         mshrQueue.markPending(mshr);
         schedMemSideSendEvent(clockEdge() + pkt->payloadDelay);
     } else {
@@ -2270,6 +2289,22 @@ Cache::recvTimingResp(PacketPtr pkt)
                 schedMemSideSendEvent(next_pf_time);
         }
     }
+
+    /* MJL_TODO: need to be changed for physically 2D cache */
+    // Reasonably in the L2, there's only writeback and reads, and writebacks can be served even without any copy, so the only ones in mshr are reads. (needs verification)
+    // Assuming each miss brings in the whole tile, we need to add blocked to crossing reads as well, and serve that later when returned. Only add block when creating new mshr entry, and that whatever is waiting in the mshr combined with whatever is already in the cache can form a whole tile.
+    // Should also serve the previously blocked target packet if it can be served.
+    // If the blk is not a tempblock, and the whole tile is valid
+        // For each crossing mshr, go through the service targets process again. Can use the pkt directly in extractServiceableTargets since only the cmd is used and if it were ReadRespWithInvalidate, the blk should not be valid and it should never come here.
+            // Should assert that none of the requests were invalidation, cause it needs to be handled differently.
+            // The blk should be changed to the appropriate one for satisfyRequest
+    if (MJL_2DCache && MJL_unreadable && blk) {
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            tags->MJL_findBlockByTile(blk, i)->status &= ~BlkReadable;;
+        }
+    }
+    /* */
+    
     // reset the xbar additional timinig  as it is now accounted for
     pkt->headerDelay = pkt->payloadDelay = 0;
 

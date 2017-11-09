@@ -622,6 +622,7 @@ class BaseCache : public MemObject
                     // And the crossing mshr's last write target should writeback
                     crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;
                 // Else the crossing mshr's last target should have post lose writable
+                // MJL_TODO: In physically 2D cache, the mshr entry should be blocked if there's an invalidation as well, but assuming that this never happens for now.
                 } else {
                     crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;
                 }
@@ -658,6 +659,18 @@ class BaseCache : public MemObject
         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
             MJL_markBlockInfo(mshr);
         }
+        /* MJL_TODO: For physically 2D cache, block the mshr with the crossing direction ones waiting in the mshr if those combined with the cache lines for the tile in the cache make up the whole tile.
+        if (MJL_2DCache) {
+            bool MJL_RowsPresent[blkSize/sizeof(uint64_t)] = {false, false, false, false, false, false, false, false};
+            bool MJL_ColsPresent[blkSize/sizeof(uint64_t)] = {false, false, false, false, false, false, false, false};
+            MemCmd::MJL_DirAttribute crossBlkDir = pkt->MJL_getCmdDir();
+            if (crossBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+            } else if (crossBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+            }
+
+        } */
         /* MJL_End */
 
         if (mshrQueue.isFull()) {
