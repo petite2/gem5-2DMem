@@ -2220,7 +2220,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     /* MJL_Begin */
     if (blk 
         && (blk->isValid() 
-            || (MJL_2DCache && blk->MJL_hasCrossValid())) {
+            || (MJL_2DCache && blk->MJL_hasCrossValid()))) {
         if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !MJL_2DCache) {
             PacketPtr MJL_postPkt = nullptr;
             if (MJL_invalidate && (blk->isDirty() || writebackClean)) {
@@ -2255,8 +2255,10 @@ Cache::recvTimingResp(PacketPtr pkt)
             invalidateBlock(blk);
         } else if (mshr->hasPostDowngrade()) {
             /* MJL_Begin */
-            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                blk->status &= ~BlkWritable;
+            if (MJL_2DCache) {
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    tags->MJL_findBlockByTile(blk, i)->status &= ~BlkWritable;
+                }
             } else
             /* MJL_End */
             blk->status &= ~BlkWritable;
@@ -4144,8 +4146,10 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     }
 
     /* MJL_Test: Packet information output */
-    if ((this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry
-         && cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() && pkt->MJL_cmdIsColumn()) { // Debug for column vec
+    if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !blocked && !mustSendRetry
+         //&& cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() 
+         //&& pkt->MJL_cmdIsColumn()
+         ) { // Debug for column vec
         std::cout << this->name() << "::recvTimingReq";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
@@ -4160,7 +4164,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         std::cout << ", Data(hex) = " << std::hex;
         if (pkt->hasData()) {
             uint64_t MJL_data = 0;
-            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), pkt->getSize());
+            std::memcpy(&MJL_data, pkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)pkt->getSize()));
             std::cout << "word[0] " << std::hex << MJL_data << std::dec;
             for (unsigned i = sizeof(uint64_t); i < pkt->getSize(); i = i + sizeof(uint64_t)) {
                 MJL_data = 0;
@@ -4171,7 +4175,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             std::cout << "noData";
         }
         std::cout << std::dec;
-        std::cout << ", Time = " << pkt->req->time();
+        //std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
     /* */

@@ -101,10 +101,10 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         return snoopDown(lookupLatency);
 
     // If no hit in snoop filter create a new element and update iterator
-    if (!is_hit)
-        /* MJL_Begin */
+    if (!is_hit)/* MJL_Begin */{
         reqLookupResult = MJL_cachedLocations[cpkt->MJL_getCmdDir()].emplace(line_addr, SnoopItem()).first;
-        /* MJL_End */
+        // MJL_TODO: If the port is attached to the physically 2D L2 cache, then when all rows of a tile are present, so are the columns, vice versa
+    }/* MJL_End */
         /* MJL_Comment
         reqLookupResult = cachedLocations.emplace(line_addr, SnoopItem()).first;
         */
@@ -155,12 +155,44 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         }
     } else { // if (!cpkt->needsResponse())
         assert(cpkt->isEviction());
+        /* MJL_Test */
+        std::cout << "MJL_Debug: " << this->name() << ":: slave_port name: " << slave_port.name() << ", slave_port.getMasterPort name: " << slave_port.getMasterPort().name() << ", is port attached to physically 2D cache ? " << slave_port.getMasterPort().MJL_is2DCache() << std::endl;
+
+        std::cout << "The Evicted Packet Info: PC(hex) = ";
+        if (cpkt->req->hasPC()) {
+            std::cout << std::hex << cpkt->req->getPC() << std::dec;
+        } else {
+            std::cout << "noPC";
+        }
+        std::cout << ", MemCmd = " << cpkt->cmd.toString();
+        std::cout << ", CmdDir = " << cpkt->MJL_getCmdDir();
+        std::cout << ", Addr(oct) = " << std::oct << cpkt->getAddr() << std::dec;
+        std::cout << ", Size = " << cpkt->getSize();
+        std::cout << ", Data(hex) = ";
+        if (cpkt->hasData()) {
+            uint64_t MJL_data = 0;
+            std::memcpy(&MJL_data, cpkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)cpkt->getSize()));
+            std::cout << "word[0] " << std::hex << MJL_data << std::dec;
+            for (unsigned i = sizeof(uint64_t); i < cpkt->getSize(); i = i + sizeof(uint64_t)) {
+                MJL_data = 0;
+                std::memcpy(&MJL_data, cpkt->getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), cpkt->getSize() - (Addr)i));
+                std::cout << " | word[" << i/sizeof(uint64_t) << "] " << std::hex <<  MJL_data << std::dec;
+            }       
+        } else {
+            std::cout << ", noData";
+        }
+        std::cout << std::dec;
+        //std::cout << ", Time = " << pkt->req->time() ;
+        std::cout << std::endl;
+        /* */
+        
         // make sure that the sender actually had the line
         panic_if(!(sf_item.holder & req_port), "requester %x is not a " \
                  "holder :( SF value %x.%x\n", req_port,
                  sf_item.requested, sf_item.holder);
         // CleanEvicts and Writebacks -> the sender and all caches above
         // it may not have the line anymore.
+        // MJL_TODO: For physically 2D cache, also need the is cached above information for the other direction as well, so that we can correctly determine whether it is still a holder for the other direction
         if (!cpkt->isBlockCached()) {
             sf_item.holder &= ~req_port;
             DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
@@ -457,6 +489,7 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     panic_if(!(sf_item.requested & slave_mask), "SF value %x.%x missing "\
              "request bit\n", sf_item.requested, sf_item.holder);
 
+    // MJL_TODO: for physically 2D cache, if the cache is a holder for all rows, it is also a holder for all columns, and vice versa
     // Update the residency of the cache line.
     sf_item.holder |=  slave_mask;
     sf_item.requested &= ~slave_mask;
