@@ -554,6 +554,12 @@ class Packet : public Printable
     bool MJL_hasOrder;
     Counter MJL_order;
     bool MJL_wordDirty[8]; // Used to identify dirty words for cross direction checks
+    bool MJL_crossBlocksCached[8]; // Used to identify whether the crossing blocks are cached in above caches in physicaly 2D L2 cache mode
+    void MJL_copyCrossBlocksCached( bool in_MJL_crossBlocksCached[8] ) {
+        for (int i = 0; i < 8; ++i) {
+            MJL_crossBlocksCached[i] = in_MJL_crossBlocksCached[i];
+        }
+    }
     void MJL_setWordDirtyFromBlk( bool MJL_blkWordDirty[8], unsigned blkSize) {
         for (int i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
             MJL_wordDirty[i/sizeof(uint64_t)] = MJL_blkWordDirty[(i + getOffset(blkSize))/sizeof(uint64_t)];
@@ -570,6 +576,15 @@ class Packet : public Printable
         }
     }
     MemCmd::MJL_DirAttribute MJL_getCmdDir() const { return cmd.MJL_getCmdDir(); }
+    MemCmd::MJL_DirAttribute MJL_getCrossCmdDir() const {
+        if (cmd.MJL_isRow()) {
+            return MemCmd::MJL_DirAttribute::MJL_IsColumn;
+        } else if (cmd.MJL_isColumn()) {
+            return MemCmd::MJL_DirAttribute::MJL_IsRow;
+        } else {
+            return MemCmd::MJL_DirAttribute::MJL_IsRow;
+        }
+    }
     bool MJL_cmdIsRow() const           { return cmd.MJL_isRow(); }
     bool MJL_cmdIsColumn() const        { return cmd.MJL_isColumn(); }
     MemCmd::MJL_DirAttribute MJL_getDataDir() const {return MJL_dataDir; }
@@ -829,6 +844,33 @@ class Packet : public Printable
         /* MJL_Comment
         return getAddr() & ~(Addr(blk_size - 1));*/
     }
+    /* MJL_Begin */
+    Addr MJL_getBlockAddrs(unsigned int blk_size, int offset) const
+    {
+        assert(offset < blk_size/sizeof(uint64_t));
+        Addr baseAddr = (getAddr() & ~(Addr(MJL_blkMaskColumn(blk_size, req->MJL_rowWidth)))) & ~(Addr(blk_size - 1));
+        if ( MJL_cmdIsRow() ) {
+            return baseAddr + offset * sizeof(uint64_t);
+        } else if ( MJL_cmdIsColumn() ) {
+            return baseAddr + offset * MJL_rowWidth * sizeof(blk_size);
+        } else {
+            return getAddr() & ~(Addr(blk_size - 1));
+        };
+    }
+    
+    Addr MJL_getCrossBlockAddrs(unsigned int blk_size, int offset) const
+    {
+        assert(offset < blk_size/sizeof(uint64_t));
+        Addr baseAddr = (getAddr() & ~(Addr(MJL_blkMaskColumn(blk_size, req->MJL_rowWidth)))) & ~(Addr(blk_size - 1));
+        if ( MJL_cmdIsColumn() ) {
+            return baseAddr + offset * sizeof(uint64_t);
+        } else if ( MJL_cmdIsRow() ) {
+            return baseAddr + offset * MJL_rowWidth * sizeof(blk_size);
+        } else {
+            return getAddr() & ~(Addr(blk_size - 1));
+        };
+    }
+    /* MJL_End */
 
     bool isSecure() const
     {
@@ -874,7 +916,7 @@ class Packet : public Printable
     Packet(const RequestPtr _req, MemCmd _cmd)
         :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            size(0), headerDelay(0), snoopDelay(0), payloadDelay(0),
-           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}/* MJL_End */
+           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}/* MJL_End */
     {
         if (req->hasPaddr()) {
             addr = req->getPaddr();
@@ -895,7 +937,7 @@ class Packet : public Printable
     Packet(const RequestPtr _req, MemCmd _cmd, int _blkSize)
         :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            headerDelay(0), snoopDelay(0), payloadDelay(0),
-           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}/* MJL_End */
+           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}/* MJL_End */
     {
         if (req->hasPaddr()) {
             /* MJL_Begin */
@@ -936,10 +978,15 @@ class Packet : public Printable
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
            payloadDelay(pkt->payloadDelay),
-           senderState(pkt->senderState)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]}/* MJL_End */
+           senderState(pkt->senderState)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}/* MJL_End */
     {
         if (!clear_flags)
             flags.set(pkt->flags & COPY_FLAGS);
+        /* MJL_Begin */
+        if (!clear_flags) {
+            MJL_copyCrossBlocksCached(pkt->MJL_crossBlocksCached);
+        }
+        /* MJL_End */
 
         flags.set(pkt->flags & (VALID_ADDR|VALID_SIZE));
 

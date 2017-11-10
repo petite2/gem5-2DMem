@@ -3304,6 +3304,9 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
             if (snoopPkt.isBlockCached()) {
                 pkt->setBlockCached();
             }
+            /* MJL_Begin */
+            pkt->MJL_copyCrossBlocksCached(snoopPkt->MJL_crossBlocksCached);
+            /* MJL_End */
         } else {
             cpuSidePort->sendAtomicSnoop(pkt);
             if (!alreadyResponded && pkt->cacheResponding()) {
@@ -3315,6 +3318,16 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
     }
 
     /* MJL_Begin */
+    // Should also check for cross direction block existence. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
+    if ((this->name().find("dcache") != std::string::npos) && pkt->mustCheckAbove()) {
+        CacheBlk *MJL_crossBlk = nullptr;
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            MJL_crossBlk =  tags->MJL_findBlock(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), is_secure);
+            if (MJL_crossBlk && MJL_crossBlk->isValid()) {
+                pkt->MJL_crossBlocksCached[i] |= true;
+            }
+        }
+    }
     if (MJL_2DCache && (!blk || (!blk->isValid() && !blk->MJL_hasCrossValid()))) {
         DPRINTF(CacheVerbose, "%s: snoop miss for %s\n", __func__,
                 pkt->print());
@@ -3574,6 +3587,18 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
 
     // Inform request(Prefetch, CleanEvict or Writeback) from below of
     // MSHR hit, set setBlockCached.
+    /* MJL_Begin */
+    // Should also check for cross direction existence for mshr. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
+    if ((this->name().find("dcache") != std::string::npos) && pkt->mustCheckAbove()) {
+        MSHR *MJL_crossMshr = nullptr;
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            MJL_crossMshr =  mshrQueue.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), is_secure);
+            if (MJL_crossMshr) {
+                pkt->MJL_crossBlocksCached[i] |= true;
+            }
+        }
+    }
+    /* MJL_End */
     if (mshr && pkt->mustCheckAbove()) {
         DPRINTF(Cache, "Setting block cached for %s from lower cache on "
                 "mshr hit\n", pkt->print());
@@ -3595,7 +3620,22 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
 
     //We also need to check the writeback buffers and handle those
     /* MJL_Begin */
-    WriteQueueEntry *wb_entry = writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+    WriteQueueEntry *wb_entry = nullptr;
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        wb_entry = writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
+    } else {
+        wb_entry = writeBuffer.findMatch(blk_addr, is_secure);
+    }
+    // Should also check for cross direction existence for wb_entry. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
+    if ((this->name().find("dcache") != std::string::npos) && pkt->isEviction()) {
+        WriteQueueEntry *MJL_crossWb_entry = nullptr;
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            MJL_crossWb_entry =  writeBuffer.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), is_secure);
+            if (MJL_crossWb_entry) {
+                pkt->MJL_crossBlocksCached[i] |= true;
+            }
+        }
+    }
     /* MJL_End */
     /* MJL_Comment
     WriteQueueEntry *wb_entry = writeBuffer.findMatch(blk_addr, is_secure);
@@ -3892,6 +3932,7 @@ Cache::isCachedAbove(PacketPtr pkt, bool is_timing) const
     // same block. Using the BLOCK_CACHED flag with the Writeback/CleanEvict
     // packet, the cache can inform the crossbar below of presence or absence
     // of the block.
+    // MJL_TODO: needs to be changed for physically 2d cache to get whether the cross blocks are cached or not
     if (is_timing) {
         Packet snoop_pkt(pkt, true, false);
         snoop_pkt.setExpressSnoop();
@@ -3903,6 +3944,12 @@ Cache::isCachedAbove(PacketPtr pkt, bool is_timing) const
         cpuSidePort->sendTimingSnoopReq(&snoop_pkt);
         // Writeback/CleanEvict snoops do not generate a snoop response.
         assert(!(snoop_pkt.cacheResponding()));
+        /* MJL_Begin */
+        // For physically 2d cache, get whether the cross blocks are cached or not
+        if (MJL_2DCache) {
+            pkt->MJL_copyCrossBlocksCached(snoop_pkt->MJL_crossBlocksCached);
+        }
+        /* MJL_End */
         return snoop_pkt.isBlockCached();
     } else {
         cpuSidePort->sendAtomicSnoop(pkt);

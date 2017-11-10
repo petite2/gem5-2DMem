@@ -101,10 +101,10 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         return snoopDown(lookupLatency);
 
     // If no hit in snoop filter create a new element and update iterator
-    if (!is_hit)/* MJL_Begin */{
+    if (!is_hit)
+        /* MJL_Begin */
         reqLookupResult = MJL_cachedLocations[cpkt->MJL_getCmdDir()].emplace(line_addr, SnoopItem()).first;
-        // MJL_TODO: If the port is attached to the physically 2D L2 cache, then when all rows of a tile are present, so are the columns, vice versa
-    }/* MJL_End */
+        /* MJL_End */
         /* MJL_Comment
         reqLookupResult = cachedLocations.emplace(line_addr, SnoopItem()).first;
         */
@@ -192,7 +192,19 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
                  sf_item.requested, sf_item.holder);
         // CleanEvicts and Writebacks -> the sender and all caches above
         // it may not have the line anymore.
-        // MJL_TODO: For physically 2D cache, also need the is cached above information for the other direction as well, so that we can correctly determine whether it is still a holder for the other direction
+        /* MJL_Begin */
+        // For physically 2D cache, also need the is cached above information for the other direction as well, so that we can correctly determine whether it is still a holder for the other direction
+        if (slave_port.getMasterPort().MJL_is2DCache()) {
+            // In this case, whenever there is 1 cache line evicted, the whole tile is evicted, hence we only rely on the is block cached information on passed from the upper level cache
+            for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
+                auto MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
+                if (!cpkt->MJL_crossBlocksCached[i] && MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
+                     SnoopItem& MJL_temp_item = MJL_temp_it->second;
+                    MJL_temp_item.holder &= ~req_port;
+                }
+            }
+        }
+        /* MJL_End */
         if (!cpkt->isBlockCached()) {
             sf_item.holder &= ~req_port;
             DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
@@ -489,13 +501,38 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     panic_if(!(sf_item.requested & slave_mask), "SF value %x.%x missing "\
              "request bit\n", sf_item.requested, sf_item.holder);
 
-    // MJL_TODO: for physically 2D cache, if the cache is a holder for all rows, it is also a holder for all columns, and vice versa
     // Update the residency of the cache line.
     sf_item.holder |=  slave_mask;
     sf_item.requested &= ~slave_mask;
     assert(sf_item.holder | sf_item.requested);
     DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
             __func__, sf_item.requested, sf_item.holder);
+    /* MJL_Begin */
+    // For physically 2D cache, if the cache is a holder for all rows, it is also a holder for all columns, and vice versa
+    if (slave_port.getMasterPort().MJL_is2DCache()) {
+        bool MJL_wholeTilePresent = true;
+        auto MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(line_addr);
+        for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
+            MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(cpkt->MJL_getBlockAddrs(linesize, i));
+            if (MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end()) {
+                MJL_wholeTilePresent &= (bool)(MJL_temp_it->second.holder & slave_mask);
+            } else {
+                MJL_wholeTilePresent = false;
+                break;
+            }
+        }
+        if (MJL_wholeTilePresent) {
+            for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
+                MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
+                if (MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
+                     MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].emplace(cpkt->MJL_getCrossBlockAddrs(linesize, i), SnoopItem()).first;
+                }
+                SnoopItem& MJL_temp_item = MJL_temp_it->second;
+                MJL_temp_item.holder |=  slave_mask;
+            }
+        }
+    }
+    /* MJL_End */
 }
 
 void
