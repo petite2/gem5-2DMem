@@ -115,6 +115,20 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
     // case we need to revert because of a send retry in
     // updateRequest.
     retryItem = sf_item;
+    /* MJL_Begin */
+    if (!cpkt->needsResponse() && slave_port.getMasterPort().MJL_is2DCache()) {
+        for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
+            auto MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
+            if (MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
+                    SnoopItem& MJL_temp_item = MJL_temp_it->second;
+                    MJL_retryItems[i] = MJL_temp_item;
+            }
+        }
+        MJL_retrySet = true;
+    } else {
+        MJL_retrySet = false;
+    } 
+    /* MJL_End */
 
     totRequests++;
     if (is_hit) {
@@ -265,7 +279,7 @@ SnoopFilter::MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttrib
         if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             line_addr = (addr & ~(Addr(linesize - 1)));
         } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-            line_addr = (addr & ~(Addr(MJL_blkMaskColumn)));;
+            line_addr = (addr & ~(Addr(MJL_blkMaskColumn)));
         } else {
             line_addr = (addr & ~(Addr(linesize - 1)));
         }
@@ -279,6 +293,28 @@ SnoopFilter::MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttrib
             // entry if the request will come again. retryItem holds
             // the previous value of the snoopfilter entry.
             reqLookupResult->second = retryItem;
+            if (MJL_retrySet) {
+                MemCmd::MJL_DirAttribute MJL_crossCmdDir = MJL_cmdDir;
+                if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    MJL_crossCmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+                } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    MJL_crossCmdDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                }
+                Addr MJL_crossBaseLineAddr = (addr & ~(Addr(MJL_blkMaskColumn))) & ~(Addr(blk_size - 1));
+                for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
+                    Addr MJL_crossLineAddr = MJL_crossBaseLineAddr;
+                    if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                        MJL_crossLineAddr = MJL_crossBaseLineAddr + i * sizeof(uint64_t);
+                    } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                        MJL_crossLineAddr = MJL_crossBaseLineAddr + i * MJL_rowWidth * linesize;
+                    }
+                    auto MJL_temp_it = MJL_cachedLocations[MJL_crossCmdDir].find(MJL_crossLineAddr);
+                    if (MJL_temp_it != MJL_cachedLocations[MJL_crossCmdDir].end()) {
+                            MJL_temp_it->second = MJL_retryItems[i];
+                    }
+                    MJL_eraseIfNullEntry(MJL_temp_it, MJL_cmdDir);
+                }
+            }
 
             DPRINTF(SnoopFilter, "%s:   restored SF value %x.%x\n",
                     __func__,  retryItem.requested, retryItem.holder);

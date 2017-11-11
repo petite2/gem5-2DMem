@@ -92,7 +92,7 @@ class SnoopFilter : public SimObject {
     typedef std::vector<QueuedSlavePort*> SnoopList;
 
     SnoopFilter (const SnoopFilterParams *p) :
-        SimObject(p), reqLookupResult(/* MJL_Begin */MJL_cachedLocations[MemCmd::MJL_DirAttribute::MJL_IsRow]/* MJL_End *//* MJL_Comment cachedLocations*/.end()), retryItem{0, 0},
+        SimObject(p), reqLookupResult(/* MJL_Begin */MJL_cachedLocations[MemCmd::MJL_DirAttribute::MJL_IsRow]/* MJL_End *//* MJL_Comment cachedLocations*/.end()), retryItem{0, 0},/* MJL_Begin */ MJL_retryItems{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}}, MJL_retrySet{false},/* MJL_End */
         linesize(p->system->cacheLineSize()), /* MJL_Begin */
         MJL_rowWidth(p->MJL_row_width),
         /* MJL_End */lookupLatency(p->lookup_latency),
@@ -296,6 +296,10 @@ class SnoopFilter : public SimObject {
      * (because of crossbar retry)
      */
     SnoopItem retryItem;
+    /* MJL_Begin */
+    SnoopItem MJL_retryItems[8];
+    bool MJL_retrySet;
+    /* MJL_End */
     /** List of all attached snooping slave ports. */
     SnoopList slavePorts;
     /** Track the mapping from port ids to the local mask ids. */
