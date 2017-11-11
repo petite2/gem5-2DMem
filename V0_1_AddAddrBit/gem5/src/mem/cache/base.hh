@@ -663,13 +663,68 @@ class BaseCache : public MemObject
         if (MJL_2DCache) {
             bool MJL_RowsPresent[blkSize/sizeof(uint64_t)] = {false, false, false, false, false, false, false, false};
             bool MJL_ColsPresent[blkSize/sizeof(uint64_t)] = {false, false, false, false, false, false, false, false};
-            MemCmd::MJL_DirAttribute crossBlkDir = pkt->MJL_getCmdDir();
-            if (crossBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
-                crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-            } else if (crossBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-                crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+            bool MJL_wholeTileValidRow = true;
+            bool MJL_wholeTileValidCol = true;
+            MemCmd::MJL_DirAttribute crossBlkDir = pkt->MJL_getCrossCmdDir();
+            CacheBlk * MJL_tileBlk = nullptr;
+            MSHR * MJL_rowMshr = nullptr;
+            MSHR * MJL_colMshr = nullptr;
+            Addr MJL_rowAddr = pkt->getAddr();
+            Addr MJL_colAddr = pkt->getAddr();
+
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                if (pkt->MJL_cmdIsRow) {
+                    MJL_rowAddr = pkt->MJL_getBlockAddrs(blkSize, i);
+                    MJL_colAddr = pkt->MJL_getCrossBlockAddrs(blkSize, i);
+                } else if (pkt->MJL_cmdIsColumn()) {
+                    MJL_rowAddr = pkt->MJL_getCrossBlockAddrs(blkSize, i);
+                    MJL_rowAddr = pkt->MJL_getBlockAddrs(blkSize, i);
+                }
+
+                // Check for cache blocks
+                MJL_tileBlk = tags->MJL_findBlock(MJL_rowAddr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                if (MJL_tileBlk) {
+                    if (MJL_tileBlk->isValid()) {
+                        MJL_RowsPresent[i] |= true;
+                    }
+                    for (int j = 0; j < blkSize/sizeof(uint64_t); ++j) {
+                        MJL_ColsPresent[j] |= MJL_tileBlk->MJL_crossValid[j];
+                    }
+                }
+
+                // Check for mshrs
+                MJL_rowMshr = mshrQueue.MJL_findMatch(MJL_rowAddr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                MJL_colMshr = mshrQueue.MJL_findMatch(MJL_colAddr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
+                if (MJL_rowMshr) {
+                    MJL_RowsPresent[i] |= true;
+                }
+                if (MJL_colMshr) {
+                    MJL_ColsPresent[i] |= true;
+                }
             }
 
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                MJL_wholeTileValidRow &= MJL_RowsPresent[i];
+                MJL_wholeTileValidCol &= MJL_ColsPresent[i];
+            }
+
+            if (MJL_wholeTileValidRow) {
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    MJL_rowMshr = mshrQueue.MJL_findMatch(MJL_rowAddr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                    if (MJL_rowMshr) {
+                        mshr->MJL_getLastTarget()->MJL_isBlockedBy.push_back(MJL_rowMshr->MJL_getLastTarget());
+                        MJL_rowMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(mshr->MJL_getLastTarget());
+                    }
+                }
+            } else if (MJL_wholeTileValidCol) {
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    MJL_colMshr = mshrQueue.MJL_findMatch(MJL_colAddr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
+                    if (MJL_colMshr) {
+                        mshr->MJL_getLastTarget()->MJL_isBlockedBy.push_back(MJL_colMshr->MJL_getLastTarget());
+                        MJL_colMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(mshr->MJL_getLastTarget());
+                    }
+                }
+            }
         } */
         /* MJL_End */
 

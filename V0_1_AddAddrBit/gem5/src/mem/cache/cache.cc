@@ -318,9 +318,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             int MJL_offset = (pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t))*sizeof(uint64_t);
 
             for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                // MJL_Test: See if this gets the rows correctly
+                /* MJL_Test: See if this gets the rows correctly 
                 std::cout << "MJL_Test: write Set(oct) " << std::oct << tags->MJL_findBlockByTile(blk, i)->set << std::dec << ", Way " << tags->MJL_findBlockByTile(blk, i)->way << ", Tag(oct) " << std::oct << tags->MJL_findBlockByTile(blk, i)->tag << std::dec << std::endl;
-                // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
+                 */
                 memcpy(MJL_tempData + i * sizeof(uint64_t), tags->MJL_findBlockByTile(blk, i)->data + MJL_offset, sizeof(uint64_t));
             }
             pkt->setDataFromBlock(MJL_tempData, blkSize);
@@ -404,7 +404,6 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                         /* MJL_Begin */
                         if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
                             for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
-                                // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
                                 tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_clearWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
                                 tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                             }
@@ -450,7 +449,6 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 }
                 for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
                     MJL_tempWordDirty[i/sizeof(uint64_t)] = tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_wordDirty[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)];
-                    // MJL_TODO: Verify if this will get the correct blk in the consecutive sets.
                     tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_clearWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
                     tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                 }
@@ -803,7 +801,6 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // nothing else to do; writeback doesn't expect response
         assert(!pkt->needsResponse());
         /* MJL_Begin */
-        // MJL_TODO: The data copy should be changed for physically 2D cache column access
         if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
             unsigned MJL_offset = pkt->MJL_getColOffset(blkSize);
             for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) { // For writeback, pkt->getSize() == blkSize
@@ -2292,20 +2289,37 @@ Cache::recvTimingResp(PacketPtr pkt)
         }
     }
 
-    /* MJL_TODO: need to be changed for physically 2D cache */
+    // MJL_TODO: need to be changed for physically 2D cache 
+    /* MJL_Begin */
     // Reasonably in the L2, there's only writeback and reads, and writebacks can be served even without any copy, so the only ones in mshr are reads. (needs verification)
     // Assuming each miss brings in the whole tile, we need to add blocked to crossing reads as well, and serve that later when returned. Only add block when creating new mshr entry, and that whatever is waiting in the mshr combined with whatever is already in the cache can form a whole tile.
+    /* MJL_TODO 
     // Should also serve the previously blocked target packet if it can be served.
-    // If the blk is not a tempblock, and the whole tile is valid
-        // For each crossing mshr, go through the service targets process again. Can use the pkt directly in extractServiceableTargets since only the cmd is used and if it were ReadRespWithInvalidate, the blk should not be valid and it should never come here.
-            // Should assert that none of the requests were invalidation, cause it needs to be handled differently.
-            // The blk should be changed to the appropriate one for satisfyRequest
+    if (MJL_2DCache && blk && blk->isValid() && blk != tempBlock) {
+        bool MJL_wholeTileValid = true;
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            MJL_wholeTileValid &= tags->MJL_findBlockByTile(blk, i)->isValid();
+        }
+        // If the blk is not a tempblock, and the whole tile is valid
+        if (MJL_wholeTileValid) {
+            // For each crossing mshr, go through the service targets process again. Can use the pkt directly in extractServiceableTargets since only the cmd is used and if it were ReadRespWithInvalidate, the blk should not be valid and it should never come here.
+            MSHR * MJL_crossMshr = nullptr;
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                MJL_crossMshr = mshrQueue.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
+                if (MJL_crossMshr) {
+                        // Should assert that none of the requests were invalidation, cause it needs to be handled differently.
+                        // The blk should be changed to the appropriate one for satisfyRequest
+                }
+            }
+        }
+    }
+     */
     if (MJL_2DCache && MJL_unreadable && blk) {
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
             tags->MJL_findBlockByTile(blk, i)->status &= ~BlkReadable;;
         }
     }
-    /* */
+    /* MJL_End */
     
     // reset the xbar additional timinig  as it is now accounted for
     pkt->headerDelay = pkt->payloadDelay = 0;
@@ -2824,6 +2838,12 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                     } else {
                         writebacks.push_back(MJL_cleanEvictColBlk(blk, i, MJL_colDirty[i]));
                     }
+                    for (int j = 0; j < 8; ++j) {
+                        CacheBlk *tile_blk = tags->MJL_findBlockByTile(blk, j);
+                        if (tile_blk->isValid()) {
+                            writebacks.back()->MJL_crossBlocksCached[j] |= true;
+                        }
+                    }
                 }
             }
         }
@@ -3281,6 +3301,11 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
             // the snoop packet does not need to wait any additional
             // time
             snoopPkt.headerDelay = snoopPkt.payloadDelay = 0;
+            /* MJL_Test */
+            if (pkt->getAddr() == 1576960) {
+                std::cout << this->name() << "MJL_Debug: point Before sendTimingSnoopReq in handleSnoop" << std::endl;
+            }
+            /* */
             cpuSidePort->sendTimingSnoopReq(&snoopPkt);
 
             // add the header delay (including crossbar and snoop
@@ -3305,7 +3330,7 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
                 pkt->setBlockCached();
             }
             /* MJL_Begin */
-            pkt->MJL_copyCrossBlocksCached(snoopPkt->MJL_crossBlocksCached);
+            pkt->MJL_copyCrossBlocksCached(snoopPkt.MJL_crossBlocksCached);
             /* MJL_End */
         } else {
             cpuSidePort->sendAtomicSnoop(pkt);
@@ -3319,14 +3344,44 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
 
     /* MJL_Begin */
     // Should also check for cross direction block existence. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
+    /* MJL_Test */
+    if (pkt->getAddr() == 1576960) {
+        std::cout << this->name() << "::MJL_Debug: point Before mustCheckAbove in handleSnoop " << std::endl;
+    }
+    /* */
     if ((this->name().find("dcache") != std::string::npos) && pkt->mustCheckAbove()) {
         CacheBlk *MJL_crossBlk = nullptr;
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-            MJL_crossBlk =  tags->MJL_findBlock(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), is_secure);
+            MJL_crossBlk =  tags->MJL_findBlock(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
             if (MJL_crossBlk && MJL_crossBlk->isValid()) {
                 pkt->MJL_crossBlocksCached[i] |= true;
             }
         }
+        /* MJL_Test */
+        // Test to see if why the MJL_crossBlocksCached is not marked true for 6010000
+        if (pkt->getAddr() == 1576960) {
+            std::cout << "MJL_Debug A: ";
+            std::cout << "The snoop Packet Info: PC(hex) = ";
+            if (pkt->req->hasPC()) {
+                std::cout << std::hex << pkt->req->getPC() << std::dec;
+            } else {
+                std::cout << "noPC";
+            }
+            std::cout << ", MemCmd = " << pkt->cmd.toString();
+            std::cout << ", CmdDir = " << pkt->MJL_getCmdDir();
+            std::cout << ", Addr(oct) = " << std::oct << pkt->getAddr() << std::dec;
+            std::cout << ", Size = " << pkt->getSize();
+            std::cout << ", MJL_crossBlocksCached = blk[0] " << pkt->MJL_crossBlocksCached[0];
+            for (int i = 1; i < 8; ++i) {
+                std::cout << " | blk[" << i << "] " << pkt->MJL_crossBlocksCached[i];
+            }
+            //std::cout << ", Time = " << pkt->req->time() ;
+            std::cout << std::endl;
+        }
+        /* */
+        /* MJL_Test */
+        std::cout << "MJL_Debug: point D " << pkt->getAddr() << std::endl;
+        /* */
     }
     if (MJL_2DCache && (!blk || (!blk->isValid() && !blk->MJL_hasCrossValid()))) {
         DPRINTF(CacheVerbose, "%s: snoop miss for %s\n", __func__,
@@ -3589,6 +3644,9 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
     // MSHR hit, set setBlockCached.
     /* MJL_Begin */
     // Should also check for cross direction existence for mshr. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
+    if (pkt->getAddr() == 1576960) {
+        std::cout << this->name() << "MJL_Debug: point Beginning of recvTimingSnoopReq " << std::endl;
+    }
     if ((this->name().find("dcache") != std::string::npos) && pkt->mustCheckAbove()) {
         MSHR *MJL_crossMshr = nullptr;
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
@@ -3597,6 +3655,9 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
                 pkt->MJL_crossBlocksCached[i] |= true;
             }
         }
+        /* MJL_Test */
+        std::cout << "MJL_Debug: point B " << std::oct << pkt->getAddr() << std::endl << std::endl;
+        /* */
     }
     /* MJL_End */
     if (mshr && pkt->mustCheckAbove()) {
@@ -3627,6 +3688,9 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
         wb_entry = writeBuffer.findMatch(blk_addr, is_secure);
     }
     // Should also check for cross direction existence for wb_entry. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
+    if (pkt->getAddr() == 1576960) {
+        std::cout << this->name() << "MJL_Debug: point Just before wb check " << std::endl;
+    }
     if ((this->name().find("dcache") != std::string::npos) && pkt->isEviction()) {
         WriteQueueEntry *MJL_crossWb_entry = nullptr;
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
@@ -3635,6 +3699,9 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
                 pkt->MJL_crossBlocksCached[i] |= true;
             }
         }
+        /* MJL_Test */
+        std::cout << "MJL_Debug: point C " << std::oct << pkt->getAddr() << std::endl << std::endl;
+        /* */
     }
     /* MJL_End */
     /* MJL_Comment
@@ -3732,7 +3799,6 @@ Cache::recvAtomicSnoop(PacketPtr pkt)
     }
 
     /* MJL_Begin */
-    // MJL_TODO: needs to be changed for 2D Cache
     CacheBlk *blk = nullptr;
     if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
         blk = tags->MJL_findCrossBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), pkt->MJL_getColOffset(blkSize));
@@ -3941,13 +4007,23 @@ Cache::isCachedAbove(PacketPtr pkt, bool is_timing) const
         // generate a snoop response.
         assert(pkt->isEviction());
         snoop_pkt.senderState = nullptr;
+        /* MJL_Test */
+        if (pkt->getAddr() == 1576960) {
+            std::cout << this->name() << "MJL_Debug: point Before sendTimingSnoopReq " << std::endl;
+        }
+        /* */
         cpuSidePort->sendTimingSnoopReq(&snoop_pkt);
         // Writeback/CleanEvict snoops do not generate a snoop response.
         assert(!(snoop_pkt.cacheResponding()));
         /* MJL_Begin */
         // For physically 2d cache, get whether the cross blocks are cached or not
         if (MJL_2DCache) {
-            pkt->MJL_copyCrossBlocksCached(snoop_pkt->MJL_crossBlocksCached);
+            /* MJL_Test */
+            if (pkt->getAddr() == 1576960) {
+                std::cout << this->name() << "MJL_Debug: point Before copyCrossBlocksCached " << std::endl;
+            }
+            /* */
+            pkt->MJL_copyCrossBlocksCached(snoop_pkt.MJL_crossBlocksCached);
         }
         /* MJL_End */
         return snoop_pkt.isBlockCached();
@@ -4789,7 +4865,6 @@ Cache::MemSidePort::recvFunctionalSnoop(PacketPtr pkt)
     // a specific functionalSnoop method, as they have the same
     // behaviour regardless)
     /* MJL_Begin */
-    // MJL_TODO: to check whether there are column accesses for functional
     assert(pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsRow);
     /* MJL_End */
     

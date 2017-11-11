@@ -440,7 +440,12 @@ CoherentXBar::recvTimingSnoopReq(PacketPtr pkt, PortID master_port_id)
 
     if (snoopFilter) {
         // let the Snoop Filter work its magic and guide probing
-        auto sf_res = snoopFilter->lookupSnoop(pkt);
+        /* MJL_Test */
+        if (pkt->getAddr() == 1576960) {
+            std::cout << this->name() << "::MJL_Debug: point A coherent_xbar " << std::endl;
+        }
+        /* */
+        auto sf_res = snoopFilter->lookupSnoop(pkt/* MJL_Begin */, masterPorts[master_port_id]->getSlavePort().MJL_is2DCache()/* MJL_End */);
         // the time required by a packet to be delivered through
         // the xbar has to be charged also with to lookup latency
         // of the snoop filter
@@ -450,6 +455,11 @@ CoherentXBar::recvTimingSnoopReq(PacketPtr pkt, PortID master_port_id)
                 sf_res.first.size(), sf_res.second);
 
         // forward to all snoopers
+        /* MJL_Test */
+        if (pkt->getAddr() == 1576960) {
+            std::cout << this->name() << "::MJL_Debug: point C coherent_xbar " << std::endl;
+        }
+        /* */
         forwardTiming(pkt, InvalidPortID, sf_res.first);
     } else {
         forwardTiming(pkt, InvalidPortID);
@@ -617,6 +627,11 @@ CoherentXBar::forwardTiming(PacketPtr pkt, PortID exclude_slave_port_id,
         // from
         if (exclude_slave_port_id == InvalidPortID ||
             p->getId() != exclude_slave_port_id) {
+            /* MJL_Test */
+            if (pkt->getAddr() == 1576960) {
+                std::cout << this->name() << "::MJL_Debug: point B coherent_xbar " << std::endl;
+            }
+            /* */
             // cache is not allowed to refuse snoop
             p->sendTimingSnoopReq(pkt);
             fanout++;
@@ -754,7 +769,7 @@ CoherentXBar::recvAtomicSnoop(PacketPtr pkt, PortID master_port_id)
     std::pair<MemCmd, Tick> snoop_result;
     Tick snoop_response_latency = 0;
     if (snoopFilter) {
-        auto sf_res = snoopFilter->lookupSnoop(pkt);
+        auto sf_res = snoopFilter->lookupSnoop(pkt/* MJL_Begin */, masterPorts[master_port_id]->getSlavePort().MJL_is2DCache()/* MJL_End */);
         snoop_response_latency += sf_res.second * clockPeriod();
         DPRINTF(CoherentXBar, "%s: src %s packet %s SF size: %i lat: %i\n",
                 __func__, masterPorts[master_port_id]->name(), pkt->print(),

@@ -238,6 +238,12 @@ class Cache : public BaseCache
         CpuSidePort(const std::string &_name, Cache *_cache,
                     const std::string &_label);
 
+        /* MJL_Begin */
+        virtual bool MJL_is2DCache() {
+            return cache->MJL_is2DCache();
+        }
+        /* MJL_End */
+
     };
 
     /**

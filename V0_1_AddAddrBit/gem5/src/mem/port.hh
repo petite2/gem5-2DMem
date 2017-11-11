@@ -159,6 +159,14 @@ class BaseSlavePort : public Port
 
     BaseMasterPort& getMasterPort() const;
     bool isConnected() const;
+    /* MJL_Begin */
+    /**
+     * Just a work around to determine if the port is in a cache is physically 2D
+     */
+    virtual bool MJL_is2DCache() {
+        return false;
+    } 
+    /* MJL_End */
 
 };
 

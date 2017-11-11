@@ -557,7 +557,7 @@ class Packet : public Printable
     bool MJL_crossBlocksCached[8]; // Used to identify whether the crossing blocks are cached in above caches in physicaly 2D L2 cache mode
     void MJL_copyCrossBlocksCached( bool in_MJL_crossBlocksCached[8] ) {
         for (int i = 0; i < 8; ++i) {
-            MJL_crossBlocksCached[i] = in_MJL_crossBlocksCached[i];
+            MJL_crossBlocksCached[i] |= in_MJL_crossBlocksCached[i];
         }
     }
     void MJL_setWordDirtyFromBlk( bool MJL_blkWordDirty[8], unsigned blkSize) {
@@ -849,10 +849,10 @@ class Packet : public Printable
     {
         assert(offset < blk_size/sizeof(uint64_t));
         Addr baseAddr = (getAddr() & ~(Addr(MJL_blkMaskColumn(blk_size, req->MJL_rowWidth)))) & ~(Addr(blk_size - 1));
-        if ( MJL_cmdIsRow() ) {
+        if ( MJL_cmdIsColumn() ) {
             return baseAddr + offset * sizeof(uint64_t);
-        } else if ( MJL_cmdIsColumn() ) {
-            return baseAddr + offset * MJL_rowWidth * sizeof(blk_size);
+        } else if ( MJL_cmdIsRow() ) {
+            return baseAddr + offset * req->MJL_rowWidth * blk_size;
         } else {
             return getAddr() & ~(Addr(blk_size - 1));
         };
@@ -862,10 +862,10 @@ class Packet : public Printable
     {
         assert(offset < blk_size/sizeof(uint64_t));
         Addr baseAddr = (getAddr() & ~(Addr(MJL_blkMaskColumn(blk_size, req->MJL_rowWidth)))) & ~(Addr(blk_size - 1));
-        if ( MJL_cmdIsColumn() ) {
+        if ( MJL_cmdIsRow() ) {
             return baseAddr + offset * sizeof(uint64_t);
-        } else if ( MJL_cmdIsRow() ) {
-            return baseAddr + offset * MJL_rowWidth * sizeof(blk_size);
+        } else if ( MJL_cmdIsColumn() ) {
+            return baseAddr + offset * req->MJL_rowWidth * blk_size;
         } else {
             return getAddr() & ~(Addr(blk_size - 1));
         };

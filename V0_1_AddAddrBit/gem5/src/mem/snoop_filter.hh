@@ -169,7 +169,7 @@ class SnoopFilter : public SimObject {
      * @return Pair with a vector of SlavePorts that need snooping and a lookup
      *         latency.
      */
-    std::pair<SnoopList, Cycles> lookupSnoop(const Packet* cpkt);
+    std::pair<SnoopList, Cycles> lookupSnoop(const Packet* cpkt/* MJL_Begin */, bool MJL_is2DCache/* MJL_End */);
 
     /**
      * Let the snoop filter see any snoop responses that turn into
