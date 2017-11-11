@@ -2807,10 +2807,10 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
             }
         }
         // Now no row or column of the tile should be waiting on a upgrade, the blks can be evicted
-        /* MJL_Test 
+        /* MJL_Test */ 
         std::cout << this->name() << "::2D replacement: ReqAddr = " << std::oct << addr << ", VictimTag = " << blk->tag << ", VictimSet = " << blk->set << ", VictimWay = " << blk->way << std::dec << ", WholeTileValid = " << MJL_tileValid;
-        if (addr == 1573248) {
-            std::cout << std::endl << "MJL_Debug: Trying to see what's in the cache when 6000600 tries to do it's writeback" << std::endl;
+        if (addr == 1576960) {
+            std::cout << std::endl << "MJL_Debug: Trying to see what's in the cache when 6010000 tries to do it's writeback" << std::endl;
             assert((blk->set/sizeof(uint64_t))*sizeof(uint64_t) == blk->set - blk->set%sizeof(uint64_t));
             for (int i = 0; i < 8; ++i) {
                 CacheBlk * MJL_testBlk = tags->findBlockBySetAndWay((blk->set/sizeof(uint64_t))*sizeof(uint64_t), i);
@@ -2825,7 +2825,7 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                 std::cout << std::endl;
             }
         }
-         */
+        /* */
         // If the whole tile is valid, then favorize row treatments, otherwise treat columns first
         if (!MJL_tileValid) {
             // For each column in this tile
@@ -2834,9 +2834,9 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                 if (blk->MJL_crossValid[i]) {
                     // MJL_Note: Ignoring prefetch stat calculation (no additional prefetch status bits)
                     if (MJL_colDirty[i] || writebackClean) {
-                        writebacks.push_back(MJL_writebackColBlk(blk, i, MJL_colDirty[i]));
+                        writebacks.push_back(MJL_writebackColBlk(blk, i * sizeof(uint64_t), MJL_colDirty[i]));
                     } else {
-                        writebacks.push_back(MJL_cleanEvictColBlk(blk, i, MJL_colDirty[i]));
+                        writebacks.push_back(MJL_cleanEvictColBlk(blk, i * sizeof(uint64_t), MJL_colDirty[i]));
                     }
                     for (int j = 0; j < 8; ++j) {
                         CacheBlk *tile_blk = tags->MJL_findBlockByTile(blk, j);

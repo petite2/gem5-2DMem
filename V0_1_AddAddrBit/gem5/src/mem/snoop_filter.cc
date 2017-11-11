@@ -293,6 +293,11 @@ SnoopFilter::MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttrib
             // entry if the request will come again. retryItem holds
             // the previous value of the snoopfilter entry.
             reqLookupResult->second = retryItem;
+            /* MJL_Test */
+            //if (addr == 1576960) {
+                    std::cout << this->name() << "::MJL_Debug: point retry snoop_filter " << addr << " " << MJL_retrySet << std::endl;
+            //}
+            /* */
             if (MJL_retrySet) {
                 MemCmd::MJL_DirAttribute MJL_crossCmdDir = MJL_cmdDir;
                 if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
@@ -300,7 +305,7 @@ SnoopFilter::MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttrib
                 } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
                     MJL_crossCmdDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
                 }
-                Addr MJL_crossBaseLineAddr = (addr & ~(Addr(MJL_blkMaskColumn))) & ~(Addr(blk_size - 1));
+                Addr MJL_crossBaseLineAddr = (addr & ~(Addr(MJL_blkMaskColumn))) & ~(Addr(linesize - 1));
                 for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
                     Addr MJL_crossLineAddr = MJL_crossBaseLineAddr;
                     if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
