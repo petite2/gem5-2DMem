@@ -847,7 +847,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // OK to satisfy access
         incHitCount(pkt);
         /* MJL_Begin */
-        MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_cmdIsColumn()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_cmdIsColumn()), pkt->MJL_cmdIsColumn());
+        MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
 
         if (pkt->MJL_cmdIsRow()) {
             MJL_overallRowHits++;
@@ -2319,7 +2319,7 @@ Cache::recvTimingResp(PacketPtr pkt)
                 if (MJL_crossMshr) {
                         // Should assert that none of the requests were invalidation, cause it needs to be handled differently.
                         // The blk should be changed to the appropriate one for satisfyRequest
-                        MJL_satisfyWaitingCrossing(MJL_crossMshr, pkt, MJL_crossBlk);
+                        MJL_satisfyWaitingCrossing(MJL_crossMshr, pkt, MJL_crossBlk, is_fill);
                 }
             }
         }

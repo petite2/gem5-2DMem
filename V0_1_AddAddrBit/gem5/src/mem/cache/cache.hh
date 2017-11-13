@@ -833,8 +833,8 @@ class Cache : public BaseCache
                 if (found == MJL_orderLog.end()) {
                     MJL_orderLog.push_back(tag_set);
                 } else {
-                    MJL_orderLog.erase(found);
-                    MJL_orderLog.push_back(found);
+                    MJL_orderLog.erase(tag_set);
+                    MJL_orderLog.push_back(tag_set);
                 }
             }
 
@@ -928,7 +928,6 @@ class Cache : public BaseCache
     void MJL_fullCachelines(Addr triggerAddr, MemCmd::MJL_DirAttribute triggerDir, std::list<Addr>* BlkAddrs, std::list<MemCmd::MJL_DirAttribute>* BlkDirs) {
         Addr triggerTag = tags->MJL_extractTag(triggerAddr, MemCmd::MJL_DirAttribute::MJL_IsRow);
         int triggerSet = tags->MJL_extractSet(triggerAddr, MemCmd::MJL_DirAttribute::MJL_IsRow);
-        Addr triggerTag_Set = (triggerTag * (tags->getNumSets()) + triggerSet)/sizeof(uint64_t);
         for (int i = 0; i < 8; ++i) {
             Addr reqBlkAddr = triggerAddr;
             if (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
@@ -946,6 +945,79 @@ class Cache : public BaseCache
         }
 
         MJL_footPrint->MJL_clearFootPrint(triggerTag, triggerSet);
+    }
+
+    virtual void MJL_markBlocked2D(PacketPtr pkt, MSHR * mshr) {
+        // For physically 2D cache, block the mshr with the crossing direction ones waiting in the mshr if those combined with the cache lines for the tile in the cache make up the whole tile.
+        if (MJL_2DCache) {
+            bool MJL_RowsPresent[blkSize/sizeof(uint64_t)];
+            bool MJL_ColsPresent[blkSize/sizeof(uint64_t)];
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                MJL_RowsPresent[i] = false;
+                MJL_ColsPresent[i] = false;
+            }
+            bool MJL_wholeTileValidRow = true;
+            bool MJL_wholeTileValidCol = true;
+            CacheBlk * MJL_tileBlk = nullptr;
+            MSHR * MJL_rowMshr = nullptr;
+            MSHR * MJL_colMshr = nullptr;
+            Addr MJL_rowAddr = pkt->getAddr();
+            Addr MJL_colAddr = pkt->getAddr();
+
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                if (pkt->MJL_cmdIsRow()) {
+                    MJL_rowAddr = pkt->MJL_getBlockAddrs(blkSize, i);
+                    MJL_colAddr = pkt->MJL_getCrossBlockAddrs(blkSize, i);
+                } else if (pkt->MJL_cmdIsColumn()) {
+                    MJL_rowAddr = pkt->MJL_getCrossBlockAddrs(blkSize, i);
+                    MJL_colAddr = pkt->MJL_getBlockAddrs(blkSize, i);
+                }
+
+                // Check for cache blocks
+                MJL_tileBlk = tags->MJL_findBlock(MJL_rowAddr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                if (MJL_tileBlk) {
+                    if (MJL_tileBlk->isValid()) {
+                        MJL_RowsPresent[i] |= true;
+                    }
+                    for (int j = 0; j < blkSize/sizeof(uint64_t); ++j) {
+                        MJL_ColsPresent[j] |= MJL_tileBlk->MJL_crossValid[j];
+                    }
+                }
+
+                // Check for mshrs
+                MJL_rowMshr = mshrQueue.MJL_findMatch(MJL_rowAddr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                MJL_colMshr = mshrQueue.MJL_findMatch(MJL_colAddr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
+                if (MJL_rowMshr) {
+                    MJL_RowsPresent[i] |= true;
+                }
+                if (MJL_colMshr) {
+                    MJL_ColsPresent[i] |= true;
+                }
+            }
+
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                MJL_wholeTileValidRow &= MJL_RowsPresent[i];
+                MJL_wholeTileValidCol &= MJL_ColsPresent[i];
+            }
+
+            if (MJL_wholeTileValidRow) {
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    MJL_rowMshr = mshrQueue.MJL_findMatch(MJL_rowAddr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                    if (MJL_rowMshr) {
+                        mshr->MJL_getLastTarget()->MJL_isBlockedBy.push_back(MJL_rowMshr->MJL_getLastTarget());
+                        MJL_rowMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(mshr->MJL_getLastTarget());
+                    }
+                }
+            } else if (MJL_wholeTileValidCol) {
+                for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    MJL_colMshr = mshrQueue.MJL_findMatch(MJL_colAddr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
+                    if (MJL_colMshr) {
+                        mshr->MJL_getLastTarget()->MJL_isBlockedBy.push_back(MJL_colMshr->MJL_getLastTarget());
+                        MJL_colMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(mshr->MJL_getLastTarget());
+                    }
+                }
+            }
+        }
     }
 
     void MJL_allocateFootPrintMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
@@ -1037,7 +1109,17 @@ class Cache : public BaseCache
     }
 
     // Deal with satisfying requests that were waiting on a full tile
-    void MJL_satisfyWaitingCrossing(MSHR * mshr, PacketPtr pkt, CacheBlk * blk) {
+    void MJL_satisfyWaitingCrossing(MSHR * mshr, PacketPtr pkt, CacheBlk * blk, bool is_fill) {
+        MSHR::Target *initial_tgt = mshr->getTarget();
+        int initial_offset = initial_tgt->pkt->getOffset(blkSize);
+        bool from_cache = false;
+        bool is_error = pkt->isError();
+        bool is_invalidate = false;
+        bool MJL_writeback = false;
+        bool MJL_invalidate = false;
+        bool MJL_unreadable = false;
+        Counter MJL_order = initial_tgt->order;
+        bool wasFull = mshrQueue.isFull();
         MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
         for (auto &target: targets) {
             Packet *tgt_pkt = target.pkt;
@@ -1261,7 +1343,7 @@ class Cache : public BaseCache
             }/* MJL_Begin */ else if (blk && MJL_2DCache) {
                 MJL_unreadable = true;
             }
-            assert(!mshr->MJL_defferedAdded);
+            assert(!mshr->MJL_deferredAdded);
             /* MJL_End */
             mshrQueue.markPending(mshr);
             schedMemSideSendEvent(clockEdge() + pkt->payloadDelay);
