@@ -57,6 +57,7 @@ class BaseCache(MemObject):
     MJL_default_column = Param.Bool(Parent.MJL_default_column, "Set default preference of all data accesses to column")
     MJL_2D_Cache = Param.Bool(False, "Set the corresponding cache to physically 2D cache")
     MJL_timeStep = Param.Cycles(0, "Time step of intermediate output in cycles")
+    MJL_2D_Transfer_Type = Param.Int(0, "Set the type of transfer method from memory to L2 cache in physically 2D cache, 0 for per line on demand, 1 for whole tile")
     # MJL_End 
 
     tag_latency = Param.Cycles("Tag lookup latency")

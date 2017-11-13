@@ -809,21 +809,37 @@ class Cache : public BaseCache
                     MJL_FootPrintEntry() : MJL_rowFootPrint{false, false, false, false, false, false, false, false}, MJL_colFootPrint{false, false, false, false, false, false, false, false} {}
             };
 
-            int logSize;
+            unsigned logSize;
+            unsigned numSets;
             std::map<Addr, MJL_FootPrintEntry*> MJL_footPrintLog;
             std::list<Addr> MJL_orderLog;
 
-            MJL_FootPrint(int size) : logSize(size) {}
+            MJL_FootPrint(unsigned size, unsigned numsets) : logSize(size), numSets(numsets) {}
 
-            void MJL_addFootPrint(Addr tag_set, int set_offset, MemCmd::MJL_DirAttribute dir) {
+            void MJL_addFootPrint(Addr tag, int set, MemCmd::MJL_DirAttribute dir) {
+                auto found = MJL_orderLog.end();
+                Addr tag_set = (tag * (numSets) + set)/sizeof(uint64_t);
+                int set_offset = set % sizeof(uint64_t);
                 if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
                     MJL_footPrintLog[tag_set]->MJL_rowFootPrint[set_offset] = true;
                 } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
                     MJL_footPrintLog[tag_set]->MJL_colFootPrint[set_offset] = true;
                 }
+                for (auto it = MJL_orderLog.begin(); it != MJL_orderLog.end(); ++it) {
+                    if (*it == tag_set) {
+                        break;
+                    }
+                }
+                if (found == MJL_orderLog.end()) {
+                    MJL_orderLog.push_back(tag_set);
+                } else {
+                    MJL_orderLog.erase(found);
+                    MJL_orderLog.push_back(found);
+                }
             }
 
-            void MJL_clearFootPrint(Addr tag_set) {
+            void MJL_clearFootPrint(Addr tag, int set) {
+                Addr tag_set = (tag * (numSets) + set)/sizeof(uint64_t);
                 MJL_FootPrintEntry *clearEntry = MJL_footPrintLog[tag_set];
                 for (int i = 0; i < 8; ++i) {
                     clearEntry->MJL_rowFootPrint[i] = false;
@@ -831,8 +847,9 @@ class Cache : public BaseCache
                 }
             }
 
-            bool MJL_isFullFootPrint(Addr tag_set) {
+            bool MJL_isFullFootPrint(Addr tag, int set) {
                 bool isFull = true;
+                Addr tag_set = (tag * (numSets) + set)/sizeof(uint64_t);
                 MJL_FootPrintEntry *entry = MJL_footPrintLog[tag_set];
                 for (int i = 0; i < 8; ++i) {
                     isFull &= entry->MJL_rowFootPrint[i];
@@ -848,12 +865,28 @@ class Cache : public BaseCache
                 return isFull;
             }
 
-            void MJL_setFullFootPrint(Addr tag_set) {
+            void MJL_setFullFootPrint(Addr tag, int set) {
+                Addr tag_set = (tag * (numSets) + set)/sizeof(uint64_t);
                 MJL_FootPrintEntry *setEntry = MJL_footPrintLog[tag_set];
                 for (int i = 0; i < 8; ++i) {
                     setEntry->MJL_rowFootPrint[i] = true;
                     setEntry->MJL_colFootPrint[i] = true;
                 }
+            }
+
+            int MJL_touchedBytes(Addr tag, int set, unsigned blkSize) {
+                int touchedRows = 0;
+                int touchedCols = 0;
+                Addr tag_set = (tag * (numSets) + set)/sizeof(uint64_t);
+                MJL_FootPrintEntry *setEntry = MJL_footPrintLog[tag_set];
+                for (int i = 0; i < 8; ++i) {
+                    if (setEntry->MJL_rowFootPrint[i]) {
+                        touchedRows++;
+                    } else if (setEntry->MJL_colFootPrint[i]) {
+                        touchedCols++;
+                    }
+                }
+                return (touchedRows + touchedCols) * blkSize - touchedRows * touchedCols * sizeof(uint64_t);
             }
     };
 
@@ -889,7 +922,7 @@ class Cache : public BaseCache
             }
         }
 
-        MJL_footPrint->MJL_clearFootPrint(triggerTag_Set);
+        MJL_footPrint->MJL_clearFootPrint(triggerTag, triggerSet);
     }
 
     void MJL_fullCachelines(Addr triggerAddr, MemCmd::MJL_DirAttribute triggerDir, std::list<Addr>* BlkAddrs, std::list<MemCmd::MJL_DirAttribute>* BlkDirs) {
@@ -912,7 +945,7 @@ class Cache : public BaseCache
             }
         }
 
-        MJL_footPrint->MJL_clearFootPrint(triggerTag_Set);
+        MJL_footPrint->MJL_clearFootPrint(triggerTag, triggerSet);
     }
 
     void MJL_allocateFootPrintMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
@@ -940,6 +973,11 @@ class Cache : public BaseCache
                                                 allocOnFill(pkt->cmd));
                 
                 MJL_markBlockInfo(mshr);
+                /* MJL_TODO
+                if (MJL_2DCache) { 
+                    MJL_markBlocked2D(pkt, mshr);
+                }
+                 */
 
                 if (mshrQueue.isFull()) {
                     setBlocked((BlockedCause)MSHRQueue_MSHRs);
@@ -979,6 +1017,11 @@ class Cache : public BaseCache
                                                 allocOnFill(pkt->cmd));
                 
                 MJL_markBlockInfo(mshr);
+                /* MJL_TODO
+                if (MJL_2DCache) { 
+                    MJL_markBlocked2D(pkt, mshr);
+                }
+                 */
 
                 if (mshrQueue.isFull()) {
                     setBlocked((BlockedCause)MSHRQueue_MSHRs);
@@ -991,6 +1034,252 @@ class Cache : public BaseCache
             }
         }
 
+    }
+
+    // Deal with satisfying requests that were waiting on a full tile
+    void MJL_satisfyWaitingCrossing(MSHR * mshr, PacketPtr pkt, CacheBlk * blk) {
+        MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
+        for (auto &target: targets) {
+            Packet *tgt_pkt = target.pkt;
+            switch (target.source) {
+            case MSHR::Target::FromCPU:
+                Tick completion_time;
+                // Here we charge on completion_time the delay of the xbar if the
+                // packet comes from it, charged on headerDelay.
+                completion_time = pkt->headerDelay;
+
+                // Software prefetch handling for cache closest to core
+                if (tgt_pkt->cmd.isSWPrefetch()) {
+                    // a software prefetch would have already been ack'd
+                    // immediately with dummy data so the core would be able to
+                    // retire it. This request completes right here, so we
+                    // deallocate it.
+                    delete tgt_pkt->req;
+                    delete tgt_pkt;
+                    break; // skip response
+                }
+
+                // keep track of whether we have responded to another
+                // cache
+                from_cache = from_cache || tgt_pkt->fromCache();
+
+                // unlike the other packet flows, where data is found in other
+                // caches or memory and brought back, write-line requests always
+                // have the data right away, so the above check for "is fill?"
+                // cannot actually be determined until examining the stored MSHR
+                // state. We "catch up" with that logic here, which is duplicated
+                // from above.
+                if (tgt_pkt->cmd == MemCmd::WriteLineReq) {
+                    assert(!is_error);
+                    // we got the block in a writable state, so promote
+                    // any deferred targets if possible
+                    mshr->promoteWritable();
+                    // NB: we use the original packet here and not the response!
+                    blk = handleFill(tgt_pkt, blk, writebacks,
+                                    targets.allocOnFill);
+                    assert(blk != nullptr);
+
+                    // treat as a fill, and discard the invalidation
+                    // response
+                    is_fill = true;
+                    is_invalidate = false;
+                }
+
+                if (is_fill) {
+                    /* MJL_Begin */
+                    // Should not need to invalidate anymore on writes, this is taken care of at the time of access.
+                    /* MJL_End */
+                    satisfyRequest(tgt_pkt, blk, true, mshr->hasPostDowngrade());
+
+                    // How many bytes past the first request is this one
+                    int transfer_offset =
+                        tgt_pkt->getOffset(blkSize) - initial_offset;   
+                    if (transfer_offset < 0) {
+                        transfer_offset += blkSize;
+                    }
+
+                    // If not critical word (offset) return payloadDelay.
+                    // responseLatency is the latency of the return path
+                    // from lower level caches/memory to an upper level cache or
+                    // the core.
+                    completion_time += clockEdge(responseLatency) +
+                        (transfer_offset ? pkt->payloadDelay : 0);
+
+                    assert(!tgt_pkt->req->isUncacheable());
+
+                    assert(tgt_pkt->req->masterId() < system->maxMasters());
+                    missLatency[tgt_pkt->cmdToIndex()][tgt_pkt->req->masterId()] +=
+                        completion_time - target.recvTime;
+                } else if (pkt->cmd == MemCmd::UpgradeFailResp) {
+                    // failed StoreCond upgrade
+                    assert(tgt_pkt->cmd == MemCmd::StoreCondReq ||
+                        tgt_pkt->cmd == MemCmd::StoreCondFailReq ||
+                        tgt_pkt->cmd == MemCmd::SCUpgradeFailReq);
+                    // responseLatency is the latency of the return path
+                    // from lower level caches/memory to an upper level cache or
+                    // the core.
+                    completion_time += clockEdge(responseLatency) +
+                        pkt->payloadDelay;
+                    tgt_pkt->req->setExtraData(0);
+                } else {
+                    assert(false);
+                    // We are about to send a response to a cache above
+                    // that asked for an invalidation; we need to
+                    // invalidate our copy immediately as the most
+                    // up-to-date copy of the block will now be in the
+                    // cache above. It will also prevent this cache from
+                    // responding (if the block was previously dirty) to
+                    // snoops as they should snoop the caches above where
+                    // they will get the response from.
+                    /* MJL_Begin */
+                    if (MJL_2DCache && is_invalidate && blk && (blk->isValid() || blk->MJL_hasCrossValid())) {
+                        MJL_invalidateTile(blk);
+                    } else /* MJL_End */if (is_invalidate && blk && blk->isValid()) {
+                        invalidateBlock(blk);
+                    }
+                    // not a cache fill, just forwarding response
+                    // responseLatency is the latency of the return path
+                    // from lower level cahces/memory to the core.
+                    completion_time += clockEdge(responseLatency) +
+                        pkt->payloadDelay;
+                    if (pkt->isRead() && !is_error) {
+                        // sanity check
+                        assert(pkt->getAddr() == tgt_pkt->getAddr());
+                        assert(pkt->getSize() >= tgt_pkt->getSize());
+
+                        tgt_pkt->setData(pkt->getConstPtr<uint8_t>());
+                    }
+                }
+                tgt_pkt->makeTimingResponse();
+                // if this packet is an error copy that to the new packet
+                if (is_error)
+                    tgt_pkt->copyError(pkt);
+                if (tgt_pkt->cmd == MemCmd::ReadResp &&
+                    (is_invalidate || mshr->hasPostInvalidate())) {
+                    // If intermediate cache got ReadRespWithInvalidate,
+                    // propagate that.  Response should not have
+                    // isInvalidate() set otherwise.
+                    tgt_pkt->cmd = MemCmd::ReadRespWithInvalidate;
+                    DPRINTF(Cache, "%s: updated cmd to %s\n", __func__,
+                            tgt_pkt->print());
+                }
+                // Reset the bus additional time as it is now accounted for
+                tgt_pkt->headerDelay = tgt_pkt->payloadDelay = 0;
+                cpuSidePort->schedTimingResp(tgt_pkt, completion_time, true);
+                break;
+
+            case MSHR::Target::FromPrefetcher:
+                assert(tgt_pkt->cmd == MemCmd::HardPFReq);
+                if (blk)
+                    blk->status |= BlkHWPrefetched;
+                delete tgt_pkt->req;
+                delete tgt_pkt;
+                break;
+            /* MJL_Begin */
+            case MSHR::Target::MJL_FromFootPrintFetch:
+                break;
+            /* MJL_End */
+
+            case MSHR::Target::FromSnoop:
+                // I don't believe that a snoop can be in an error state
+                assert(!is_error);
+                // response to snoop request
+                DPRINTF(Cache, "processing deferred snoop...\n");
+                // If the response is invalidating, a snooping target can
+                // be satisfied if it is also invalidating. If the reponse is, not
+                // only invalidating, but more specifically an InvalidateResp, the
+                // MSHR was created due to an InvalidateReq and a cache above is
+                // waiting to satisfy a WriteLineReq. In this case even an
+                // non-invalidating snoop is added as a target here since this is
+                // the ordering point. When the InvalidateResp reaches this cache,
+                // the snooping target will snoop further the cache above with the
+                // WriteLineReq.
+                assert(!(is_invalidate &&
+                        pkt->cmd != MemCmd::InvalidateResp &&
+                        !mshr->hasPostInvalidate()));
+                handleSnoop(tgt_pkt, blk, true, true, mshr->hasPostInvalidate());
+                break;
+
+            default:
+                panic("Illegal target->source enum %d\n", target.source);
+            }
+            /* MJL_Begin */
+            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                MJL_writeback |= target.MJL_postWriteback;
+                MJL_invalidate |= target.MJL_postInvalidate;
+                assert(!target.MJL_postInvalidate || (&target == &targets.back())); 
+                if (target.MJL_postWriteback) {
+                    MJL_order = target.order;
+                } else if (!MJL_writeback && target.MJL_postInvalidate) {
+                    MJL_order = target.order;
+                }
+                target.MJL_clearBlocking();
+            }
+            /* MJL_End */
+        }
+
+        maintainClusivity(from_cache, blk);
+
+        // MJL_TODO: probably coherence handling
+        /* MJL_Comment
+        if (blk && blk->isValid()) {
+        */
+        /* MJL_Begin */
+        if (blk 
+            && (blk->isValid() 
+                || (MJL_2DCache && blk->MJL_hasCrossValid()))) {
+            /* MJL_End */
+            // an invalidate response stemming from a write line request
+            // should not invalidate the block, so check if the
+            // invalidation should be discarded
+            if (/* MJL_Begin */MJL_invalidate || /* MJL_End */is_invalidate || mshr->hasPostInvalidate()) {
+                /* MJL_Begin */
+                assert(false);
+                if (MJL_2DCache) {
+                    MJL_invalidateTile(blk);
+                } else
+                /* MJL_End */
+                invalidateBlock(blk);
+            } else if (mshr->hasPostDowngrade()) {
+                /* MJL_Begin */
+                assert(false);
+                if (MJL_2DCache) {
+                    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        tags->MJL_findBlockByTile(blk, i)->status &= ~BlkWritable;
+                    }
+                } else
+                /* MJL_End */
+                blk->status &= ~BlkWritable;
+            }
+        }
+
+        if (mshr->promoteDeferredTargets()) {
+            // avoid later read getting stale data while write miss is
+            // outstanding.. see comment in timingAccess()
+            if (blk/* MJL_Begin */ && !MJL_2DCache/* MJL_End */) {
+                blk->status &= ~BlkReadable;
+            }/* MJL_Begin */ else if (blk && MJL_2DCache) {
+                MJL_unreadable = true;
+            }
+            assert(!mshr->MJL_defferedAdded);
+            /* MJL_End */
+            mshrQueue.markPending(mshr);
+            schedMemSideSendEvent(clockEdge() + pkt->payloadDelay);
+        } else {
+            mshrQueue.deallocate(mshr);
+            if (wasFull && !mshrQueue.isFull()) {
+                clearBlocked(Blocked_NoMSHRs);
+            }
+
+            // Request the bus for a prefetch if this deallocation freed enough
+            // MSHRs for a prefetch to take place
+            if (prefetcher && mshrQueue.canPrefetch()) {
+                Tick next_pf_time = std::max(prefetcher->nextPrefetchReadyTime(),
+                                            clockEdge());
+                if (next_pf_time != MaxTick)
+                    schedMemSideSendEvent(next_pf_time);
+            }
+        }
     }
     /* MJL_End */
 

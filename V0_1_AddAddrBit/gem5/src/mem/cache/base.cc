@@ -76,6 +76,7 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
       MJL_rowWidth(p->MJL_row_width),
       MJL_defaultColumn(p->MJL_default_column),
       MJL_2DCache(p->MJL_2D_Cache),
+      MJL_2DTransferType(p->MJL_2D_Transfer_Type),
       /* MJL_End */
       lookupLatency(p->tag_latency),
       dataLatency(p->data_latency),
@@ -100,6 +101,9 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
 
     // forward snoops is overridden in init() once we can query
     // whether the connected master is actually snooping or not
+    /* MJL_Begin */
+    assert(MJL_2DTransferType == 0 || MJL_2DTransferType == 1);
+    /* MJL_End */
 }
 
 void
@@ -885,6 +889,16 @@ BaseCache::regStats()
     MJL_mshrConflictCount
         .name(name() + ".MJL_mshrConflictCount")
         .desc("number of mshr conflicts (conflict access are strictly in order, may cause blocking)")
+        .flags(nozero)
+        ;
+
+    MJL_untouchedBytes.name(name() + ".MJL_untouchedBytes")
+        .desc("total number of bytes untouched in this cache at the time of eviction")
+        .flags(nozero)
+        ;
+
+    MJL_touchedBytes.name(name() + ".MJL_touchedBytes")
+        .desc("total number of bytes touched in this cache at the time of eviction")
         .flags(nozero)
         ;
     /* MJL_End */

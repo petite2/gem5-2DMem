@@ -65,7 +65,7 @@ using namespace std;
 MSHR::MSHR() : downstreamPending(false),
                pendingModified(false),
                postInvalidate(false), postDowngrade(false),
-               isForward(false)
+               isForward(false)/* MJL_Begin */, MJL_deferredAdded(false)/* MJL_End */
 {
 }
 
@@ -372,6 +372,9 @@ MSHR::allocateTarget(PacketPtr pkt, Tick whenReady, Counter _order,
             replaceUpgrade(pkt);
         deferredTargets.add(pkt, whenReady, _order, Target::FromCPU, true,
                             alloc_on_fill);
+        /* MJL_Begin */
+        MJL_deferredAdded = true;
+        /* MJL_End */
     } else {
         // No request outstanding, or still OK to append to
         // outstanding request: append to regular target list.  Only

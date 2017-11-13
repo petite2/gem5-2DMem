@@ -106,11 +106,14 @@ class MSHR : public QueueEntry, public Printable
 
     /** Did we snoop a read while waiting for data? */
     bool postDowngrade;
-
+    
   public:
 
     /** True if the entry is just a simple forward from an upper level */
     bool isForward;
+    /* MJL_Begin */
+    bool MJL_deferredAdded;
+    /* MJL_End */
 
     class Target {
       public:

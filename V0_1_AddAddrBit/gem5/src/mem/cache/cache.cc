@@ -100,7 +100,7 @@ Cache::Cache(const CacheParams *p)
     MJL_colVecHandler.cache = this;
 
     if (MJL_2DCache) {
-        MJL_footPrint = new MJL_FootPrint(tags->getNumSets());
+        MJL_footPrint = new MJL_FootPrint(tags->getNumSets(), tags->getNumSets());
     }
     
     std::cout << "MJL_2DCache? " << MJL_2DCache << std::endl;
@@ -847,6 +847,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // OK to satisfy access
         incHitCount(pkt);
         /* MJL_Begin */
+        MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_cmdIsColumn()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_cmdIsColumn()), pkt->MJL_cmdIsColumn());
+
         if (pkt->MJL_cmdIsRow()) {
             MJL_overallRowHits++;
             if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
@@ -880,6 +882,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
 
     incMissCount(pkt);
     /* MJL_Begin */
+    MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_cmdIsColumn()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_cmdIsColumn()), pkt->MJL_cmdIsColumn());
+
     if (pkt->MJL_cmdIsRow()) {
         MJL_overallRowMisses++;
         if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
@@ -1468,6 +1472,11 @@ Cache::recvTimingReq(PacketPtr pkt)
                 // a miss (outbound) just as forwardLatency, neglecting the
                 // lookupLatency component.
                 allocateMissBuffer(pkt, forward_time);
+                /* MJL_Begin */
+                if (MJL_2DCache && MJL_2DTransferType == 1) {
+                     MJL_allocateFullMissBuffer(pkt, forward_time);
+                }
+                /* MJL_End */
             }
 
             if (prefetcher) {
@@ -2306,9 +2315,11 @@ Cache::recvTimingResp(PacketPtr pkt)
             MSHR * MJL_crossMshr = nullptr;
             for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                 MJL_crossMshr = mshrQueue.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
+                CacheBlk * MJL_crossBlk = tags->MJL_findBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure());
                 if (MJL_crossMshr) {
                         // Should assert that none of the requests were invalidation, cause it needs to be handled differently.
                         // The blk should be changed to the appropriate one for satisfyRequest
+                        MJL_satisfyWaitingCrossing(MJL_crossMshr, pkt, MJL_crossBlk);
                 }
             }
         }
@@ -2761,6 +2772,8 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
         }
         // Get if the whole tile is valid
         bool MJL_tileValid = true;
+        int MJL_rowsValid = 0;
+        int MJL_colsValid = 0;
 
         // For each set(row) in this tile
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
@@ -2770,6 +2783,9 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                 MJL_colDirty[j] |= tile_blk->MJL_wordDirty[j];
             }
             MJL_tileValid &= tile_blk->isValid();
+            if (tile_blk->isValid()) {
+                MJL_rowsValid++;
+            }
             // If the row block is valid
             if (tile_blk->isValid()) {
                 // Regenerate the block address of the row block and check if it is waiting on an upgrade request. If it is, just return nullptr
@@ -2789,6 +2805,9 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
         }
         // For each column in this tile
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            if (blk->MJL_crossValid[i]) {
+                MJL_colsValid++;
+            }
             // if the column is valid
             if (blk->MJL_crossValid[i]) {
                 // Regenerate the column block address of this tile, and and check if it is waiting on an upgrade request. If it is, just return nullptr
@@ -2807,6 +2826,9 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
             }
         }
         // Now no row or column of the tile should be waiting on a upgrade, the blks can be evicted
+        MJL_touchedBytes += MJL_footPrint->MJL_touchedBytes(blk->tag, blk->set, blkSize);
+        MJL_untouchedBytes += (MJL_rowsValid + MJL_colsValid) * blkSize - MJL_rowsValid * MJL_colsValid * sizeof(uint64_t);
+        MJL_footPrint->MJL_clearFootPrint(blk->tag, blk->set);
         /* MJL_Test */ 
         std::cout << this->name() << "::2D replacement: ReqAddr = " << std::oct << addr << ", VictimTag = " << blk->tag << ", VictimSet = " << blk->set << ", VictimWay = " << blk->way << std::dec << ", WholeTileValid = " << MJL_tileValid;
         if (addr == 1576960) {

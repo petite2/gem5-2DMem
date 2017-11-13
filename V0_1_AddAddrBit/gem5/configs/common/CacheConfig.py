@@ -91,6 +91,7 @@ def config_cache(options, system):
                                    # , MJL_row_width=options.MJL_row_width\
                                    , MJL_2D_Cache=options.MJL_2DL2Cache\
                                    , MJL_timeStep=options.MJL_timeStep\
+                                   , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
                                    # MJL_End
                                    )
 

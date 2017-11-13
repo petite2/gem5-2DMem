@@ -263,6 +263,7 @@ class BaseCache : public MemObject
     const bool MJL_defaultColumn;
     /** Whether this cache physically 2D */
     const bool MJL_2DCache;
+    const int MJL_2DTransferType;
     /* MJL_End */
 
     /**
@@ -481,6 +482,8 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_conflictWBCount3;
     Stats::Scalar MJL_conflictWBCount4;
     Stats::Scalar MJL_mshrConflictCount;
+    Stats::Scalar MJL_untouchedBytes;
+    Stats::Scalar MJL_touchedBytes;
     /* MJL_End */
 
     /**
@@ -632,34 +635,9 @@ class BaseCache : public MemObject
     }
 
     unsigned MJL_getRowWidth() const { return MJL_rowWidth; }
-    /* MJL_End */
 
-    const AddrRangeList &getAddrRanges() const { return addrRanges; }
-
-    MSHR *allocateMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
-    {
-        /* MJL_Begin */
-        MSHR *mshr = nullptr;
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
-            mshr = mshrQueue.allocate(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), blkSize,
-                                        pkt, time, order++,
-                                        allocOnFill(pkt->cmd));
-        } else {
-            mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
-                                        pkt, time, order++,
-                                        allocOnFill(pkt->cmd));
-        }
-        /* MJL_End */
-        /* MJL_Comment 
-        MSHR *mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
-                                        pkt, time, order++,
-                                        allocOnFill(pkt->cmd));
-        */
-        /* MJL_Begin */
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
-            MJL_markBlockInfo(mshr);
-        }
-        /* MJL_TODO: For physically 2D cache, block the mshr with the crossing direction ones waiting in the mshr if those combined with the cache lines for the tile in the cache make up the whole tile.
+    MSHR *MJL_markBlocked2D(PacketPtr pkt, MSHR * mshr) {
+        // For physically 2D cache, block the mshr with the crossing direction ones waiting in the mshr if those combined with the cache lines for the tile in the cache make up the whole tile.
         if (MJL_2DCache) {
             bool MJL_RowsPresent[blkSize/sizeof(uint64_t)] = {false, false, false, false, false, false, false, false};
             bool MJL_ColsPresent[blkSize/sizeof(uint64_t)] = {false, false, false, false, false, false, false, false};
@@ -725,7 +703,40 @@ class BaseCache : public MemObject
                     }
                 }
             }
-        } */
+        }
+    }
+    /* MJL_End */
+
+    const AddrRangeList &getAddrRanges() const { return addrRanges; }
+
+    MSHR *allocateMissBuffer(PacketPtr pkt, Tick time, bool sched_send = true)
+    {
+        /* MJL_Begin */
+        MSHR *mshr = nullptr;
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            mshr = mshrQueue.allocate(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), blkSize,
+                                        pkt, time, order++,
+                                        allocOnFill(pkt->cmd));
+        } else {
+            mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
+                                        pkt, time, order++,
+                                        allocOnFill(pkt->cmd));
+        }
+        /* MJL_End */
+        /* MJL_Comment 
+        MSHR *mshr = mshrQueue.allocate(blockAlign(pkt->getAddr()), blkSize,
+                                        pkt, time, order++,
+                                        allocOnFill(pkt->cmd));
+        */
+        /* MJL_Begin */
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            MJL_markBlockInfo(mshr);
+        }
+        /* MJL_TODO
+        if (MJL_2DCache) { 
+            MJL_markBlocked2D(pkt, mshr);
+        }
+         */
         /* MJL_End */
 
         if (mshrQueue.isFull()) {
