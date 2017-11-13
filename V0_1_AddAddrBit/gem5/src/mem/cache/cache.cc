@@ -847,7 +847,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // OK to satisfy access
         incHitCount(pkt);
         /* MJL_Begin */
-        MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
+        if (MJL_2DCache) {
+            MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
+        }
 
         if (pkt->MJL_cmdIsRow()) {
             MJL_overallRowHits++;
@@ -882,7 +884,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
 
     incMissCount(pkt);
     /* MJL_Begin */
-    MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_cmdIsColumn()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_cmdIsColumn()), pkt->MJL_cmdIsColumn());
+    if (MJL_2DCache) {
+        MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
+    }
 
     if (pkt->MJL_cmdIsRow()) {
         MJL_overallRowMisses++;
@@ -1475,6 +1479,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                 /* MJL_Begin */
                 if (MJL_2DCache && MJL_2DTransferType == 1) {
                      MJL_allocateFullMissBuffer(pkt, forward_time);
+                     MJL_requestedBytes += 7 * blkSize;
                 }
                 /* MJL_End */
             }
@@ -2176,6 +2181,8 @@ Cache::recvTimingResp(PacketPtr pkt)
             break;
           /* MJL_Begin */
           case MSHR::Target::MJL_FromFootPrintFetch:
+            delete tgt_pkt->req;
+            delete tgt_pkt;
             break;
           /* MJL_End */
 
@@ -2302,7 +2309,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     /* MJL_Begin */
     // Reasonably in the L2, there's only writeback and reads, and writebacks can be served even without any copy, so the only ones in mshr are reads. (needs verification)
     // Assuming each miss brings in the whole tile, we need to add blocked to crossing reads as well, and serve that later when returned. Only add block when creating new mshr entry, and that whatever is waiting in the mshr combined with whatever is already in the cache can form a whole tile.
-    /* MJL_TODO 
+    /* MJL_TODO */ 
     // Should also serve the previously blocked target packet if it can be served.
     if (MJL_2DCache && blk && blk->isValid() && blk != tempBlock) {
         bool MJL_wholeTileValid = true;
@@ -2311,20 +2318,30 @@ Cache::recvTimingResp(PacketPtr pkt)
         }
         // If the blk is not a tempblock, and the whole tile is valid
         if (MJL_wholeTileValid) {
+            /* MJL_Test */
+            std::cout << "MJL_Debug: Tile valid for satisfy" << std::endl;
+            /* */
             // For each crossing mshr, go through the service targets process again. Can use the pkt directly in extractServiceableTargets since only the cmd is used and if it were ReadRespWithInvalidate, the blk should not be valid and it should never come here.
             MSHR * MJL_crossMshr = nullptr;
             for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                 MJL_crossMshr = mshrQueue.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
-                CacheBlk * MJL_crossBlk = tags->MJL_findBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure());
+                CacheBlk * MJL_crossBlk = tags->MJL_findBlock(pkt->MJL_getCrossBlockAddrs(blkSize, i), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure());
                 if (MJL_crossMshr) {
                         // Should assert that none of the requests were invalidation, cause it needs to be handled differently.
                         // The blk should be changed to the appropriate one for satisfyRequest
-                        MJL_satisfyWaitingCrossing(MJL_crossMshr, pkt, MJL_crossBlk, is_fill);
+                        /* MJL_Test */
+                        std::cout << "MJL_Debug: Before satisfyCrossing" << std::endl;
+                        /* */
+                        MJL_satisfyWaitingCrossing(MJL_crossMshr, pkt, MJL_crossBlk, writebacks, is_fill, MJL_unreadable);
+                        /* MJL_Test */
+                        std::cout << "MJL_Debug: After satisfyCrossing" << std::
+endl;
+                        /* */
                 }
             }
         }
     }
-     */
+    /* */
     if (MJL_2DCache && MJL_unreadable && blk) {
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
             tags->MJL_findBlockByTile(blk, i)->status &= ~BlkReadable;;
@@ -2826,9 +2843,11 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
             }
         }
         // Now no row or column of the tile should be waiting on a upgrade, the blks can be evicted
-        MJL_touchedBytes += MJL_footPrint->MJL_touchedBytes(blk->tag, blk->set, blkSize);
-        MJL_untouchedBytes += (MJL_rowsValid + MJL_colsValid) * blkSize - MJL_rowsValid * MJL_colsValid * sizeof(uint64_t);
-        MJL_footPrint->MJL_clearFootPrint(blk->tag, blk->set);
+        if (MJL_rowsValid + MJL_colsValid != 0) {
+            MJL_touchedBytes += MJL_footPrint->MJL_touchedBytes(blk->tag, blk->set, blkSize);
+            MJL_requestedBytes += (MJL_rowsValid + MJL_colsValid) * blkSize - MJL_rowsValid * MJL_colsValid * sizeof(uint64_t);
+            MJL_footPrint->MJL_clearFootPrint(blk->tag, blk->set);
+        }
         /* MJL_Test */ 
         std::cout << this->name() << "::2D replacement: ReqAddr = " << std::oct << addr << ", VictimTag = " << blk->tag << ", VictimSet = " << blk->set << ", VictimWay = " << blk->way << std::dec << ", WholeTileValid = " << MJL_tileValid;
         if (addr == 1576960) {

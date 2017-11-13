@@ -482,7 +482,7 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_conflictWBCount3;
     Stats::Scalar MJL_conflictWBCount4;
     Stats::Scalar MJL_mshrConflictCount;
-    Stats::Scalar MJL_untouchedBytes;
+    Stats::Scalar MJL_requestedBytes;
     Stats::Scalar MJL_touchedBytes;
     /* MJL_End */
 
@@ -663,11 +663,11 @@ class BaseCache : public MemObject
         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
             MJL_markBlockInfo(mshr);
         }
-        /* MJL_TODO
+        /* MJL_TODO */
         if (MJL_2DCache) { 
             MJL_markBlocked2D(pkt, mshr);
         }
-         */
+        /* */
         /* MJL_End */
 
         if (mshrQueue.isFull()) {

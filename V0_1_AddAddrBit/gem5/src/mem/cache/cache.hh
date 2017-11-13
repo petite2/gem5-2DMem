@@ -805,8 +805,10 @@ class Cache : public BaseCache
                 public:
                     bool MJL_rowFootPrint[8];
                     bool MJL_colFootPrint[8];
+                    bool MJL_rowEvictFootPrint[8];
+                    bool MJL_colEvictFootPrint[8];
 
-                    MJL_FootPrintEntry() : MJL_rowFootPrint{false, false, false, false, false, false, false, false}, MJL_colFootPrint{false, false, false, false, false, false, false, false} {}
+                    MJL_FootPrintEntry() : MJL_rowFootPrint{false, false, false, false, false, false, false, false}, MJL_colFootPrint{false, false, false, false, false, false, false, false}, MJL_rowEvictFootPrint{false, false, false, false, false, false, false, false}, MJL_colEvictFootPrint{false, false, false, false, false, false, false, false} {}
             };
 
             unsigned logSize;
@@ -819,22 +821,44 @@ class Cache : public BaseCache
             void MJL_addFootPrint(Addr tag, int set, MemCmd::MJL_DirAttribute dir) {
                 auto found = MJL_orderLog.end();
                 Addr tag_set = (tag * (numSets) + set)/sizeof(uint64_t);
+                auto footPrintEntry = MJL_footPrintLog.find(tag_set);
+                
                 int set_offset = set % sizeof(uint64_t);
                 if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    if (footPrintEntry == MJL_footPrintLog.end()) {
+                        MJL_footPrintLog[tag_set] = new MJL_FootPrintEntry();
+                    }
                     MJL_footPrintLog[tag_set]->MJL_rowFootPrint[set_offset] = true;
                 } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    if (footPrintEntry == MJL_footPrintLog.end()) {
+                        MJL_footPrintLog[tag_set] = new MJL_FootPrintEntry();
+                    }
                     MJL_footPrintLog[tag_set]->MJL_colFootPrint[set_offset] = true;
                 }
                 for (auto it = MJL_orderLog.begin(); it != MJL_orderLog.end(); ++it) {
                     if (*it == tag_set) {
+                        found = it;
                         break;
                     }
                 }
                 if (found == MJL_orderLog.end()) {
                     MJL_orderLog.push_back(tag_set);
                 } else {
-                    MJL_orderLog.erase(tag_set);
+                    MJL_orderLog.erase(found);
                     MJL_orderLog.push_back(tag_set);
+                }
+            }
+ 
+            void MJL_addEvictFootPrint(Addr tag, int set, MemCmd::MJL_DirAttribute dir) {
+                Addr tag_set = (tag * (numSets) + set)/sizeof(uint64_t);
+
+                int set_offset = set % sizeof(uint64_t);
+                if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    MJL_footPrintLog[tag_set] = new MJL_FootPrintEntry();
+                    MJL_footPrintLog[tag_set]->MJL_rowEvictFootPrint[set_offset] = true;
+                } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    MJL_footPrintLog[tag_set] = new MJL_FootPrintEntry();
+                    MJL_footPrintLog[tag_set]->MJL_colEvictFootPrint[set_offset] = true;
                 }
             }
 
@@ -931,11 +955,11 @@ class Cache : public BaseCache
         for (int i = 0; i < 8; ++i) {
             Addr reqBlkAddr = triggerAddr;
             if (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
-                reqBlkAddr = tags->MJL_regenerateBlkAddr(triggerTag, MemCmd::MJL_DirAttribute::MJL_IsRow, triggerSet/sizeof(uint64_t) + i);
+                reqBlkAddr = tags->MJL_regenerateBlkAddr(triggerTag, MemCmd::MJL_DirAttribute::MJL_IsRow, (triggerSet/sizeof(uint64_t)) * sizeof(uint64_t) + i);
             } else if (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-                reqBlkAddr = tags->MJL_regenerateBlkAddr(triggerTag, MemCmd::MJL_DirAttribute::MJL_IsRow, triggerSet/sizeof(uint64_t)) + i * sizeof(uint64_t);
+                reqBlkAddr = tags->MJL_regenerateBlkAddr(triggerTag, MemCmd::MJL_DirAttribute::MJL_IsRow, (triggerSet/sizeof(uint64_t)) * sizeof(uint64_t)) + i * sizeof(uint64_t);
             }
-            if (triggerSet/sizeof(uint64_t) == i) {
+            if (triggerSet%sizeof(uint64_t) == i) {
                 assert(triggerAddr == reqBlkAddr);
                 continue;
             } else {
@@ -1000,18 +1024,24 @@ class Cache : public BaseCache
                 MJL_wholeTileValidCol &= MJL_ColsPresent[i];
             }
 
-            if (MJL_wholeTileValidRow) {
+            if (MJL_wholeTileValidRow && pkt->MJL_cmdIsColumn()) {
                 for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                     MJL_rowMshr = mshrQueue.MJL_findMatch(MJL_rowAddr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
                     if (MJL_rowMshr) {
+                        /* MJL_Test */
+                        std::cout << "MJL_Debug: Block2D row" << std::endl;
+                        /* */
                         mshr->MJL_getLastTarget()->MJL_isBlockedBy.push_back(MJL_rowMshr->MJL_getLastTarget());
                         MJL_rowMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(mshr->MJL_getLastTarget());
                     }
                 }
-            } else if (MJL_wholeTileValidCol) {
+            } else if (MJL_wholeTileValidCol && pkt->MJL_cmdIsRow()) {
                 for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                     MJL_colMshr = mshrQueue.MJL_findMatch(MJL_colAddr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
                     if (MJL_colMshr) {
+                        /* MJL_Test */
+                        std::cout << "MJL_Debug: Block2D col" << std::endl;
+                        /* */
                         mshr->MJL_getLastTarget()->MJL_isBlockedBy.push_back(MJL_colMshr->MJL_getLastTarget());
                         MJL_colMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(mshr->MJL_getLastTarget());
                     }
@@ -1040,16 +1070,24 @@ class Cache : public BaseCache
         for (std::list<Addr>::iterator addr_it = BlkAddrs.begin(); addr_it != BlkAddrs.end(); ++addr_it, ++dir_it) {
             mshr = mshrQueue.MJL_findMatch(*addr_it, *dir_it, pkt->isSecure());
             if (mshr == nullptr) {
+                Request *fp_req =
+                        new Request(*addr_it, blkSize, 0, pkt->req->masterId());
+                fp_req->MJL_cachelineSize = blkSize;
+                fp_req->MJL_rowWidth = pkt->req->MJL_rowWidth;
+                MemCmd fp_cmd = pkt->needsWritable() ? MemCmd::ReadExReq :
+            (isReadOnly ? MemCmd::ReadCleanReq : MemCmd::ReadSharedReq);
+                PacketPtr fp_pkt = new Packet(fp_req, fp_cmd, blkSize);
+                fp_pkt->cmd.MJL_setCmdDir(pkt->MJL_getCmdDir());
                 mshr = mshrQueue.MJL_allocateFootPrint(MJL_blockAlign(*addr_it, *dir_it), *dir_it, blkSize,
-                                                pkt, time, order++,
+                                                fp_pkt, time, order++,
                                                 allocOnFill(pkt->cmd));
                 
                 MJL_markBlockInfo(mshr);
-                /* MJL_TODO
+                /* MJL_TODO */
                 if (MJL_2DCache) { 
-                    MJL_markBlocked2D(pkt, mshr);
+                    MJL_markBlocked2D(fp_pkt, mshr);
                 }
-                 */
+                /* */
 
                 if (mshrQueue.isFull()) {
                     setBlocked((BlockedCause)MSHRQueue_MSHRs);
@@ -1083,17 +1121,25 @@ class Cache : public BaseCache
         std::list<MemCmd::MJL_DirAttribute>::iterator dir_it = BlkDirs.begin();
         for (std::list<Addr>::iterator addr_it = BlkAddrs.begin(); addr_it != BlkAddrs.end(); ++addr_it, ++dir_it) {
             mshr = mshrQueue.MJL_findMatch(*addr_it, *dir_it, pkt->isSecure());
-            if (mshr == nullptr) {
+            if (mshr == nullptr && !mshrQueue.isFull()) {
+                Request *fp_req =
+                        new Request(*addr_it, blkSize, 0, pkt->req->masterId());
+                fp_req->MJL_cachelineSize = blkSize;
+                fp_req->MJL_rowWidth = pkt->req->MJL_rowWidth;
+                MemCmd fp_cmd = pkt->needsWritable() ? MemCmd::ReadExReq :
+            (isReadOnly ? MemCmd::ReadCleanReq : MemCmd::ReadSharedReq);
+                PacketPtr fp_pkt = new Packet(fp_req, fp_cmd, blkSize);
+                fp_pkt->cmd.MJL_setCmdDir(pkt->MJL_getCmdDir());
                 mshr = mshrQueue.MJL_allocateFootPrint(MJL_blockAlign(*addr_it, *dir_it), *dir_it, blkSize,
-                                                pkt, time, order++,
+                                                fp_pkt, time, order++,
                                                 allocOnFill(pkt->cmd));
                 
                 MJL_markBlockInfo(mshr);
-                /* MJL_TODO
+                /* MJL_TODO */
                 if (MJL_2DCache) { 
-                    MJL_markBlocked2D(pkt, mshr);
+                    MJL_markBlocked2D(fp_pkt, mshr);
                 }
-                 */
+                /* */
 
                 if (mshrQueue.isFull()) {
                     setBlocked((BlockedCause)MSHRQueue_MSHRs);
@@ -1109,16 +1155,13 @@ class Cache : public BaseCache
     }
 
     // Deal with satisfying requests that were waiting on a full tile
-    void MJL_satisfyWaitingCrossing(MSHR * mshr, PacketPtr pkt, CacheBlk * blk, bool is_fill) {
+    void MJL_satisfyWaitingCrossing(MSHR * mshr, PacketPtr pkt, CacheBlk * blk, PacketList writebacks, bool is_fill, bool MJL_unreadable) {
         MSHR::Target *initial_tgt = mshr->getTarget();
         int initial_offset = initial_tgt->pkt->getOffset(blkSize);
         bool from_cache = false;
         bool is_error = pkt->isError();
         bool is_invalidate = false;
-        bool MJL_writeback = false;
         bool MJL_invalidate = false;
-        bool MJL_unreadable = false;
-        Counter MJL_order = initial_tgt->order;
         bool wasFull = mshrQueue.isFull();
         MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
         for (auto &target: targets) {
@@ -1286,17 +1329,7 @@ class Cache : public BaseCache
                 panic("Illegal target->source enum %d\n", target.source);
             }
             /* MJL_Begin */
-            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
-                MJL_writeback |= target.MJL_postWriteback;
-                MJL_invalidate |= target.MJL_postInvalidate;
-                assert(!target.MJL_postInvalidate || (&target == &targets.back())); 
-                if (target.MJL_postWriteback) {
-                    MJL_order = target.order;
-                } else if (!MJL_writeback && target.MJL_postInvalidate) {
-                    MJL_order = target.order;
-                }
-                target.MJL_clearBlocking();
-            }
+            target.MJL_clearBlocking();
             /* MJL_End */
         }
 
@@ -1341,7 +1374,7 @@ class Cache : public BaseCache
             if (blk/* MJL_Begin */ && !MJL_2DCache/* MJL_End */) {
                 blk->status &= ~BlkReadable;
             }/* MJL_Begin */ else if (blk && MJL_2DCache) {
-                MJL_unreadable = true;
+                MJL_unreadable |= true;
             }
             assert(!mshr->MJL_deferredAdded);
             /* MJL_End */
@@ -1355,12 +1388,14 @@ class Cache : public BaseCache
 
             // Request the bus for a prefetch if this deallocation freed enough
             // MSHRs for a prefetch to take place
+            /*
             if (prefetcher && mshrQueue.canPrefetch()) {
                 Tick next_pf_time = std::max(prefetcher->nextPrefetchReadyTime(),
                                             clockEdge());
                 if (next_pf_time != MaxTick)
                     schedMemSideSendEvent(next_pf_time);
             }
+            */
         }
     }
     /* MJL_End */

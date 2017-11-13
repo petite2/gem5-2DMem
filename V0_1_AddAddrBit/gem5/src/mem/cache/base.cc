@@ -892,8 +892,8 @@ BaseCache::regStats()
         .flags(nozero)
         ;
 
-    MJL_untouchedBytes.name(name() + ".MJL_untouchedBytes")
-        .desc("total number of bytes untouched in this cache at the time of eviction")
+    MJL_requestedBytes.name(name() + ".MJL_requestedBytes")
+        .desc("total number of bytes requested by this cache")
         .flags(nozero)
         ;
 
