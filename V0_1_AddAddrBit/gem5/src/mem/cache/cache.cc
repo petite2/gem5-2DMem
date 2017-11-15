@@ -228,7 +228,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // note that the line may be also be considered writable in
         // downstream caches along the path to memory, but always
         // Exclusive, and never Modified
-        assert(blk->isWritable());
+        assert(blk->isWritable()/* MJL_Begin */|| (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkWritable) != 0))/* MJL_End */);
         // Write or WriteLine at the first cache with block in writable state
         if (blk->checkWrite(pkt)) {
             /* MJL_Begin */
@@ -627,6 +627,18 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         }
 
         /* MJL_Begin */
+        // If it is the physically 2D cache, and in full tile transfer mode. Delete the request for transfer if it is written back
+        if (MJL_2DCache && MJL_2DTransferType == 1 && pkt->cmd == MemCmd::WritebackDirty) {
+            MSHR * MJL_temp_mshr = mshrQueue.MJL_findMatch(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
+            if (MJL_temp_mshr && !MJL_temp_mshr->inService && MJL_temp_mshr->getTarget()->source == MSHR::Target::MJL_FromFootPrintFetch) {
+                MJL_temp_mshr->getTarget()->MJL_clearBlocking();
+                if (mshrQueue.forceDeallocateTarget(MJL_temp_mshr)) {
+                    // Clear block if this deallocation resulted freed an
+                    // mshr when all had previously been utilized
+                    clearBlocked(Blocked_NoMSHRs);
+                }
+            }
+        }
         // For physically 2D Cache, we should check if the tile exists, and if it does, the blk can be used directly for write back and should not do a replacement.
         if (MJL_2DCache && blk == nullptr) { 
             // Set the direction to get the cross direction offset
@@ -835,15 +847,27 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             // propagating further down the hierarchy. Returning true will
             // treat the CleanEvict like a satisfied write request and delete
             // it.
+            /* MJL_Test 
+            std::cout << this->name() << "MJL_Debug: CleanEvict hit, readable? " << ((blk->status & BlkReadable) != 0) << " " << blk->status << std::endl;
+             */
             return true;
         }
         // We didn't find the block here, propagate the CleanEvict further
         // down the memory hierarchy. Returning false will treat the CleanEvict
         // like a Writeback which could not find a replaceable block so has to
         // go to next level.
+        /* MJL_Test 
+        std::cout << this->name() << "MJL_Debug: CleanEvict fall through" << std::endl;
+         */
         return false;
+    /* MJL_Begin */
+    } else if (blk && (pkt->needsWritable() ? (blk->isWritable() || (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkWritable) != 0))) :
+                       (blk->isReadable() || (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkReadable) != 0))))) {
+    /* MJL_End */
+    /* MJL_Comment
     } else if (blk && (pkt->needsWritable() ? blk->isWritable() :
                        blk->isReadable())) {
+    */
         // OK to satisfy access
         incHitCount(pkt);
         /* MJL_Begin */
@@ -1421,14 +1445,23 @@ Cache::recvTimingReq(PacketPtr pkt)
                 (pkt->req->isUncacheable() && pkt->isWrite())) {
                 // We use forward_time here because there is an
                 // uncached memory write, forwarded to WriteBuffer.
+                /* MJL_Begin*/ //why didn't this work? the entry was deleted in the added lookupSnoop before it could be deleted in the lookupRequest from the L1 eviction
+                if (MJL_2DCache) {
+                    std::cout << "Before isCachedAbove " << std::endl;
+                    bool MJL_temp = isCachedAbove(pkt);
+                    std::cout << "After isCachedAbove " << MJL_temp << std::endl;
+                }
+                /* MJL_End */
                 allocateWriteBuffer(pkt, forward_time);
             } else {
                 /* MJL_Begin */ 
                 if (MJL_2DCache && blk) {
                     // In a physically 2D cache, a write miss to a valid tile would need non-readable marked only when there is valid data in the write interval
                     bool MJL_blkValid = blk->isValid();
+                    bool MJL_writeMiss = MJL_blkValid;
                     if (pkt->MJL_cmdIsColumn()) {
                         MJL_blkValid = blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)];
+                        MJL_writeMiss = MJL_blkValid;
                         for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
                             MJL_blkValid |= tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->isValid();
                         }
@@ -1437,10 +1470,15 @@ Cache::recvTimingReq(PacketPtr pkt)
                             MJL_blkValid |= blk->MJL_crossValid[i/sizeof(uint64_t)];
                         }
                     }
-                    if (MJL_blkValid) {
+                    if (MJL_blkValid && MJL_writeMiss) {
+                        /* MJL_Test 
+                        //if (pkt->getAddr() == 1579008) {
+                            std::cout << "MJL_Debug: writemiss? tag: " << blk->tag << ", set: " << blk->set << ", Valid(c)? " << blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] << ", readable?  " << blk->isReadable() << std::endl;
+                        //}
+                         */
                         assert(!pkt->req->isUncacheable());
                         assert(pkt->needsWritable());
-                        assert(!blk->isWritable());
+                        assert(!blk->isWritable()/* MJL_Begin */ && !(MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkWritable) != 0))/* MJL_End */);
                         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                             tags->MJL_findBlockByTile(blk, i)->status &= ~BlkReadable;
                         }
@@ -1515,6 +1553,9 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
     /* MJL_Comment
     bool blkValid = blk && blk->isValid();
     */
+    /* MJL_Test 
+    std::cout << this->name() <<  "::MJL_Debug: create miss packet: addr " << cpu_pkt->getAddr() << ", dir " << cpu_pkt->MJL_getCmdDir() << ", cmd " << cpu_pkt->cmd.toString() << ", blkValid" << blkValid << std::endl; 
+     */
 
     if (cpu_pkt->req->isUncacheable() ||
         (!blkValid && cpu_pkt->isUpgrade()) ||
@@ -2027,6 +2068,9 @@ Cache::recvTimingResp(PacketPtr pkt)
 
         blk = handleFill(pkt, blk, writebacks, mshr->allocOnFill());
         assert(blk != nullptr);
+        /* MJL_Test 
+        std::cout << this->name() <<  "::MJL_Debug: After handleFill, readable? " << blk->isReadable() << std::endl;
+         */
     }
 
     // allow invalidation responses originating from write-line
@@ -2082,6 +2126,9 @@ Cache::recvTimingResp(PacketPtr pkt)
                 // NB: we use the original packet here and not the response!
                 blk = handleFill(tgt_pkt, blk, writebacks,
                                  targets.allocOnFill);
+                /* MJL_Test 
+                std::cout << this->name() <<  "::MJL_Debug: After handleFill writeline, readable? " << blk->isReadable() << std::endl;
+                 */
                 assert(blk != nullptr);
 
                 // treat as a fill, and discard the invalidation
@@ -2181,6 +2228,13 @@ Cache::recvTimingResp(PacketPtr pkt)
             break;
           /* MJL_Begin */
           case MSHR::Target::MJL_FromFootPrintFetch:
+            /* MJL_Test 
+            std::cout << this->name() << "::MJL_Debug MJL_FromFootPrintFetch " << tgt_pkt->print() << " cmd " << tgt_pkt->MJL_getCmdDir() << " served, self " << &target << ", blocking:";
+            for (auto it = target.MJL_isBlocking.begin(); it != target.MJL_isBlocking.end(); ++it) {
+                std::cout << " " << *it;
+            }
+            std::cout << std::endl;
+             */
             delete tgt_pkt->req;
             delete tgt_pkt;
             break;
@@ -2284,7 +2338,10 @@ Cache::recvTimingResp(PacketPtr pkt)
         if (blk/* MJL_Begin */ && !MJL_2DCache/* MJL_End */) {
             blk->status &= ~BlkReadable;
         }/* MJL_Begin */ else if (blk && MJL_2DCache) {
-            MJL_unreadable = true;
+            if (mshr->MJL_deferredAdded) {
+                MJL_unreadable = true;
+            }
+            assert(!mshr->MJL_deferredAdded);
         }
         /* MJL_End */
         mshrQueue.markPending(mshr);
@@ -2312,15 +2369,16 @@ Cache::recvTimingResp(PacketPtr pkt)
     /* MJL_TODO */ 
     // Should also serve the previously blocked target packet if it can be served.
     if (MJL_2DCache && blk && blk->isValid() && blk != tempBlock) {
+    //if (false) {
         bool MJL_wholeTileValid = true;
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
             MJL_wholeTileValid &= tags->MJL_findBlockByTile(blk, i)->isValid();
         }
         // If the blk is not a tempblock, and the whole tile is valid
         if (MJL_wholeTileValid) {
-            /* MJL_Test */
+            /* MJL_Test 
             std::cout << "MJL_Debug: Tile valid for satisfy" << std::endl;
-            /* */
+             */
             // For each crossing mshr, go through the service targets process again. Can use the pkt directly in extractServiceableTargets since only the cmd is used and if it were ReadRespWithInvalidate, the blk should not be valid and it should never come here.
             MSHR * MJL_crossMshr = nullptr;
             for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
@@ -2329,14 +2387,16 @@ Cache::recvTimingResp(PacketPtr pkt)
                 if (MJL_crossMshr) {
                         // Should assert that none of the requests were invalidation, cause it needs to be handled differently.
                         // The blk should be changed to the appropriate one for satisfyRequest
-                        /* MJL_Test */
+                        /* MJL_Test 
                         std::cout << "MJL_Debug: Before satisfyCrossing" << std::endl;
-                        /* */
+                         */
+                        bool pending_modified_resp = !pkt->hasSharers() && pkt->cacheResponding();
+                        markInService(MJL_crossMshr, pending_modified_resp);
                         MJL_satisfyWaitingCrossing(MJL_crossMshr, pkt, MJL_crossBlk, writebacks, is_fill, MJL_unreadable);
-                        /* MJL_Test */
+                        /* MJL_Test 
                         std::cout << "MJL_Debug: After satisfyCrossing" << std::
 endl;
-                        /* */
+                         */
                 }
             }
         }
@@ -2344,7 +2404,8 @@ endl;
     /* */
     if (MJL_2DCache && MJL_unreadable && blk) {
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-            tags->MJL_findBlockByTile(blk, i)->status &= ~BlkReadable;;
+            assert(!MJL_unreadable);
+            tags->MJL_findBlockByTile(blk, i)->status &= ~BlkReadable;
         }
     }
     /* MJL_End */
@@ -2540,7 +2601,7 @@ Cache::MJL_clearTileWritable(CacheBlk *blk)
     for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
         // Get pointer to blks
         CacheBlk *tile_blk =  tags->MJL_findBlockByTile(blk, i);
-        if (tile_blk->isWritable()) {
+        if (tile_blk->isWritable() || (MJL_2DCache && blk->MJL_hasCrossValid() && ((blk->status & BlkWritable) != 0))) {
             // mark our own block non-writeable
             tile_blk->status &= ~BlkWritable;
         }
@@ -2834,7 +2895,7 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                 if (repl_mshr) {
                     // must be an outstanding upgrade request
                     // on a block we're about to replace...
-                    assert(!blk->isWritable() || MJL_colDirty[i]);
+                    assert((!blk->isWritable() && !(MJL_2DCache && ((blk->status & BlkWritable) != 0))) || MJL_colDirty[i]);
                     assert(repl_mshr->needsWritable());
                     // too hard to replace block with transient state
                     // allocation failed, block not inserted
@@ -2848,10 +2909,10 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
             MJL_requestedBytes += (MJL_rowsValid + MJL_colsValid) * blkSize - MJL_rowsValid * MJL_colsValid * sizeof(uint64_t);
             MJL_footPrint->MJL_clearFootPrint(blk->tag, blk->set);
         }
-        /* MJL_Test */ 
-        std::cout << this->name() << "::2D replacement: ReqAddr = " << std::oct << addr << ", VictimTag = " << blk->tag << ", VictimSet = " << blk->set << ", VictimWay = " << blk->way << std::dec << ", WholeTileValid = " << MJL_tileValid;
-        if (addr == 1576960) {
-            std::cout << std::endl << "MJL_Debug: Trying to see what's in the cache when 6010000 tries to do it's writeback" << std::endl;
+        /* MJL_Test  
+        std::cout << this->name() << "::2D replacement: ReqAddr = " << std::oct << addr << ", VictimTag = " << blk->tag << ", VictimSet = " << blk->set << ", VictimWay = " << blk->way << std::dec << ", WholeTileValid = " << MJL_tileValid << std::endl;
+        if (true) {
+            std::cout << this->name() << "MJL_Debug: Trying to see what's in the cache when " << addr << " tries to do it's writeback" << std::endl;
             assert((blk->set/sizeof(uint64_t))*sizeof(uint64_t) == blk->set - blk->set%sizeof(uint64_t));
             for (int i = 0; i < 8; ++i) {
                 CacheBlk * MJL_testBlk = tags->findBlockBySetAndWay((blk->set/sizeof(uint64_t))*sizeof(uint64_t), i);
@@ -2863,10 +2924,11 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                 std::cout << ", blkIsSecure = " << MJL_testBlk->isSecure();
                 std::cout << ", reqIsSecure = " << is_secure;
                 std::cout << ", blkDir = " << MJL_testBlk->MJL_blkDir;
+                std::cout << ", status = " << blk->status;
                 std::cout << std::endl;
             }
         }
-        /* */
+         */
         // If the whole tile is valid, then favorize row treatments, otherwise treat columns first
         if (!MJL_tileValid) {
             // For each column in this tile
@@ -2943,7 +3005,31 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                 std::cout << ", IsSecure = " << blk->isSecure();
                 std::cout << ", IsDirty = " << blk->isDirty();
                 std::cout << std::endl;
-                */ 
+                */
+                /* MJL_Test: do we really need this? Looks like we don't
+                if ((this->name().find("dcache") != std::string::npos) && writebacks.back()->mustCheckAbove()) {
+                    MSHR *MJL_crossMshr = nullptr;
+                    CacheBlk *MJL_crossBlk = nullptr;
+                    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        MJL_crossMshr =  mshrQueue.MJL_findMatch(writebacks.back()->MJL_getCrossBlockAddrs(blkSize, i), writebacks.back()->MJL_getCrossCmdDir(), is_secure);
+                        if (MJL_crossMshr) {
+                            writebacks.back()->MJL_crossBlocksCached[i] |= true;
+                        }
+                        MJL_crossBlk =  tags->MJL_findBlock(writebacks.back()->MJL_getCrossBlockAddrs(blkSize, i), writebacks.back()->MJL_getCrossCmdDir(), writebacks.back()->isSecure());
+                        if (MJL_crossBlk && MJL_crossBlk->isValid()) {
+                            writebacks.back()->MJL_crossBlocksCached[i] |= true;
+                        }
+                    }
+                }
+                if ((this->name().find("dcache") != std::string::npos) && writebacks.back()->isEviction()) {
+                    WriteQueueEntry *MJL_crossWb_entry = nullptr;
+                    for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        MJL_crossWb_entry =  writeBuffer.MJL_findMatch(writebacks.back()->MJL_getCrossBlockAddrs(blkSize, i), writebacks.back()->MJL_getCrossCmdDir(), is_secure);
+                        if (MJL_crossWb_entry) {
+                            writebacks.back()->MJL_crossBlocksCached[i] |= true;
+                        }
+                    }
+                } */ 
             }
         }
     }
@@ -2964,6 +3050,7 @@ void
 Cache::MJL_invalidateTile(CacheBlk *blk)
 {
     assert (blk != tempBlock);
+    assert (false);
     CacheBlk * tile_blk = nullptr;
     for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
         tile_blk = tags->MJL_findBlockByTile(blk, i);
@@ -3342,11 +3429,11 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
             // the snoop packet does not need to wait any additional
             // time
             snoopPkt.headerDelay = snoopPkt.payloadDelay = 0;
-            /* MJL_Test */
+            /* MJL_Test 
             if (pkt->getAddr() == 1576960) {
                 std::cout << this->name() << "MJL_Debug: point Before sendTimingSnoopReq in handleSnoop" << std::endl;
             }
-            /* */
+             */
             cpuSidePort->sendTimingSnoopReq(&snoopPkt);
 
             // add the header delay (including crossbar and snoop
@@ -3385,11 +3472,11 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
 
     /* MJL_Begin */
     // Should also check for cross direction block existence. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
-    /* MJL_Test */
+    /* MJL_Test 
     if (pkt->getAddr() == 1576960) {
         std::cout << this->name() << "::MJL_Debug: point Before mustCheckAbove in handleSnoop " << std::endl;
     }
-    /* */
+     
     if ((this->name().find("dcache") != std::string::npos) && pkt->mustCheckAbove()) {
         CacheBlk *MJL_crossBlk = nullptr;
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
@@ -3398,7 +3485,8 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
                 pkt->MJL_crossBlocksCached[i] |= true;
             }
         }
-        /* MJL_Test */
+    */
+        /* MJL_Test 
         // Test to see if why the MJL_crossBlocksCached is not marked true for 6010000
         if (pkt->getAddr() == 1576960) {
             std::cout << "MJL_Debug A: ";
@@ -3419,11 +3507,11 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
             //std::cout << ", Time = " << pkt->req->time() ;
             std::cout << std::endl;
         }
-        /* */
-        /* MJL_Test */
+         */
+        /* MJL_Test 
         std::cout << "MJL_Debug: point D " << pkt->getAddr() << std::endl;
-        /* */
-    }
+         
+    }*/
     if (MJL_2DCache && (!blk || (!blk->isValid() && !blk->MJL_hasCrossValid()))) {
         DPRINTF(CacheVerbose, "%s: snoop miss for %s\n", __func__,
                 pkt->print());
@@ -3486,7 +3574,7 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
     /* MJL_Comment
     bool respond = blk->isDirty() && pkt->needsResponse();
     */
-    bool have_writable = blk->isWritable();
+    bool have_writable = blk->isWritable()/* MJL_Begin */|| (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_hasCrossValid() && ((blk->status & BlkWritable) != 0))/* MJL_End */;
 
     // Invalidate any prefetch's from below that would strip write permissions
     // MemCmd::HardPFReq is only observed by upstream caches.  After missing
@@ -3696,10 +3784,32 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
                 pkt->MJL_crossBlocksCached[i] |= true;
             }
         }
-        /* MJL_Test */
+        /* MJL_Test 
         std::cout << "MJL_Debug: point B " << std::oct << pkt->getAddr() << std::endl << std::endl;
-        /* */
+         */
     }
+    if ((this->name().find("dcache") != std::string::npos) && pkt->isEviction()) {
+        WriteQueueEntry *MJL_crossWb_entry = nullptr;
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            MJL_crossWb_entry = writeBuffer.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), is_secure);
+            if (MJL_crossWb_entry) {
+                pkt->MJL_crossBlocksCached[i] |= true;
+            }
+        }
+        /* MJL_Test
+        std::cout << "MJL_Debug: point C " << std::oct << pkt->getAddr() << std::endl << std::endl;
+         */
+    }
+    if ((this->name().find("dcache") != std::string::npos) && pkt->mustCheckAbove()) {
+        CacheBlk *MJL_crossBlk = nullptr;
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            MJL_crossBlk = tags->MJL_findBlock(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
+            if (MJL_crossBlk && MJL_crossBlk->isValid()) {
+                pkt->MJL_crossBlocksCached[i] |= true;
+            }
+        }
+    }
+
     /* MJL_End */
     if (mshr && pkt->mustCheckAbove()) {
         DPRINTF(Cache, "Setting block cached for %s from lower cache on "
@@ -3727,22 +3837,6 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
         wb_entry = writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
     } else {
         wb_entry = writeBuffer.findMatch(blk_addr, is_secure);
-    }
-    // Should also check for cross direction existence for wb_entry. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
-    if (pkt->getAddr() == 1576960) {
-        std::cout << this->name() << "MJL_Debug: point Just before wb check " << std::endl;
-    }
-    if ((this->name().find("dcache") != std::string::npos) && pkt->isEviction()) {
-        WriteQueueEntry *MJL_crossWb_entry = nullptr;
-        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-            MJL_crossWb_entry =  writeBuffer.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), is_secure);
-            if (MJL_crossWb_entry) {
-                pkt->MJL_crossBlocksCached[i] |= true;
-            }
-        }
-        /* MJL_Test */
-        std::cout << "MJL_Debug: point C " << std::oct << pkt->getAddr() << std::endl << std::endl;
-        /* */
     }
     /* MJL_End */
     /* MJL_Comment
@@ -4048,22 +4142,22 @@ Cache::isCachedAbove(PacketPtr pkt, bool is_timing) const
         // generate a snoop response.
         assert(pkt->isEviction());
         snoop_pkt.senderState = nullptr;
-        /* MJL_Test */
+        /* MJL_Test 
         if (pkt->getAddr() == 1576960) {
             std::cout << this->name() << "MJL_Debug: point Before sendTimingSnoopReq " << std::endl;
         }
-        /* */
+         */
         cpuSidePort->sendTimingSnoopReq(&snoop_pkt);
         // Writeback/CleanEvict snoops do not generate a snoop response.
         assert(!(snoop_pkt.cacheResponding()));
         /* MJL_Begin */
         // For physically 2d cache, get whether the cross blocks are cached or not
         if (MJL_2DCache) {
-            /* MJL_Test */
+            /* MJL_Test 
             if (pkt->getAddr() == 1576960) {
                 std::cout << this->name() << "MJL_Debug: point Before copyCrossBlocksCached " << std::endl;
             }
-            /* */
+             */
             pkt->MJL_copyCrossBlocksCached(snoop_pkt.MJL_crossBlocksCached);
         }
         /* MJL_End */
@@ -4227,6 +4321,9 @@ Cache::sendWriteQueuePacket(WriteQueueEntry* wq_entry)
     PacketPtr tgt_pkt = wq_entry->getTarget()->pkt;
 
     DPRINTF(Cache, "%s: write %s\n", __func__, tgt_pkt->print());
+    /* MJL_Test 
+    std::cout << this->name() << "::MJL_Debug: At sendWriteQueuePacket " << tgt_pkt->print() << std::endl;
+     */
 
     // forward as is, both for evictions and uncacheable writes
     if (!memSidePort->sendTimingReq(tgt_pkt)) {
@@ -4309,8 +4406,11 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Packet information output */
-    if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !blocked && !mustSendRetry
+    /* MJL_Test: Packet information output 
+    if ((this->name().find("dcache") != std::string::npos 
+             // || this->name().find("l2") != std::string::npos
+        ) 
+        && !blocked && !mustSendRetry
          //&& cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() 
          //&& pkt->MJL_cmdIsColumn()
          ) { // Debug for column vec
@@ -4342,7 +4442,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         //std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
-    /* */
+     */
     
     // Column vector access handler
     if ((pkt->req->hasPC())
@@ -4513,7 +4613,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Request packet information output */ 
+    /* MJL_Test: Request packet information output  
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
         std::cout << this->name() << "::recvAtomicPreAcc";
         std::cout << ": PC(hex) = ";
@@ -4543,7 +4643,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         //std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
-    /* */
+     */
 
     // Column vector access handler
     if ((pkt->req->hasPC())
@@ -4628,7 +4728,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     // The actual access
     Tick time = cache->recvAtomic(pkt);
     
-    /* MJL_Test: Response packet information output */
+    /* MJL_Test: Response packet information output 
     if (this->name().find("l2") != std::string::npos && pkt->isResponse()) {
         std::cout << this->name() << "::recvAtomicPostAcc";
         std::cout << ": PC(hex) = ";
@@ -4658,10 +4758,10 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         //std::cout << ", Time = " << pkt->req->time() ;
         std::cout << std::endl;
     }
-    /* */
+     */
 
     if (this->name().find("dcache") != std::string::npos && pkt->isResponse()) {
-        /* MJL_Test: Respnse packet information output */ 
+        /* MJL_Test: Respnse packet information output  
         std::cout << this->name() << "::recvAtomicPostAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
@@ -4689,7 +4789,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         std::cout << std::dec;
         //std::cout << ", Time = " << pkt->req->time() ;
         std::cout << std::endl;
-        /* */
+         */
         
         // Handle split packet's response, see sendTimingResp() in cache.hh for detail
         bool MJL_isUnaligned = MJL_split;

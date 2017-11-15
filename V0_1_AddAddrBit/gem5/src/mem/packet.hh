@@ -1287,7 +1287,7 @@ class Packet : public Printable
     setDataFromBlock(const uint8_t *blk_data, int blkSize)
     {
         /* MJL_Begin */
-        /* MJL_Test: read from cache information output */
+        /* MJL_Test: read from cache information output 
 	    if (req->hasPC() && !req->isInstFetch()) {
             std::cout << "setDataFromBlock";
             std::cout << ": PC(hex) = " << std::hex << req->getPC() << std::dec;
@@ -1314,7 +1314,7 @@ class Packet : public Printable
             }
             std::cout << std::dec << std::endl;
         } else
-        /* */
+         */
         /* MJL_End */
         setData(blk_data + getOffset(blkSize));
     }
@@ -1336,7 +1336,7 @@ class Packet : public Printable
     writeDataToBlock(uint8_t *blk_data, int blkSize) const
     {
         /* MJL_Begin */
-        /* MJL_Test: write to cache information output */
+        /* MJL_Test: write to cache information output 
         if (req->hasPC() && !req->isInstFetch()) {
             std::cout << "writeDataToBlock:";
             std::cout << ": PC(hex) = " << std::hex << req->getPC() << std::dec;
@@ -1363,7 +1363,7 @@ class Packet : public Printable
             }
             std::cout << std::dec << std::endl;
         } else
-        /* */
+         */
         /* MJL_End */
         writeData(blk_data + getOffset(blkSize));
     }

@@ -157,14 +157,24 @@ class MSHR : public QueueEntry, public Printable
         std::list<Target *> MJL_isBlocking;
         bool MJL_postInvalidate;
         bool MJL_postWriteback;
+        Target * MJL_self;
         bool MJL_isBlocked() {
             return !MJL_isBlockedBy.empty();
         }
         void MJL_clearBlocking() {
+            /* MJL_Test 
+            std::cout << "MJL_Debug: clearBlocking self " << MJL_self << " isBlocking";
+             */
             while (!MJL_isBlocking.empty()) {
-                MJL_isBlocking.front()->MJL_isBlockedBy.remove(this);
+                MJL_isBlocking.front()->MJL_isBlockedBy.remove(MJL_self);
+                /* MJL_Test 
+                std::cout << " " << &(*MJL_isBlocking.front());
+                 */
                 MJL_isBlocking.pop_front();
             }
+            /* MJL_Test 
+            std::cout << std::endl;
+             */
         }
         /* MJL_End */
 
@@ -172,7 +182,7 @@ class MSHR : public QueueEntry, public Printable
                Source _source, bool _markedPending, bool alloc_on_fill)
             : recvTime(curTick()), readyTime(_readyTime), order(_order),
               pkt(_pkt), source(_source), markedPending(_markedPending),
-              allocOnFill(alloc_on_fill)/* MJL_Begin */,MJL_postInvalidate(false),MJL_postWriteback(false)/* MJL_End */
+              allocOnFill(alloc_on_fill)/* MJL_Begin */,MJL_postInvalidate(false),MJL_postWriteback(false), MJL_self(this)/* MJL_End */
         {}
     };
 

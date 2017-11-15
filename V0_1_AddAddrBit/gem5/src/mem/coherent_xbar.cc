@@ -251,6 +251,10 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID slave_port_id)
 
             // since it is a normal request, attempt to send the packet
             success = masterPorts[master_port_id]->sendTimingReq(pkt);
+            /* MJL_Test 
+            std::cout << this->name() << "::MJL_Debug: After sendTimingReq " << std::endl;
+            assert(snoopFilter->MJL_test_reqLookupResult(pkt->MJL_getCmdDir()));
+             */
         } else {
             // no need to forward, turn this packet around and respond
             // directly
@@ -440,11 +444,11 @@ CoherentXBar::recvTimingSnoopReq(PacketPtr pkt, PortID master_port_id)
 
     if (snoopFilter) {
         // let the Snoop Filter work its magic and guide probing
-        /* MJL_Test */
+        /* MJL_Test 
         if (pkt->getAddr() == 1576960) {
             std::cout << this->name() << "::MJL_Debug: point A coherent_xbar " << std::endl;
         }
-        /* */
+         */
         auto sf_res = snoopFilter->lookupSnoop(pkt/* MJL_Begin */, masterPorts[master_port_id]->getSlavePort().MJL_is2DCache()/* MJL_End */);
         // the time required by a packet to be delivered through
         // the xbar has to be charged also with to lookup latency
@@ -455,11 +459,11 @@ CoherentXBar::recvTimingSnoopReq(PacketPtr pkt, PortID master_port_id)
                 sf_res.first.size(), sf_res.second);
 
         // forward to all snoopers
-        /* MJL_Test */
+        /* MJL_Test 
         if (pkt->getAddr() == 1576960) {
             std::cout << this->name() << "::MJL_Debug: point C coherent_xbar " << std::endl;
         }
-        /* */
+         */
         forwardTiming(pkt, InvalidPortID, sf_res.first);
     } else {
         forwardTiming(pkt, InvalidPortID);
@@ -627,11 +631,11 @@ CoherentXBar::forwardTiming(PacketPtr pkt, PortID exclude_slave_port_id,
         // from
         if (exclude_slave_port_id == InvalidPortID ||
             p->getId() != exclude_slave_port_id) {
-            /* MJL_Test */
+            /* MJL_Test 
             if (pkt->getAddr() == 1576960) {
                 std::cout << this->name() << "::MJL_Debug: point B coherent_xbar " << std::endl;
             }
-            /* */
+             */
             // cache is not allowed to refuse snoop
             p->sendTimingSnoopReq(pkt);
             fanout++;

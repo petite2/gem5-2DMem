@@ -76,6 +76,9 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
 {
     DPRINTF(SnoopFilter, "%s: src %s packet %s\n", __func__,
             slave_port.name(), cpkt->print());
+    /* MJL_Test 
+    std::cout << this->name() << "::MJL_Debug: At lookupRequest: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
+     */
 
     // check if the packet came from a cache
     bool allocate = !cpkt->req->isUncacheable() && slave_port.isSnooping() &&
@@ -116,7 +119,7 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
     // updateRequest.
     retryItem = sf_item;
     /* MJL_Begin */
-    if (!cpkt->needsResponse() && slave_port.getMasterPort().MJL_is2DCache()) {
+    if (slave_port.getMasterPort().MJL_is2DCache()) {
         for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
             auto MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
             if (MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
@@ -131,6 +134,9 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         }
     } 
     /* MJL_End */
+    /* MJL_Test 
+    std::cout << ", old holder = " << sf_item.holder;
+     */
 
     totRequests++;
     if (is_hit) {
@@ -171,7 +177,7 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         }
     } else { // if (!cpkt->needsResponse())
         assert(cpkt->isEviction());
-        /* MJL_Test */
+        /* MJL_Test 
         std::cout << "MJL_Debug: " << this->name() << ":: slave_port name: " << slave_port.name() << ", slave_port.getMasterPort name: " << slave_port.getMasterPort().name() << ", is port attached to physically 2D cache ? " << slave_port.getMasterPort().MJL_is2DCache() << std::endl;
 
         std::cout << "The Evicted Packet Info: PC(hex) = ";
@@ -205,7 +211,7 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         std::cout << std::dec;
         //std::cout << ", Time = " << pkt->req->time() ;
         std::cout << std::endl;
-        /* */
+         */
         
         // make sure that the sender actually had the line
         panic_if(!(sf_item.holder & req_port), "requester %x is not a " \
@@ -215,23 +221,29 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         // it may not have the line anymore.
         /* MJL_Begin */
         // For physically 2D cache, also need the is cached above information for the other direction as well, so that we can correctly determine whether it is still a holder for the other direction
-        if (slave_port.getMasterPort().MJL_is2DCache()) {
+        if (slave_port.getMasterPort().MJL_is2DCache() && !cpkt->isBlockCached()) {
             // In this case, whenever there is 1 cache line evicted, the whole tile is evicted, hence we only rely on the is block cached information on passed from the upper level cache
             for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
                 auto MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
-                /* MJL_Test */
+                /* MJL_Test 
                 if (cpkt->getAddr() == 1576960 && MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
                     std::cout << this->name() << "::MJL_Debug: point A snoop_filter " << i << " " << MJL_temp_it->second.holder << std::endl;
                 }
-                /* */
+                 */
                 if (!cpkt->MJL_crossBlocksCached[i] && MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
                     SnoopItem& MJL_temp_item = MJL_temp_it->second;
+                    /* MJL_Test 
+                    std::cout << ", old holder" << i << " = " << MJL_temp_item.holder;
+                     */
                     MJL_temp_item.holder &= ~req_port;
-                    /* MJL_Test */
+                    /* MJL_Test 
+                    std::cout << ", new holder" << i << " = " << MJL_temp_item.holder;
+                     */
+                    /* MJL_Test 
                     if (cpkt->getAddr() == 1576960) {
                         std::cout << this->name() << "::MJL_Debug: point C snoop_filter " << i << " " << MJL_temp_item.holder << std::endl;
                     }
-                    /* */
+                     */
                 }
             }
         }
@@ -242,6 +254,9 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
                     __func__,  sf_item.requested, sf_item.holder);
         }
     }
+    /* MJL_Test 
+    std::cout << ", new holder = " << sf_item.holder << std::endl;
+     */
 
     return snoopSelected(maskToPortList(interested & ~req_port), lookupLatency);
 }
@@ -295,11 +310,11 @@ SnoopFilter::MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttrib
             // entry if the request will come again. retryItem holds
             // the previous value of the snoopfilter entry.
             reqLookupResult->second = retryItem;
-            /* MJL_Test */
+            /* MJL_Test 
             //if (addr == 1576960) {
                     std::cout << this->name() << "::MJL_Debug: point retry snoop_filter " << addr << " " << MJL_retrySet << std::endl;
             //}
-            /* */
+             */
             MemCmd::MJL_DirAttribute MJL_crossCmdDir = MJL_cmdDir;
             if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
                 MJL_crossCmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
@@ -317,6 +332,7 @@ SnoopFilter::MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttrib
                 auto MJL_temp_it = MJL_cachedLocations[MJL_crossCmdDir].find(MJL_crossLineAddr);
                 if (MJL_retrySet[i] && MJL_temp_it != MJL_cachedLocations[MJL_crossCmdDir].end()) {
                     MJL_temp_it->second = MJL_retryItems[i];
+
                     MJL_eraseIfNullEntry(MJL_temp_it, MJL_crossCmdDir);
                 }
             }
@@ -401,11 +417,11 @@ SnoopFilter::lookupSnoop(const Packet* cpkt/* MJL_Begin */, bool MJL_is2DCache/*
     /* MJL_Begin */
     // For physically 2D cache, a check on the cross direction is also needed 
     if (MJL_is2DCache) {
-        /* MJL_Test */
+        /* MJL_Test 
         if (cpkt->getAddr() == 1576960) {
             std::cout << this->name() << "::MJL_Debug: point B snoop_filter " << std::endl;
         }
-        /* */
+         */
         SnoopMask MJL_holder = 0;
         SnoopMask MJL_requested = 0;
         for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
@@ -434,15 +450,22 @@ SnoopFilter::lookupSnoop(const Packet* cpkt/* MJL_Begin */, bool MJL_is2DCache/*
     // we need to special case for Writebacks.
     assert(cpkt->isWriteback() || cpkt->req->isUncacheable() ||
            (cpkt->isInvalidate() == cpkt->needsWritable()));
+    /* MJL_Begin */
+    bool MJL_sfitemHasChanged = false;
+    /* MJL_End */
     if (cpkt->isInvalidate()/* MJL_Begin */ && (sf_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end())/* MJL_End */ && !sf_item.requested) {
         // Early clear of the holder, if no other request is currently going on
         // @todo: This should possibly be updated even though we do not filter
         // upward snoops
         sf_item.holder = 0;
+        /* MJL_Begin */
+        MJL_sfitemHasChanged = true;
+        /* MJL_End */
     }
 
     /* MJL_Begin */
-    if (sf_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end()) {
+    if (MJL_sfitemHasChanged && sf_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end()) {
+
         MJL_eraseIfNullEntry(sf_it, cpkt->MJL_getCmdDir());
 
         DPRINTF(SnoopFilter, "%s:   new SF value %x.%x interest: %x \n",
@@ -469,6 +492,10 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
 
     assert(cpkt->isResponse());
     assert(cpkt->cacheResponding());
+    /* MJL_Test 
+    std::cout << this->name() << ":: At updateSnoopResponse: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
+    assert(this->name().find("membus") == std::string::npos);
+     */
 
     // if this snoop response is due to an uncacheable request, or is
     // being turned into a normal response, there is nothing more to
@@ -504,6 +531,9 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
     // If the snoop response has no sharers the line is passed in
     // Modified state, and we know that there are no other copies, or
     // they will all be invalidated imminently
+    /* MJL_Test 
+    std::cout << ", old holder = " << sf_item.holder;
+     */
     if (!cpkt->hasSharers()) {
         DPRINTF(SnoopFilter,
                 "%s: dropping %x because non-shared snoop "
@@ -518,12 +548,56 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
     assert(sf_item.requested | sf_item.holder);
     DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
             __func__, sf_item.requested, sf_item.holder);
+    /* MJL_Test 
+    std::cout << ", new holder = " << sf_item.holder;
+     */
+    /* MJL_Begin 
+    if (req_port.getMasterPort().MJL_is2DCache()) {
+        bool MJL_wholeTilePresent = true;
+        auto MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(line_addr);
+        for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
+            MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(cpkt->MJL_getBlockAddrs(linesize, i));
+            if (MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end()) {
+                MJL_wholeTilePresent &= (bool)(MJL_temp_it->second.holder & req_mask);
+            } else {
+                MJL_wholeTilePresent = false;
+                break;
+            }
+        }
+        // MJL_Test 
+        std::cout << ", wholeTilePresent? " << MJL_wholeTilePresent;
+        //
+        if (MJL_wholeTilePresent) {
+            for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
+                MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
+                if (MJL_temp_it == MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
+                     MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].emplace(cpkt->MJL_getCrossBlockAddrs(linesize, i), SnoopItem()).first;
+                }
+                SnoopItem& MJL_temp_item = MJL_temp_it->second;
+                // MJL_Test 
+                std::cout << ", old holder" << i << " = " << MJL_temp_item.holder;
+                //
+                MJL_temp_item.holder |=  req_mask;
+                // MJL_Test 
+                std::cout << ", new holder" << i << " = " << MJL_temp_item.holder;
+                //
+
+            }
+        }
+    }
+     MJL_End */
+    /* MJL_Test 
+    std::cout << std::endl;
+     */ 
 }
 
 void
 SnoopFilter::updateSnoopForward(const Packet* cpkt,
         const SlavePort& rsp_port, const MasterPort& req_port)
 {
+    /* MJL_Test */
+    assert(false);
+    /* */
     DPRINTF(SnoopFilter, "%s: rsp %s req %s packet %s\n",
             __func__, rsp_port.name(), req_port.name(), cpkt->print());
 
@@ -560,7 +634,7 @@ SnoopFilter::updateSnoopForward(const Packet* cpkt,
     }
     DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
             __func__, sf_item.requested, sf_item.holder);
-    /* MJL_Begin */
+    /* MJL_Begin */ 
     MJL_eraseIfNullEntry(sf_it, cpkt->MJL_getCmdDir());
     /* MJL_End */
     /* MJL_Comment 
@@ -575,6 +649,9 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     DPRINTF(SnoopFilter, "%s: src %s packet %s\n",
             __func__, slave_port.name(), cpkt->print());
 
+    /* MJL_Test 
+    std::cout << this->name() << ":: At updateResponse: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
+     */
     assert(cpkt->isResponse());
 
     // we only allocate if the packet actually came from a cache, but
@@ -606,6 +683,9 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     // Make sure we have seen the actual request, too
     panic_if(!(sf_item.requested & slave_mask), "SF value %x.%x missing "\
              "request bit\n", sf_item.requested, sf_item.holder);
+    /* MJL_Test 
+    std::cout << ", old holder = " << sf_item.holder;
+    * */
 
     // Update the residency of the cache line.
     sf_item.holder |=  slave_mask;
@@ -613,6 +693,10 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     assert(sf_item.holder | sf_item.requested);
     DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
             __func__, sf_item.requested, sf_item.holder);
+    /* MJL_Test 
+    std::cout << ", new holder = " << sf_item.holder;
+     */
+
     /* MJL_Begin */
     // For physically 2D cache, if the cache is a holder for all rows, it is also a holder for all columns, and vice versa
     if (slave_port.getMasterPort().MJL_is2DCache()) {
@@ -622,21 +706,19 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
             MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(cpkt->MJL_getBlockAddrs(linesize, i));
             if (MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end()) {
                 MJL_wholeTilePresent &= (bool)(MJL_temp_it->second.holder & slave_mask);
-                /* MJL_Test */
+                /* MJL_Test 
                 if (cpkt->getAddr() == 1576960 || cpkt->getAddr() == 1577216 || cpkt->getAddr() == 1577472 || cpkt->getAddr() == 1577728 || cpkt->getAddr() == 1577984 || cpkt->getAddr() == 1578240 || cpkt->getAddr() == 1578496 || cpkt->getAddr() == 1578752) {
                     std::cout << this->name() << "::MJL_Debug: point D snoop_filter " << MJL_wholeTilePresent << " " << i << std::endl;
                 }
-                /* */
+                 */
             } else {
                 MJL_wholeTilePresent = false;
                 break;
             }
         }
-        /* MJL_Test */
-        if (cpkt->getAddr() == 1576960 || cpkt->getAddr() == 1577216 || cpkt->getAddr() == 1577472 || cpkt->getAddr() == 1577728 || cpkt->getAddr() == 1577984 || cpkt->getAddr() == 1578240 || cpkt->getAddr() == 1578496 || cpkt->getAddr() == 1578752) {
-            std::cout << this->name() << "::MJL_Debug: point E snoop_filter " << MJL_wholeTilePresent << " " << slave_mask << std::endl;
-        }
-        /* */
+        /* MJL_Test 
+        std::cout << ", wholeTilePresent? " << MJL_wholeTilePresent;
+         */
         if (MJL_wholeTilePresent) {
             for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
                 MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
@@ -644,15 +726,24 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
                      MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].emplace(cpkt->MJL_getCrossBlockAddrs(linesize, i), SnoopItem()).first;
                 }
                 SnoopItem& MJL_temp_item = MJL_temp_it->second;
+                /* MJL_Test 
+                std::cout << ", old holder" << i << " = " << MJL_temp_item.holder;
+                 */
                 MJL_temp_item.holder |=  slave_mask;
+                /* MJL_Test 
+                std::cout << ", new holder" << i << " = " << MJL_temp_item.holder;
+                 */
 
-                /* MJL_Test */
+                /* MJL_Test 
                 if (cpkt->getAddr() == 1576960 || cpkt->getAddr() == 1577216 || cpkt->getAddr() == 1577472 || cpkt->getAddr() == 1577728 || cpkt->getAddr() == 1577984 || cpkt->getAddr() == 1578240 || cpkt->getAddr() == 1578496 || cpkt->getAddr() == 1578752) {
                     std::cout << this->name() << "::MJL_Debug: point F snoop_filter " << i << " " << MJL_temp_item.holder << std::endl;
                 }
-                /* */
+                 */
             }
         }
+        /* MJL_Test 
+        std::cout << std::endl;
+         */
     }
     /* MJL_End */
 }

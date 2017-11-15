@@ -525,8 +525,7 @@ MSHR::extractServiceableTargets(PacketPtr pkt)
                 if (it->MJL_isBlocked()) {
                     break;
                 }
-                /* MJL_End */
-                ready_targets.push_back(*it);
+                /* MJL_End */ ready_targets.push_back(*it);
                 it = targets.erase(it);
             }
         }
@@ -534,6 +533,23 @@ MSHR::extractServiceableTargets(PacketPtr pkt)
     } else {
         /* MJL_Begin */
         auto target_it = targets.begin();
+        /* MJL_Test 
+        if (target_it->MJL_isBlocked()) {
+            std::cout << "MJL_Debug: blocked pkt " << target_it->pkt->print() << " cmd " << target_it->pkt->MJL_getCmdDir() << " src " << target_it->source << " self " << &(*target_it) << ", blocked by ";
+            bool MJL_blockedByinBlocking = false;
+            for (auto  MJL_blockingTarget = target_it->MJL_isBlockedBy.begin(); MJL_blockingTarget != target_it->MJL_isBlockedBy.end(); ++MJL_blockingTarget) {
+                std::cout << " " << *MJL_blockingTarget;
+            }
+            std::cout << std::endl;
+            //assert(!target_it->MJL_isBlockedBy.front()->MJL_isBlocking.empty());
+            for (auto MJL_it = target_it->MJL_isBlockedBy.front()->MJL_isBlocking.begin(); MJL_it != target_it->MJL_isBlockedBy.front()->MJL_isBlocking.end(); ++MJL_it) {
+                if (*MJL_it == &targets.front())
+                     MJL_blockedByinBlocking = true;
+            }
+            assert(MJL_blockedByinBlocking);
+            std::cout << "MJL_Debug blocking pkt " << target_it->MJL_isBlockedBy.front()->pkt->getAddr() << " cmd " << target_it->MJL_isBlockedBy.front()->pkt->MJL_getCmdDir() << " src " << target_it->MJL_isBlockedBy.front()->source << std::endl;
+        }
+         */
         assert(!target_it->MJL_isBlocked());
         while ((target_it != targets.end()) && (!target_it->MJL_isBlocked())) {
             ready_targets.push_back(*target_it);

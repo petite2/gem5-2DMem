@@ -158,6 +158,16 @@ class SnoopFilter : public SimObject {
     /* MJL_Begin */
     void MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure);
     uint64_t MJL_blkMaskColumn;
+    // MJL_Test for test use
+    bool MJL_test_reqLookupResult(MemCmd::MJL_DirAttribute MJL_cmdDir) {
+        assert(reqLookupResult != MJL_cachedLocations[MJL_cmdDir].end());
+        bool MJL_inCachedLocations = false;
+        for (auto MJL_it = MJL_cachedLocations[MJL_cmdDir].begin(); MJL_it != MJL_cachedLocations[MJL_cmdDir].end(); ++MJL_it) {
+            if (MJL_it == reqLookupResult)
+                MJL_inCachedLocations = true;
+            }
+        return MJL_inCachedLocations;
+    }
     /* MJL_End */
 
     /**

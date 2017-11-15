@@ -113,8 +113,10 @@ class Cache : public BaseCache
         virtual bool sendTimingResp(PacketPtr pkt)
         {
             assert(pkt->isResponse());
-            /* MJL_Test: Packet information output */
-            if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)
+            /* MJL_Test: Packet information output 
+            if ((this->name().find("dcache") != std::string::npos 
+            //       || this->name().find("l2") != std::string::npos
+                )
                 //&& cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() // Debug for column vec
                 //&& pkt->MJL_cmdIsColumn()
                 ) { 
@@ -146,7 +148,7 @@ class Cache : public BaseCache
                 //std::cout << ", Time = " << pkt->req->time() ;
                 std::cout << std::endl;
             }
-            /* */
+             */
             if (this->name().find("dcache") != std::string::npos) {
 
                 bool MJL_isUnaligned = false;
@@ -959,7 +961,7 @@ class Cache : public BaseCache
             } else if (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
                 reqBlkAddr = tags->MJL_regenerateBlkAddr(triggerTag, MemCmd::MJL_DirAttribute::MJL_IsRow, (triggerSet/sizeof(uint64_t)) * sizeof(uint64_t)) + i * sizeof(uint64_t);
             }
-            if (triggerSet%sizeof(uint64_t) == i) {
+            if (tags->MJL_extractSet(triggerAddr, triggerDir)%sizeof(uint64_t) == i) {
                 assert(triggerAddr == reqBlkAddr);
                 continue;
             } else {
@@ -1026,22 +1028,24 @@ class Cache : public BaseCache
 
             if (MJL_wholeTileValidRow && pkt->MJL_cmdIsColumn()) {
                 for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                    MJL_rowMshr = mshrQueue.MJL_findMatch(MJL_rowAddr, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
-                    if (MJL_rowMshr) {
-                        /* MJL_Test */
+                    MJL_rowMshr = mshrQueue.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                    MJL_tileBlk = tags->MJL_findBlock(pkt->MJL_getCrossBlockAddrs(blkSize, i), MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                    if (MJL_rowMshr && !(MJL_tileBlk && MJL_tileBlk->isValid())) {
+                        /* MJL_Test 
                         std::cout << "MJL_Debug: Block2D row" << std::endl;
-                        /* */
+                         */
                         mshr->MJL_getLastTarget()->MJL_isBlockedBy.push_back(MJL_rowMshr->MJL_getLastTarget());
                         MJL_rowMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(mshr->MJL_getLastTarget());
                     }
                 }
             } else if (MJL_wholeTileValidCol && pkt->MJL_cmdIsRow()) {
                 for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                    MJL_colMshr = mshrQueue.MJL_findMatch(MJL_colAddr, MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
-                    if (MJL_colMshr) {
-                        /* MJL_Test */
+                    MJL_colMshr = mshrQueue.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), MemCmd::MJL_DirAttribute::MJL_IsColumn, pkt->isSecure());
+                    MJL_tileBlk = tags->MJL_findBlock(pkt->MJL_getCrossBlockAddrs(blkSize, i), MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+                    if (MJL_colMshr && !(MJL_tileBlk && MJL_tileBlk->MJL_crossValid[i])) {
+                        /* MJL_Test 
                         std::cout << "MJL_Debug: Block2D col" << std::endl;
-                        /* */
+                         */
                         mshr->MJL_getLastTarget()->MJL_isBlockedBy.push_back(MJL_colMshr->MJL_getLastTarget());
                         MJL_colMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(mshr->MJL_getLastTarget());
                     }
@@ -1121,7 +1125,8 @@ class Cache : public BaseCache
         std::list<MemCmd::MJL_DirAttribute>::iterator dir_it = BlkDirs.begin();
         for (std::list<Addr>::iterator addr_it = BlkAddrs.begin(); addr_it != BlkAddrs.end(); ++addr_it, ++dir_it) {
             mshr = mshrQueue.MJL_findMatch(*addr_it, *dir_it, pkt->isSecure());
-            if (mshr == nullptr && !mshrQueue.isFull()) {
+            CacheBlk * blk = tags->MJL_findBlock(*addr_it, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
+            if (mshr == nullptr && !mshrQueue.isFull() && !(blk && ((triggerDir == MemCmd::MJL_DirAttribute::MJL_IsRow && blk->isValid()) || (triggerDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && blk->MJL_crossValid[tags->MJL_extractSet(*addr_it, MemCmd::MJL_DirAttribute::MJL_IsRow)%sizeof(uint64_t)])))) {
                 Request *fp_req =
                         new Request(*addr_it, blkSize, 0, pkt->req->masterId());
                 fp_req->MJL_cachelineSize = blkSize;
