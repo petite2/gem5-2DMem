@@ -113,9 +113,9 @@ class Cache : public BaseCache
         virtual bool sendTimingResp(PacketPtr pkt)
         {
             assert(pkt->isResponse());
-            /* MJL_Test: Packet information output 
+            /* MJL_Test: Packet information output */
             if ((this->name().find("dcache") != std::string::npos 
-            //       || this->name().find("l2") != std::string::npos
+                  || this->name().find("l2") != std::string::npos
                 )
                 //&& cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() // Debug for column vec
                 //&& pkt->MJL_cmdIsColumn()
@@ -148,7 +148,7 @@ class Cache : public BaseCache
                 //std::cout << ", Time = " << pkt->req->time() ;
                 std::cout << std::endl;
             }
-             */
+            /* */
             if (this->name().find("dcache") != std::string::npos) {
 
                 bool MJL_isUnaligned = false;
