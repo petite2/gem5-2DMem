@@ -4129,6 +4129,11 @@ Cache::getNextQueueEntry()
                 // allocate an MSHR and return it, note
                 // that we send the packet straight away, so do not
                 // schedule the send
+                /* MJL_Begin */
+                if (MJL_2DCache) {
+                    MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
+                }
+                /* MJL_End */
                 return allocateMissBuffer(pkt, curTick(), false);
             } else {
                 // free the request and packet
@@ -4436,7 +4441,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test: Packet information output */
+    /* MJL_Test: Packet information output 
     if ((this->name().find("dcache") != std::string::npos 
              || this->name().find("l2") != std::string::npos
         ) 
@@ -4472,7 +4477,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         //std::cout << ", Time = " << pkt->req->time();
         std::cout << std::endl;
     }
-    /* */
+     */
     
     // Column vector access handler
     if ((pkt->req->hasPC())
