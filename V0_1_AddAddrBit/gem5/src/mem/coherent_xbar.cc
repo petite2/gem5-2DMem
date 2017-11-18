@@ -412,6 +412,9 @@ CoherentXBar::recvTimingResp(PacketPtr pkt, PortID master_port_id)
     // stats updates
     pktCount[slave_port_id][master_port_id]++;
     pktSize[slave_port_id][master_port_id] += pkt_size;
+    /* MJL_Begin */
+    MJL_respondedPktSize[slave_port_id][master_port_id] += pkt_size;
+    /* MJL_End */
     transDist[pkt_cmd]++;
 
     return true;

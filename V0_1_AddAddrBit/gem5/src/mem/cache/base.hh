@@ -664,7 +664,7 @@ class BaseCache : public MemObject
             MJL_markBlockInfo(mshr);
         }
         /* MJL_TODO */
-        if (MJL_2DCache) { 
+        if (MJL_2DCache && mshr->getTarget()->source != MSHR::Target::FromPrefetcher) { 
             MJL_markBlocked2D(pkt, mshr);
         }
         /* */

@@ -569,6 +569,14 @@ BaseXBar::regStats()
         .name(name() + ".pkt_size")
         .desc("Cumulative packet size per connected master and slave (bytes)")
         .flags(total | nozero | nonan);
+    
+    /* MJL_Begin */
+    MJL_respondedPktSize
+        .init(slavePorts.size(), masterPorts.size())
+        .name(name() + ".MJL_responded_pkt_size")
+        .desc("Cumulative responded packet size per connected master and slave (bytes)")
+        .flags(total | nozero | nonan);
+    /* MJL_End */
 
     // both the packet count and total size are two-dimensional
     // vectors, indexed by slave port id and master port id, thus the
@@ -579,9 +587,11 @@ BaseXBar::regStats()
     for (int i = 0; i < slavePorts.size(); i++) {
         pktCount.subname(i, slavePorts[i]->getMasterPort().name());
         pktSize.subname(i, slavePorts[i]->getMasterPort().name());
+        MJL_respondedPktSize.subname(i, slavePorts[i]->getMasterPort().name());
         for (int j = 0; j < masterPorts.size(); j++) {
             pktCount.ysubname(j, masterPorts[j]->getSlavePort().name());
             pktSize.ysubname(j, masterPorts[j]->getSlavePort().name());
+            MJL_respondedPktSize.ysubname(j, masterPorts[j]->getSlavePort().name());
         }
     }
 }

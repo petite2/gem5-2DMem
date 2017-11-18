@@ -451,6 +451,9 @@ class BaseXBar : public MemObject
     Stats::Vector transDist;
     Stats::Vector2d pktCount;
     Stats::Vector2d pktSize;
+    /* MJL_Begin */
+    Stats::Vector2d MJL_respondedPktSize;
+    /* MJL_End */
 
   public:
 

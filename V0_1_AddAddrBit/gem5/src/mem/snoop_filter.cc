@@ -76,7 +76,7 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
 {
     DPRINTF(SnoopFilter, "%s: src %s packet %s\n", __func__,
             slave_port.name(), cpkt->print());
-    /* MJL_Test 
+    /* MJL_Test z
     std::cout << this->name() << "::MJL_Debug: At lookupRequest: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
      */
 

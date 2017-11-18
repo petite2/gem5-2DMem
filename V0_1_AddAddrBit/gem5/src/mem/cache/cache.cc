@@ -1454,6 +1454,25 @@ Cache::recvTimingReq(PacketPtr pkt)
                     bool MJL_temp = 
                     */
                     isCachedAbove(pkt);
+                    int MJL_tempWay = tags->MJL_tileExists(pkt->getAddr(), pkt->isSecure());
+                    if (MJL_tempWay != tags->getNumWays()) {
+                        Addr MJL_tempTag = tags->MJL_extractTag(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsRow);
+                        int MJL_tempSet = tags->MJL_extractSet(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsRow);
+                        CacheBlk *tile = tags->findBlockBySetAndWay(MJL_tempSet, MJL_tempWay);
+                        assert(MJL_tempTag == tile->tag);
+                        if (pkt->MJL_cmdIsColumn()) {
+                            for (int i = 0; i < 8; ++i) {
+                                CacheBlk *tile_blk = tags->MJL_findBlockByTile(tile, i);
+                                if (tile_blk->isValid()) {
+                                    pkt->MJL_crossBlocksCached[i] |= true;
+                                }
+                            }
+                        } else if (pkt->MJL_cmdIsRow()) {
+                            for (int i = 0; i < 8; ++i) {
+                                pkt->MJL_crossBlocksCached[i] |= tile->MJL_crossValid[i];
+                            }
+                        }
+                    }
                     /* MJL_Test
                     std::cout << "After isCachedAbove " << MJL_temp << std::endl;
                     */
@@ -1527,12 +1546,12 @@ Cache::recvTimingReq(PacketPtr pkt)
                 // a miss (outbound) just as forwardLatency, neglecting the
                 // lookupLatency component.
                 allocateMissBuffer(pkt, forward_time);
-                /* MJL_Begin */
+                /* MJL_Begin 
                 if (MJL_2DCache && MJL_2DTransferType == 1) {
                      MJL_allocateFullMissBuffer(pkt, forward_time);
                      MJL_requestedBytes += 7 * blkSize;
                 }
-                /* MJL_End */
+                 MJL_End */
             }
 
             if (prefetcher) {
@@ -3222,6 +3241,11 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
                     tile_blk->status |= BlkValid;
                 }
             }
+            /* MJL_Test 
+            if (blk->MJL_allCrossValid()) {
+                std::cout << this->name() << "::MJL_Debug: All tile valid in handleFill " << pkt->print() << std::endl;
+            }
+             */
         } else if (pkt->MJL_cmdIsRow()) {
             blk->status |= BlkValid;
             bool all_valid = true;
@@ -3232,6 +3256,9 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
                 for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                     (tags->MJL_findBlockByTile(blk, i))->MJL_setAllCrossValid();
                 }
+                /* MJL_Test 
+                std::cout << this->name() << "::MJL_Debug: All tile valid in handleFill " << pkt->print() << std::endl;
+                 */
             }
 
         }
