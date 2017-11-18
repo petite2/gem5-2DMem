@@ -1531,9 +1531,13 @@ Cache::recvTimingReq(PacketPtr pkt)
                     // point it must have seemed like we needed it...
                     /* MJL_Test */
                     if (!pkt->needsWritable()) {
-                        std::cout << this->name() << "::MJL_Debug: needsWritable 2D: " << pkt->print() << " dir " << pkt->MJL_getCmdDir() << std::endl;
+                        std::cout << this->name() << "::MJL_Debug: needsWritable 2D: " << pkt->print() << " dir " << pkt->MJL_getCmdDir() << " blkTag " << blk->tag << " blkSet " << blk->set << " blkReadable " << blk->isReadable() << std::endl;
+                    }/* */ 
+                    /* MJL_Test  
+                    else {
+                        std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingReq setting unreadable " << pkt->print() << " dir " << pkt->MJL_getCmdDir() << " blkTag " << blk->tag << " blkSet " << blk->set << " wasblkReadable " << blk->isReadable() << std::endl;
                     }
-                    /* */
+                     */
                     assert(pkt->needsWritable());
                     assert(!blk->isWritable());
                     blk->status &= ~BlkReadable;
@@ -1546,12 +1550,12 @@ Cache::recvTimingReq(PacketPtr pkt)
                 // a miss (outbound) just as forwardLatency, neglecting the
                 // lookupLatency component.
                 allocateMissBuffer(pkt, forward_time);
-                /* MJL_Begin 
+                /* MJL_Begin */
                 if (MJL_2DCache && MJL_2DTransferType == 1) {
                      MJL_allocateFullMissBuffer(pkt, forward_time);
-                     MJL_requestedBytes += 7 * blkSize;
+                     //MJL_requestedBytes += 7 * blkSize;
                 }
-                 MJL_End */
+                /* MJL_End */
             }
 
             if (prefetcher) {
@@ -2368,6 +2372,9 @@ Cache::recvTimingResp(PacketPtr pkt)
         // avoid later read getting stale data while write miss is
         // outstanding.. see comment in timingAccess()
         if (blk/* MJL_Begin */ && !MJL_2DCache/* MJL_End */) {
+            /* MJL_Test 
+            std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingResp setting unreadable " << pkt->print() << " dir " << pkt->MJL_getCmdDir() << " blkTag " << blk->tag << " blkSet " << blk->set << " wasblkReadable " << blk->isReadable() << std::endl;
+             */
             blk->status &= ~BlkReadable;
         }/* MJL_Begin */ else if (blk && MJL_2DCache) {
             if (mshr->MJL_deferredAdded) {
