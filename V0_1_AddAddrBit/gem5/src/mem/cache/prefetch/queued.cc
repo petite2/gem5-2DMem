@@ -373,8 +373,8 @@ QueuedPrefetcher::MJL_insert(AddrPriority &pf_info, MemCmd::MJL_DirAttribute MJL
     }
     pf_req->taskId(ContextSwitchTaskId::Prefetcher);
     PacketPtr pf_pkt = new Packet(pf_req, MemCmd::HardPFReq);
-    pf_pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
-    pf_pkt->MJL_setDataDir(req->MJL_getReqDir());
+    pf_pkt->cmd.MJL_setCmdDir(pf_req->MJL_getReqDir());
+    pf_pkt->MJL_setDataDir(pf_req->MJL_getReqDir());
     pf_pkt->allocate();
 
     /* Verify prefetch buffer space for request */

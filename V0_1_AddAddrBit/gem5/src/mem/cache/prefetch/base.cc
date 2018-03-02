@@ -125,7 +125,7 @@ BasePrefetcher::inCache(Addr addr, bool is_secure) const
 
 /* MJL_Begin */
 bool
-BasePrefetcher::MJL_inCache(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
+BasePrefetcher::MJL_inCache(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const
 {
     if (cache->MJL_inCache(addr, MJL_cacheBlkDir, is_secure)) {
         return true;
@@ -145,7 +145,7 @@ BasePrefetcher::inMissQueue(Addr addr, bool is_secure) const
 
 /* MJL_Begin */
 bool
-BasePrefetcher::MJL_inMissQueue(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
+BasePrefetcher::MJL_inMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const
 {
     if (cache->MJL_inMissQueue(addr, MJL_cacheBlkDir, is_secure)) {
         return true;

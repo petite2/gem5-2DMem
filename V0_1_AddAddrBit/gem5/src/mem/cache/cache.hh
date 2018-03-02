@@ -1806,7 +1806,7 @@ class Cache : public BaseCache
         return (tags->findBlock(addr, is_secure) != 0);
     }
     /* MJL_Begin */
-    bool MJL_inCache(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const {
+    bool MJL_inCache(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override {
         return (tags->MJL_findBlock(addr, MJL_cacheBlkDir, is_secure) != 0);
     }
     /* MJL_End */
@@ -1815,7 +1815,7 @@ class Cache : public BaseCache
         return (mshrQueue.findMatch(addr, is_secure) != 0);
     }
     /* MJL_Begin */
-    bool MJL_inMissQueue(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const {
+    bool MJL_inMissQueue(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override {
         return (mshrQueue.MJL_findMatch(addr, MJL_cacheBlkDir, is_secure) != 0);
     }
     /* MJL_End */
