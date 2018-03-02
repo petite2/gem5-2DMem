@@ -99,9 +99,15 @@ class BasePrefetcher : public ClockedObject
 
     /** Determine if address is in cache */
     bool inCache(Addr addr, bool is_secure) const;
+    /* MJL_Begin */
+    bool MJL_inCache(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const;
+    /* MJL_End */
 
     /** Determine if address is in cache miss queue */
     bool inMissQueue(Addr addr, bool is_secure) const;
+    /* MJL_Begin */
+    bool MJL_inMissQueue(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const;
+    /* MJL_End */
 
     /** Determine if addresses are on the same page */
     bool samePage(Addr a, Addr b) const;

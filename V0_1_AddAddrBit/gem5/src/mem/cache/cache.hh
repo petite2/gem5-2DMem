@@ -1805,10 +1805,20 @@ class Cache : public BaseCache
     bool inCache(Addr addr, bool is_secure) const override {
         return (tags->findBlock(addr, is_secure) != 0);
     }
+    /* MJL_Begin */
+    bool MJL_inCache(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const {
+        return (tags->MJL_findBlock(addr, MJL_cacheBlkDir, is_secure) != 0);
+    }
+    /* MJL_End */
 
     bool inMissQueue(Addr addr, bool is_secure) const override {
         return (mshrQueue.findMatch(addr, is_secure) != 0);
     }
+    /* MJL_Begin */
+    bool MJL_inMissQueue(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const {
+        return (mshrQueue.MJL_findMatch(addr, MJL_cacheBlkDir, is_secure) != 0);
+    }
+    /* MJL_End */
 
     /**
      * Find next request ready time from among possible sources.

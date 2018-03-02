@@ -65,12 +65,18 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
     if (observeAccess(pkt)) {
         Addr blk_addr = pkt->getBlockAddr(blkSize);
         bool is_secure = pkt->isSecure();
+        /* MJL_Begin */
+        MemCmd::MJL_DirAttribute MJL_cmdDir = pkt->MJL_getCmdDir();
+        /* MJL_End */
 
         // Squash queued prefetches if demand miss to same line
         if (queueSquash) {
             auto itr = pfq.begin();
             while (itr != pfq.end()) {
                 if (itr->pkt->getAddr() == blk_addr &&
+                    /* MJL_Begin */
+                    itr->pkt->MJL_getCmdDir() == MJL_cmdDir &&
+                    /* MJL_End */
                     itr->pkt->isSecure() == is_secure) {
                     delete itr->pkt->req;
                     delete itr->pkt;
@@ -96,7 +102,12 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
                     "inserting into prefetch queue.\n", pf_info.first);
 
             // Create and insert the request
+            /* MJL_Begin */
+            PacketPtr pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
+            /* MJL_End */
+            /* MJL_Comment
             PacketPtr pf_pkt = insert(pf_info, is_secure);
+            */
 
             if (pf_pkt != nullptr) {
                 if (tagPrefetch && pkt->req->hasPC()) {
@@ -139,6 +150,19 @@ QueuedPrefetcher::inPrefetch(Addr address, bool is_secure) const
 
     return pfq.end();
 }
+/* MJL_Begin */
+std::list<QueuedPrefetcher::DeferredPacket>::const_iterator
+QueuedPrefetcher::MJL_inPrefetch(Addr address, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure) const
+{
+    for (const_iterator dp = pfq.begin(); dp != pfq.end(); dp++) {
+        if ((*dp).pkt->getAddr() == address &&
+            (*dp).pkt->MJL_getCmdDir() == MJL_cmdDir &&
+            (*dp).pkt->isSecure() == is_secure) return dp;
+    }
+
+    return pfq.end();
+}
+/* MJL_End */
 
 QueuedPrefetcher::iterator
 QueuedPrefetcher::inPrefetch(Addr address, bool is_secure)
@@ -150,6 +174,20 @@ QueuedPrefetcher::inPrefetch(Addr address, bool is_secure)
 
     return pfq.end();
 }
+
+/* MJL_Begin */
+QueuedPrefetcher::iterator
+QueuedPrefetcher::MJL_inPrefetch(Addr address, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure)
+{
+    for (iterator dp = pfq.begin(); dp != pfq.end(); dp++) {
+        if (dp->pkt->getAddr() == address &&
+            dp->pkt->MJL_getCmdDir() == MJL_cmdDir &&
+            dp->pkt->isSecure() == is_secure) return dp;
+    }
+
+    return pfq.end();
+}
+/* MJL_End */
 
 void
 QueuedPrefetcher::regStats()
@@ -280,3 +318,112 @@ QueuedPrefetcher::insert(AddrPriority &pf_info, bool is_secure)
 
     return pf_pkt;
 }
+
+/* MJL_Begin */
+PacketPtr
+QueuedPrefetcher::MJL_insert(AddrPriority &pf_info, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure)
+{
+    if (queueFilter) {
+        iterator it = MJL_inPrefetch(pf_info.first, MJL_cmdDir, is_secure);
+        /* If the address is already in the queue, update priority and leave */
+        if (it != pfq.end()) {
+            pfBufferHit++;
+            if (it->priority < pf_info.second) {
+                /* Update priority value and position in the queue */
+                it->priority = pf_info.second;
+                iterator prev = it;
+                bool cont = true;
+                while (cont && prev != pfq.begin()) {
+                    prev--;
+                    /* If the packet has higher priority, swap */
+                    if (*it > *prev) {
+                        std::swap(*it, *prev);
+                        it = prev;
+                    }
+                }
+                DPRINTF(HWPrefetch, "Prefetch addr already in "
+                    "prefetch queue, priority updated\n");
+            } else {
+                DPRINTF(HWPrefetch, "Prefetch addr already in "
+                    "prefetch queue\n");
+            }
+            return nullptr;
+        }
+    }
+
+    if (cacheSnoop && (MJL_inCache(pf_info.first, MJL_cmdDir, is_secure) ||
+                MJL_inMissQueue(pf_info.first, MJL_cmdDir, is_secure))) {
+        pfInCache++;
+        DPRINTF(HWPrefetch, "Dropping redundant in "
+                "cache/MSHR prefetch addr:%#x\n", pf_info.first);
+        return nullptr;
+    }
+
+    /* Create a prefetch memory request */
+    Request *pf_req =
+        new Request(pf_info.first, blkSize, 0, masterId);
+    /* MJL_Begin */
+    pf_req->MJL_cachelineSize = blkSize;
+    pf_req->MJL_rowWidth = cache->MJL_getRowWidth();
+    pf_req->MJL_setReqDir(MJL_cmdDir);
+    /* MJL_End */
+
+    if (is_secure) {
+        pf_req->setFlags(Request::SECURE);
+    }
+    pf_req->taskId(ContextSwitchTaskId::Prefetcher);
+    PacketPtr pf_pkt = new Packet(pf_req, MemCmd::HardPFReq);
+    pf_pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
+    pf_pkt->MJL_setDataDir(req->MJL_getReqDir());
+    pf_pkt->allocate();
+
+    /* Verify prefetch buffer space for request */
+    if (pfq.size() == queueSize) {
+        pfRemovedFull++;
+        /* Lowest priority packet */
+        iterator it = pfq.end();
+        panic_if (it == pfq.begin(), "Prefetch queue is both full and empty!");
+        --it;
+        /* Look for oldest in that level of priority */
+        panic_if (it == pfq.begin(), "Prefetch queue is full with 1 element!");
+        iterator prev = it;
+        bool cont = true;
+        /* While not at the head of the queue */
+        while (cont && prev != pfq.begin()) {
+            prev--;
+            /* While at the same level of priority */
+            cont = (*prev).priority == (*it).priority;
+            if (cont)
+                /* update pointer */
+                it = prev;
+        }
+        DPRINTF(HWPrefetch, "Prefetch queue full, removing lowest priority "
+                            "oldest packet, addr: %#x", it->pkt->getAddr());
+        delete it->pkt->req;
+        delete it->pkt;
+        pfq.erase(it);
+    }
+
+    Tick pf_time = curTick() + clockPeriod() * latency;
+    DPRINTF(HWPrefetch, "Prefetch queued. "
+            "addr:%#x priority: %3d tick:%lld.\n",
+            pf_info.first, pf_info.second, pf_time);
+
+    /* Create the packet and find the spot to insert it */
+    DeferredPacket dpp(pf_time, pf_pkt, pf_info.second);
+    if (pfq.size() == 0) {
+        pfq.emplace_back(dpp);
+    } else {
+        iterator it = pfq.end();
+        while (it != pfq.begin() && dpp > *it)
+            --it;
+        /* If we reach the head, we have to see if the new element is new head
+         * or not */
+        if (it == pfq.begin() && dpp <= *it)
+            it++;
+        pfq.insert(it, dpp);
+    }
+
+    return pf_pkt;
+}
+/* MJL_End */

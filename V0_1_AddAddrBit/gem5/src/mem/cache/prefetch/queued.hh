@@ -94,9 +94,17 @@ class QueuedPrefetcher : public BasePrefetcher
     using const_iterator = std::list<DeferredPacket>::const_iterator;
     std::list<DeferredPacket>::const_iterator inPrefetch(Addr address,
             bool is_secure) const;
+    /* MJL_Begin */
+    std::list<DeferredPacket>::const_iterator MJL_inPrefetch(Addr address,
+            MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure) const;
+    /* MJL_End */
     using iterator = std::list<DeferredPacket>::iterator;
     std::list<DeferredPacket>::iterator inPrefetch(Addr address,
             bool is_secure);
+    /* MJL_Begin */
+    std::list<DeferredPacket>::iterator MJL_inPrefetch(Addr address,
+            MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure);
+    /* MJL_End */
 
     // STATS
     Stats::Scalar pfIdentified;
@@ -111,6 +119,9 @@ class QueuedPrefetcher : public BasePrefetcher
 
     Tick notify(const PacketPtr &pkt);
     PacketPtr insert(AddrPriority& info, bool is_secure);
+    /* MJL_Begin */
+    PacketPtr MJL_insert(AddrPriority &pf_info, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure);
+    /* MJL_End */
 
     // Note: This should really be pure virtual, but doesnt go well with params
     virtual void calculatePrefetch(const PacketPtr &pkt,

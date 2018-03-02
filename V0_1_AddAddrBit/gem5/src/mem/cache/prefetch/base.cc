@@ -101,8 +101,14 @@ BasePrefetcher::observeAccess(const PacketPtr &pkt) const
     if (pkt->cmd == MemCmd::CleanEvict) return false;
 
     if (onMiss) {
+        /* MJL_Begin */
+        return !MJL_inCache(addr, pkt->MJL_getCmdDir(), is_secure) &&
+               !MJL_inMissQueue(addr, pkt->MJL_getCmdDir(), is_secure);
+        /* MJL_End */
+        /* MJL_Comment
         return !inCache(addr, is_secure) &&
                !inMissQueue(addr, is_secure);
+        */
     }
 
     return true;
@@ -117,6 +123,17 @@ BasePrefetcher::inCache(Addr addr, bool is_secure) const
     return false;
 }
 
+/* MJL_Begin */
+bool
+BasePrefetcher::MJL_inCache(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
+{
+    if (cache->MJL_inCache(addr, MJL_cacheBlkDir, is_secure)) {
+        return true;
+    }
+    return false;
+}
+/* MJL_End */
+
 bool
 BasePrefetcher::inMissQueue(Addr addr, bool is_secure) const
 {
@@ -125,6 +142,17 @@ BasePrefetcher::inMissQueue(Addr addr, bool is_secure) const
     }
     return false;
 }
+
+/* MJL_Begin */
+bool
+BasePrefetcher::MJL_inMissQueue(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
+{
+    if (cache->MJL_inMissQueue(addr, MJL_cacheBlkDir, is_secure)) {
+        return true;
+    }
+    return false;
+}
+/* MJL_End */
 
 bool
 BasePrefetcher::samePage(Addr a, Addr b) const
