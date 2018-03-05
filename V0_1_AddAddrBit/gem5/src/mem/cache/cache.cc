@@ -1676,6 +1676,12 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
     } else {
         assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
     }
+
+    if (this->name().find("l2") != std::string::npos) {
+        if (cpu_pkt->cmd == MemCmd::HardPFReq ) {
+            std::cout << "MJL_colPfDebug: prefetch triggered miss packet " << pkt->print();
+        }
+    }
     /* MJL_End */
     /* MJL_Comment
     assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
