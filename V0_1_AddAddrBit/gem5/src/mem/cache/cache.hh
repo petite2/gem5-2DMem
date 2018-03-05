@@ -328,6 +328,12 @@ class Cache : public BaseCache
                     const std::string &_label);
 
         /* MJL_Begin */
+        virtual bool sendTimingReq(PacketPtr pkt) {
+            if (this->name().find("l2") != std::string::npos) {
+                std::cout << "MJL_pfDebug: sendTimingReq " << pkt->print() << std::endl;
+            }
+            return CacheMasterPort::sendTimingReq(pkt);
+        }
         virtual bool MJL_is2DCache() {
             return cache->MJL_is2DCache();
         }
@@ -1817,6 +1823,17 @@ class Cache : public BaseCache
     /* MJL_Begin */
     bool MJL_inMissQueue(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override {
         return (mshrQueue.MJL_findMatch(addr, MJL_cacheBlkDir, is_secure) != 0);
+    }
+    bool MJL_crossDirtyInCache(const PacketPtr &pkt) const override {
+        bool crossDirtyInCache = false;
+        for ( int i = 0; i < blkSize/sizeof(uint64_t); ++i ) {
+            CacheBlk * MJL_crossBlk = nullptr;
+            MJL_crossBlk = tags->MJL_findBlock(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
+            if (MJL_crossBlk && MJL_crossBlk->isValid() && MJL_crossBlk->isDirty()) {
+                crossDirtyInCache |= true;
+            }
+        }
+        return crossDirtyInCache;
     }
     /* MJL_End */
 

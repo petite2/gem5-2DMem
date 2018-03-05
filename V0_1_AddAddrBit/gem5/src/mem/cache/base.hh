@@ -787,6 +787,7 @@ class BaseCache : public MemObject
     virtual bool inMissQueue(Addr addr, bool is_secure) const = 0;
     /* MJL_Begin */
     virtual bool MJL_inMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const = 0;
+    virtual bool MJL_crossDirtyInCache(const PacketPtr &pkt) const = 0;
     /* MJL_End */
 
     void incMissCount(PacketPtr pkt)

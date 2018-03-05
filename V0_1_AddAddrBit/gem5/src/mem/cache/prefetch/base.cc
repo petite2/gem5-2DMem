@@ -103,7 +103,8 @@ BasePrefetcher::observeAccess(const PacketPtr &pkt) const
     if (onMiss) {
         /* MJL_Begin */
         return !MJL_inCache(addr, pkt->MJL_getCmdDir(), is_secure) &&
-               !MJL_inMissQueue(addr, pkt->MJL_getCmdDir(), is_secure);
+               !MJL_inMissQueue(addr, pkt->MJL_getCmdDir(), is_secure) && 
+               !MJL_crossDirtyInCache(pkt);
         /* MJL_End */
         /* MJL_Comment
         return !inCache(addr, is_secure) &&
@@ -148,6 +149,15 @@ bool
 BasePrefetcher::MJL_inMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const
 {
     if (cache->MJL_inMissQueue(addr, MJL_cacheBlkDir, is_secure)) {
+        return true;
+    }
+    return false;
+}
+
+bool
+BasePrefetcher::MJL_crossDirtyInCache(const PacketPtr &pkt) const
+{
+    if (cache->MJL_crossDirtyInCache(pkt)) {
         return true;
     }
     return false;
