@@ -359,6 +359,13 @@ QueuedPrefetcher::MJL_insert(AddrPriority &pf_info, MemCmd::MJL_DirAttribute MJL
         return nullptr;
     }
 
+    if (((!MJL_is2DCache() && MJL_crossDirtyInCache(pkt)) ||
+        MJL_is2DCache()) ||
+        MJL_crossDirtyInMissQueue(pkt) || 
+        MJL_crossDirtyInWriteBuffer(pkt) ) {
+        return nullptr;
+    }
+
     /* Create a prefetch memory request */
     Request *pf_req =
         new Request(pf_info.first, blkSize, 0, masterId);

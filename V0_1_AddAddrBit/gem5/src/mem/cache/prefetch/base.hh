@@ -108,6 +108,9 @@ class BasePrefetcher : public ClockedObject
     /* MJL_Begin */
     bool MJL_inMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const;
     bool MJL_crossDirtyInCache(const PacketPtr &pkt) const;
+    bool MJL_crossDirtyInMissQueue(const PacketPtr &pkt) const;
+    bool MJL_crossDirtyInWriteBuffer(const PacketPtr &pkt) const;
+    bool MJL_is2DCache() const;
     /* MJL_End */
 
     /** Determine if addresses are on the same page */

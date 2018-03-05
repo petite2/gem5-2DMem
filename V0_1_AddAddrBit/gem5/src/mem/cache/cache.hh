@@ -1835,6 +1835,28 @@ class Cache : public BaseCache
         }
         return crossDirtyInCache;
     }
+    bool MJL_crossDirtyInMissQueue(const PacketPtr &pkt) const override {
+        bool crossDirtyInMissQueue = false;
+        for ( int i = 0; i < blkSize/sizeof(uint64_t); ++i ) {
+            MSHR * MJL_crossMSHR = nullptr;
+            MJL_crossMSHR = mshrQueue.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
+            if (MJL_crossMSHR && MJL_crossMSHR->needsWritable()) {
+                crossDirtyInMissQueue |= true;
+            }
+        }
+        return crossDirtyInMissQueue;
+    }
+    bool MJL_crossDirtyInWriteBuffer(const PacketPtr &pkt) const override {
+        bool crossDirtyInWriteBuffer = false;
+        for ( int i = 0; i < blkSize/sizeof(uint64_t); ++i ) {
+            WriteQueueEntry * MJL_crossWriteQueueEntry = nullptr;
+            MJL_crossWriteQueueEntry = writeBuffer.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
+            if (MJL_crossWriteQueueEntry) {
+                crossDirtyInWriteBuffer |= true;
+            }
+        }
+        return crossDirtyInWriteBuffer;
+    }
     /* MJL_End */
 
     /**
