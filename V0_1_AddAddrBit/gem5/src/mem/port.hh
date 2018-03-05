@@ -237,7 +237,12 @@ class MasterPort : public BaseMasterPort
      *
      * @return If the send was succesful or not.
     */
+    /* MJL_Begin */
+    virtual bool sendTimingReq(PacketPtr pkt);
+    /* MJL_End */
+    /* MJL_Comment
     bool sendTimingReq(PacketPtr pkt);
+    */
 
     /**
      * Attempt to send a timing snoop response packet to the slave

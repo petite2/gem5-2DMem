@@ -624,7 +624,27 @@ Packet::popSenderState()
 void
 Packet::print(ostream &o, const int verbosity, const string &prefix) const
 {
+    /* MJL_Comment 
     ccprintf(o, "%s%s [%x:%x]%s%s%s%s", prefix, cmdString(),
+    */
+    /* MJL_Begin */
+    std::ostringstream dataStr;
+    if (hasData()) {
+        uint64_t MJL_data = 0;
+        std::memcpy(&MJL_data, getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)getSize()));
+        dataStr << std::hex << "[0]" <<  MJL_data;
+        for (unsigned i = sizeof(uint64_t); i < getSize(); i = i + sizeof(uint64_t)) {
+            MJL_data = 0;
+            std::memcpy(&MJL_data, getConstPtr<uint8_t>() + i, std::min(sizeof(uint64_t), getSize() - (Addr)i));
+            dataStr << " | [" << i/sizeof(uint64_t) << "]" <<  MJL_data;
+        }
+        dataStr << std::dec;
+    }
+    ccprintf(o, "%s%s %x:%s (%s) [%x:%x]%s%s%s%s", prefix, cmdString(),
+             req->hasPC() ? req->getPC() : 0,
+             req->MJL_reqIsRow() ? "r" : "c",
+             hasData() ? dataStr.str() : "noData",
+    /* MJL_End */
              getAddr(), getAddr() + getSize() - 1,
              req->isSecure() ? " (s)" : "",
              req->isInstFetch() ? " IF" : "",

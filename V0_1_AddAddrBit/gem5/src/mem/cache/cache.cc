@@ -5050,6 +5050,11 @@ CacheParams::create()
 bool
 Cache::MemSidePort::recvTimingResp(PacketPtr pkt)
 {
+    /* MJL_Begin */
+    if (this->name().find("l2") != std::string::npos) {
+        std::cout << "MJL_pfDebug: recvTimingResp " << pkt->print() << std::endl;
+    }
+    /* MJL_End */
     cache->recvTimingResp(pkt);
     return true;
 }
