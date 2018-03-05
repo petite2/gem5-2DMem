@@ -180,6 +180,33 @@ BasePrefetcher::MJL_crossDirtyInWriteBuffer(const PacketPtr &pkt) const
     return false;
 }
 
+bool
+BasePrefetcher::MJL_crossDirtyInCache(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const
+{
+    if (cache->MJL_crossDirtyInCache(addr, MJL_cacheBlkDir, is_secure)) {
+        return true;
+    }
+    return false;
+}
+
+bool
+BasePrefetcher::MJL_crossDirtyInMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const
+{
+    if (cache->MJL_crossDirtyInMissQueue(addr, MJL_cacheBlkDir, is_secure)) {
+        return true;
+    }
+    return false;
+}
+
+bool
+BasePrefetcher::MJL_crossDirtyInWriteBuffer(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const
+{
+    if (cache->MJL_crossDirtyInWriteBuffer(addr, MJL_cacheBlkDir, is_secure)) {
+        return true;
+    }
+    return false;
+}
+
 bool 
 BasePrefetcher::MJL_is2DCache() const
 {

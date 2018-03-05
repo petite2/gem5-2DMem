@@ -1679,7 +1679,7 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
 
     if (this->name().find("l2") != std::string::npos) {
         if (cpu_pkt->cmd == MemCmd::HardPFReq ) {
-            std::cout << "MJL_colPfDebug: prefetch triggered miss packet " << pkt->print();
+            std::cout << "MJL_colPfDebug: prefetch triggered miss packet " << pkt->print() << std::endl;
         }
     }
     /* MJL_End */
@@ -4518,6 +4518,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         std::cout << std::endl;
     }
      */
+    //std::cout << "MJL_colPfDebug: " << pkt->print() << std::endl;
     
     // Column vector access handler
     if ((pkt->req->hasPC())

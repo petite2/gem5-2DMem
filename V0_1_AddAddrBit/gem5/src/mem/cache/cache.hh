@@ -329,9 +329,9 @@ class Cache : public BaseCache
 
         /* MJL_Begin */
         virtual bool sendTimingReq(PacketPtr pkt) {
-            if (this->name().find("l2") != std::string::npos) {
-                std::cout << "MJL_pfDebug: sendTimingReq " << pkt->print() << std::endl;
-            }
+            // if (this->name().find("l2") != std::string::npos) {
+            //     std::cout << "MJL_pfDebug: sendTimingReq " << pkt->print() << std::endl;
+            // }
             return CacheMasterPort::sendTimingReq(pkt);
         }
         virtual bool MJL_is2DCache() {
@@ -1851,6 +1851,57 @@ class Cache : public BaseCache
         for ( int i = 0; i < blkSize/sizeof(uint64_t); ++i ) {
             WriteQueueEntry * MJL_crossWriteQueueEntry = nullptr;
             MJL_crossWriteQueueEntry = writeBuffer.MJL_findMatch(pkt->MJL_getCrossBlockAddrs(blkSize, i), pkt->MJL_getCrossCmdDir(), pkt->isSecure());
+            if (MJL_crossWriteQueueEntry) {
+                crossDirtyInWriteBuffer |= true;
+            }
+        }
+        return crossDirtyInWriteBuffer;
+    }
+    bool MJL_crossDirtyInCache(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const override {
+        bool crossDirtyInCache = false;
+        for ( int i = 0; i < blkSize; i += sizeof(uint64_t) ) {
+            CacheBlk * MJL_crossBlk = nullptr;
+            MemCmd::MJL_DirAttribute MJL_crossBlkDir = MJL_cacheBlkDir;
+            if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                MJL_crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+            } else if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                MJL_crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+            }
+            MJL_crossBlk = tags->MJL_findBlock(MJL_addOffsetAddr(addr, MJL_crossBlkDir, i), MJL_crossBlkDir, is_secure);
+            if (MJL_crossBlk && MJL_crossBlk->isValid() && MJL_crossBlk->isDirty()) {
+                crossDirtyInCache |= true;
+            }
+        }
+        return crossDirtyInCache;
+    }
+    bool MJL_crossDirtyInMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const override {
+        bool crossDirtyInMissQueue = false;
+        for ( int i = 0; i < blkSize; i += sizeof(uint64_t) ) {
+            MSHR * MJL_crossMSHR = nullptr;
+            MemCmd::MJL_DirAttribute MJL_crossBlkDir = MJL_cacheBlkDir;
+            if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                MJL_crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+            } else if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                MJL_crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+            }
+            MJL_crossMSHR = mshrQueue.MJL_findMatch(MJL_addOffsetAddr(addr, MJL_crossBlkDir, i), MJL_crossBlkDir, is_secure);
+            if (MJL_crossMSHR && MJL_crossMSHR->needsWritable()) {
+                crossDirtyInMissQueue |= true;
+            }
+        }
+        return crossDirtyInMissQueue;
+    }
+    bool MJL_crossDirtyInWriteBuffer(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const override {
+        bool crossDirtyInWriteBuffer = false;
+        for ( int i = 0; i < blkSize; i += sizeof(uint64_t) ) {
+            WriteQueueEntry * MJL_crossWriteQueueEntry = nullptr;
+            MemCmd::MJL_DirAttribute MJL_crossBlkDir = MJL_cacheBlkDir;
+            if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                MJL_crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+            } else if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                MJL_crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+            }
+            MJL_crossWriteQueueEntry = writeBuffer.MJL_findMatch(MJL_addOffsetAddr(addr, MJL_crossBlkDir, i), MJL_crossBlkDir, is_secure);
             if (MJL_crossWriteQueueEntry) {
                 crossDirtyInWriteBuffer |= true;
             }

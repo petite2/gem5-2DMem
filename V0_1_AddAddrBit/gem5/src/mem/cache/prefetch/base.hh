@@ -110,6 +110,9 @@ class BasePrefetcher : public ClockedObject
     bool MJL_crossDirtyInCache(const PacketPtr &pkt) const;
     bool MJL_crossDirtyInMissQueue(const PacketPtr &pkt) const;
     bool MJL_crossDirtyInWriteBuffer(const PacketPtr &pkt) const;
+    bool MJL_crossDirtyInCache(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const;
+    bool MJL_crossDirtyInMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const;
+    bool MJL_crossDirtyInWriteBuffer(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const;
     bool MJL_is2DCache() const;
     /* MJL_End */
 

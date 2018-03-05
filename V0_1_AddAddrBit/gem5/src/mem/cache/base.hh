@@ -548,7 +548,7 @@ class BaseCache : public MemObject
      * offset: which byte from the starting address to get the word address
      * return the address of the word
      */
-    Addr MJL_addOffsetAddr(Addr MJL_baseAddr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, unsigned offset) {
+    Addr MJL_addOffsetAddr(Addr MJL_baseAddr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, unsigned offset) const {
         if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             return MJL_baseAddr + Addr(offset);
         } else if (MJL_cacheBlkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) { // MJL_temp temporary fix for column
@@ -788,6 +788,11 @@ class BaseCache : public MemObject
     /* MJL_Begin */
     virtual bool MJL_inMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const = 0;
     virtual bool MJL_crossDirtyInCache(const PacketPtr &pkt) const = 0;
+    virtual bool MJL_crossDirtyInMissQueue(const PacketPtr &pkt) const = 0;
+    virtual bool MJL_crossDirtyInWriteBuffer(const PacketPtr &pkt) const = 0;
+    virtual bool MJL_crossDirtyInCache(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const = 0;
+    virtual bool MJL_crossDirtyInMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const = 0;
+    virtual bool MJL_crossDirtyInWriteBuffer(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const = 0;
     /* MJL_End */
 
     void incMissCount(PacketPtr pkt)

@@ -359,10 +359,10 @@ QueuedPrefetcher::MJL_insert(AddrPriority &pf_info, MemCmd::MJL_DirAttribute MJL
         return nullptr;
     }
 
-    if (((!MJL_is2DCache() && MJL_crossDirtyInCache(pkt)) ||
+    if (((!MJL_is2DCache() && MJL_crossDirtyInCache(pf_info.first, MJL_cmdDir, is_secure)) ||
         MJL_is2DCache()) ||
-        MJL_crossDirtyInMissQueue(pkt) || 
-        MJL_crossDirtyInWriteBuffer(pkt) ) {
+        MJL_crossDirtyInMissQueue(pf_info.first, MJL_cmdDir, is_secure) || 
+        MJL_crossDirtyInWriteBuffer(pf_info.first, MJL_cmdDir, is_secure) ) {
         return nullptr;
     }
 
