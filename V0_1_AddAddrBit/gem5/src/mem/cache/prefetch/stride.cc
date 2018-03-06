@@ -174,6 +174,103 @@ StridePrefetcher::calculatePrefetch(const PacketPtr &pkt,
         entry->confidence = startConf;
     }
 }
+/* MJL_Begin */
+void
+StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
+                                    std::vector<AddrPriority> &addresses, 
+                                    MemCmd::MJL_DirAttribute &MJL_cmdDir)
+{
+    if (!pkt->req->hasPC()) {
+        DPRINTF(HWPrefetch, "Ignoring request with no PC.\n");
+        return;
+    }
+
+    // Get required packet info
+    Addr pkt_addr = pkt->getAddr();
+    Addr pc = pkt->req->getPC();
+    bool is_secure = pkt->isSecure();
+    MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
+
+    // Lookup pc-based information
+    StrideEntry *entry;
+
+    if (pcTableHit(pc, is_secure, master_id, entry)) {
+        // Hit in table
+        int new_stride = pkt_addr - entry->lastAddr;
+        bool stride_match = (new_stride == entry->stride);
+
+        // Adjust confidence for stride entry
+        if (stride_match && new_stride != 0) {
+            if (entry->confidence < maxConf)
+                entry->confidence++;
+        } else {
+            if (entry->confidence > minConf)
+                entry->confidence--;
+            // If confidence has dropped below the threshold, train new stride
+            if (entry->confidence < threshConf)
+                entry->stride = new_stride;
+        }
+
+        DPRINTF(HWPrefetch, "Hit: PC %x pkt_addr %x (%s) stride %d (%s), "
+                "conf %d\n", pc, pkt_addr, is_secure ? "s" : "ns", new_stride,
+                stride_match ? "match" : "change",
+                entry->confidence);
+
+        entry->lastAddr = pkt_addr;
+
+        // Abort prefetch generation if below confidence threshold
+        if (entry->confidence < threshConf)
+            return;
+
+        // Generate up to degree prefetches
+        for (int d = 1; d <= degree; d++) {
+            // Round strides up to atleast 1 cacheline
+            int prefetch_stride = new_stride;
+            /* MJL_Begin */
+            if (MJL_predictDir) {
+                if (new_stride % (cache->MJL_getRowWidth() * blkSize / 2) == 0) {
+                    MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+                    if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * cache->MJL_getRowWidth() * blkSize) {
+                        prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * cache->MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * cache->MJL_getRowWidth() * blkSize;
+                    }
+                }
+            } else {
+                if (abs(new_stride) < blkSize) {
+                    prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
+                }
+            }
+            /* MJL_End */
+            /* MJL_Comment
+            if (abs(new_stride) < blkSize) {
+                prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
+            }
+            */
+
+            Addr new_addr = pkt_addr + d * prefetch_stride;
+            if (samePage(pkt_addr, new_addr)) {
+                DPRINTF(HWPrefetch, "Queuing prefetch to %#x.\n", new_addr);
+                addresses.push_back(AddrPriority(new_addr, 0));
+            } else {
+                // Record the number of page crossing prefetches generated
+                pfSpanPage += degree - d + 1;
+                DPRINTF(HWPrefetch, "Ignoring page crossing prefetch.\n");
+                return;
+            }
+        }
+    } else {
+        // Miss in table
+        DPRINTF(HWPrefetch, "Miss: PC %x pkt_addr %x (%s)\n", pc, pkt_addr,
+                is_secure ? "s" : "ns");
+
+        StrideEntry* entry = pcTableVictim(pc, master_id);
+        entry->instAddr = pc;
+        entry->lastAddr = pkt_addr;
+        entry->isSecure= is_secure;
+        entry->stride = 0;
+        entry->confidence = startConf;
+    }
+}
+/* MJL_End */
 
 inline Addr
 StridePrefetcher::pcHash(Addr pc) const

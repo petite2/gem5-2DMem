@@ -54,6 +54,9 @@ class BasePrefetcher(ClockedObject):
     on_write = Param.Bool(True, "Notify prefetcher on writes")
     on_data  = Param.Bool(True, "Notify prefetcher on data accesses")
     on_inst  = Param.Bool(True, "Notify prefetcher on instruction accesses")
+    # MJL_Begin
+    MJL_predictDir = Param.Bool(False, "Let prefetcher decide whether prefetch in column or row") 
+    # MJL_End
 
 class QueuedPrefetcher(BasePrefetcher):
     type = "QueuedPrefetcher"

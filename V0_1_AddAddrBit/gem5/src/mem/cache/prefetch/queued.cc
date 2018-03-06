@@ -89,7 +89,17 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
 
         // Calculate prefetches given this access
         std::vector<AddrPriority> addresses;
+        /* MJL_Comment
         calculatePrefetch(pkt, addresses);
+        */
+        /* MJL_Begin */
+        MemCmd::MJL_DirAttribute MJL_predCmdDir;
+        if (MJL_predictDir) {
+            MJL_calculatePrefetch(pkt, addresses, MJL_predCmdDir);
+        } else {
+            calculatePrefetch(pkt, addresses);
+        }
+        /* MJL_End */
 
         // Queue up generated prefetches
         for (AddrPriority& pf_info : addresses) {
@@ -103,7 +113,12 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
 
             // Create and insert the request
             /* MJL_Begin */
-            PacketPtr pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
+            PacketPtr pf_pkt;
+            if (MJL_predictDir) {
+                pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
+            } else {
+                pf_pkt = MJL_insert(pf_info, MJL_predCmdDir, is_secure);
+            }
             /* MJL_End */
             /* MJL_Comment
             PacketPtr pf_pkt = insert(pf_info, is_secure);
@@ -359,10 +374,11 @@ QueuedPrefetcher::MJL_insert(AddrPriority &pf_info, MemCmd::MJL_DirAttribute MJL
         return nullptr;
     }
 
-    if (((!MJL_is2DCache() && MJL_crossDirtyInCache(pf_info.first, MJL_cmdDir, is_secure)) ||
+    if (!MJL_predictDir && 
+        ( ( (!MJL_is2DCache() && MJL_crossDirtyInCache(pf_info.first, MJL_cmdDir, is_secure)) ||
         MJL_is2DCache()) ||
         MJL_crossDirtyInMissQueue(pf_info.first, MJL_cmdDir, is_secure) || 
-        MJL_crossDirtyInWriteBuffer(pf_info.first, MJL_cmdDir, is_secure) ) {
+        MJL_crossDirtyInWriteBuffer(pf_info.first, MJL_cmdDir, is_secure) ) ) {
         return nullptr;
     }
 

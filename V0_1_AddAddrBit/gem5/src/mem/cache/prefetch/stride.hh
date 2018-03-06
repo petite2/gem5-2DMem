@@ -116,6 +116,11 @@ class StridePrefetcher : public QueuedPrefetcher
 
     void calculatePrefetch(const PacketPtr &pkt,
                            std::vector<AddrPriority> &addresses);
+    /* MJL_Begin */
+    void MJL_calculatePrefetch(const PacketPtr &pkt,
+                           std::vector<AddrPriority> &addresses, 
+                           MemCmd::MJL_DirAttribute &MJL_cmdDir);
+    /* MJL_End */
 };
 
 #endif // __MEM_CACHE_PREFETCH_STRIDE_HH__

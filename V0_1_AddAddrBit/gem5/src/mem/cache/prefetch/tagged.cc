@@ -58,6 +58,15 @@ TaggedPrefetcher::calculatePrefetch(const PacketPtr &pkt,
         }
     }
 }
+/* MJL_Begin */
+void
+TaggedPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
+        std::vector<AddrPriority> &addresses, 
+        MemCmd::MJL_DirAttribute &MJL_cmdDir)
+{
+    calculatePrefetch(pkt, addresses);
+}
+/* MJL_End */
 
 TaggedPrefetcher*
 TaggedPrefetcherParams::create()

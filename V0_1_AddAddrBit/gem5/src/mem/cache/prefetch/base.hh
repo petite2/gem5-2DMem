@@ -88,6 +88,10 @@ class BasePrefetcher : public ClockedObject
 
     /** Consult prefetcher on instruction accesses? */
     bool onInst;
+    /* MJL_Begin */
+    /** Let prefetcher decide whether prefetch in column or row */
+    bool MJL_predictDir;
+    /* MJL_End */
 
     /** Request id for prefetches */
     MasterID masterId;

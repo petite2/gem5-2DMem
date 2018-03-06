@@ -126,6 +126,11 @@ class QueuedPrefetcher : public BasePrefetcher
     // Note: This should really be pure virtual, but doesnt go well with params
     virtual void calculatePrefetch(const PacketPtr &pkt,
                                    std::vector<AddrPriority> &addresses) = 0;
+    /* MJL_Begin */
+    virtual void MJL_calculatePrefetch(const PacketPtr &pkt,
+                                   std::vector<AddrPriority> &addresses, 
+                                   MemCmd::MJL_DirAttribute &MJL_cmdDir) = 0;
+    /* MJL_End */
     PacketPtr getPacket();
 
     Tick nextPrefetchReadyTime() const

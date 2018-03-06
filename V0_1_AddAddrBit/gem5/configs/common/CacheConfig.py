@@ -100,7 +100,7 @@ def config_cache(options, system):
         system.l2.mem_side = system.membus.slave
         # MJL_Begin
         if options.MJL_Prefetcher:
-            system.l2.prefetcher = L2StridePrefetcher() 
+            system.l2.prefetcher = L2StridePrefetcher(MJL_predictDir = options.MJL_predictDir) 
         # MJL_End
 
     if options.memchecker:
