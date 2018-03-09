@@ -118,6 +118,7 @@ class BasePrefetcher : public ClockedObject
     bool MJL_crossDirtyInMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const;
     bool MJL_crossDirtyInWriteBuffer(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const;
     bool MJL_is2DCache() const;
+    unsigned MJL_getRowWidth() const;
     /* MJL_End */
 
     /** Determine if addresses are on the same page */

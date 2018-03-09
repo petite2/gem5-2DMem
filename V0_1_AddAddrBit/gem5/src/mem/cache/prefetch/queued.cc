@@ -93,7 +93,7 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
         calculatePrefetch(pkt, addresses);
         */
         /* MJL_Begin */
-        MemCmd::MJL_DirAttribute MJL_predCmdDir;
+        MemCmd::MJL_DirAttribute MJL_predCmdDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
         if (MJL_predictDir) {
             MJL_calculatePrefetch(pkt, addresses, MJL_predCmdDir);
         } else {
@@ -115,9 +115,9 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
             /* MJL_Begin */
             PacketPtr pf_pkt;
             if (MJL_predictDir) {
-                pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
-            } else {
                 pf_pkt = MJL_insert(pf_info, MJL_predCmdDir, is_secure);
+            } else {
+                pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
             }
             /* MJL_End */
             /* MJL_Comment
@@ -374,11 +374,10 @@ QueuedPrefetcher::MJL_insert(AddrPriority &pf_info, MemCmd::MJL_DirAttribute MJL
         return nullptr;
     }
 
-    if (!MJL_predictDir && 
-        ( ( (!MJL_is2DCache() && MJL_crossDirtyInCache(pf_info.first, MJL_cmdDir, is_secure)) ||
+    if ( ( (!MJL_is2DCache() && MJL_crossDirtyInCache(pf_info.first, MJL_cmdDir, is_secure)) ||
         MJL_is2DCache()) ||
         MJL_crossDirtyInMissQueue(pf_info.first, MJL_cmdDir, is_secure) || 
-        MJL_crossDirtyInWriteBuffer(pf_info.first, MJL_cmdDir, is_secure) ) ) {
+        MJL_crossDirtyInWriteBuffer(pf_info.first, MJL_cmdDir, is_secure) ) {
         return nullptr;
     }
 

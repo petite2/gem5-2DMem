@@ -79,6 +79,9 @@ class StridePrefetcher : public QueuedPrefetcher
         bool isSecure;
         int stride;
         int confidence;
+        /* MJL_Begin */
+        MemCmd::MJL_DirAttribute MJL_lastDir;
+        /* MJL_End */
     };
 
     class PCTable

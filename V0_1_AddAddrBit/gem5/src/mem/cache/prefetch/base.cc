@@ -213,6 +213,12 @@ BasePrefetcher::MJL_is2DCache() const
 {
     return cache->MJL_is2DCache();
 }
+
+unsigned 
+BasePrefetcher::MJL_getRowWidth() const
+{
+    return cache->MJL_getRowWidth();
+}
 /* MJL_End */
 
 bool

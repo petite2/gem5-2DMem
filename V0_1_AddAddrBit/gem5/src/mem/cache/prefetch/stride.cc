@@ -227,11 +227,12 @@ StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             // Round strides up to atleast 1 cacheline
             int prefetch_stride = new_stride;
             /* MJL_Begin */
+            Addr new_addr;
             if (MJL_predictDir) {
-                if (new_stride % (cache->MJL_getRowWidth() * blkSize / 2) == 0) {
+                if (new_stride % (MJL_getRowWidth() * blkSize) == 0) {
                     MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-                    if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * cache->MJL_getRowWidth() * blkSize) {
-                        prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * cache->MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * cache->MJL_getRowWidth() * blkSize;
+                    if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize) {
+                        prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize;
                     }
                 }
             } else {
@@ -244,10 +245,20 @@ StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             if (abs(new_stride) < blkSize) {
                 prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
             }
-            */
 
             Addr new_addr = pkt_addr + d * prefetch_stride;
-            if (samePage(pkt_addr, new_addr)) {
+            */
+
+            if (MJL_cmdDir != entry->MJL_lastDir) {
+                new_addr = pkt_addr + (d - 1) * prefetch_stride;
+            } else {
+                new_addr = pkt_addr + d * prefetch_stride;
+            }
+            /* MJL_Begin */
+            entry->MJL_lastDir = MJL_cmdDir;
+            /* MJL_End */
+
+            if (samePage(pkt_addr, new_addr)/* MJL_Begin */ || (MJL_predictDir && MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn)/* MJL_End */) {
                 DPRINTF(HWPrefetch, "Queuing prefetch to %#x.\n", new_addr);
                 addresses.push_back(AddrPriority(new_addr, 0));
             } else {
@@ -268,6 +279,7 @@ StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         entry->isSecure= is_secure;
         entry->stride = 0;
         entry->confidence = startConf;
+        entry->MJL_lastDir = pkt->MJL_getCmdDir();
     }
 }
 /* MJL_End */
