@@ -114,10 +114,14 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
             // Create and insert the request
             /* MJL_Begin */
             PacketPtr pf_pkt;
-            if (MJL_predictDir) {
-                pf_pkt = MJL_insert(pf_info, MJL_predCmdDir, is_secure);
+            if (MJL_colPf) {
+                if (MJL_predictDir) {
+                    pf_pkt = MJL_insert(pf_info, MJL_predCmdDir, is_secure);
+                } else {
+                    pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
+                }
             } else {
-                pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
+                pf_pkt = insert(pf_info, is_secure);
             }
             /* MJL_End */
             /* MJL_Comment

@@ -55,7 +55,9 @@ class BasePrefetcher(ClockedObject):
     on_data  = Param.Bool(True, "Notify prefetcher on data accesses")
     on_inst  = Param.Bool(True, "Notify prefetcher on instruction accesses")
     # MJL_Begin
-    MJL_predictDir = Param.Bool(False, "Let prefetcher decide whether prefetch in column or row") 
+    MJL_predictDir = Param.Bool(False, "Let prefetcher decide whether prefetch in column or row")
+    MJL_colPageSize = Param.Int(2097152, "The size of a page in column case in bytes") 
+    MJL_colPf = Param.Bool(False, "Let prefetcher issue prefetches in column")
     # MJL_End
 
 class QueuedPrefetcher(BasePrefetcher):

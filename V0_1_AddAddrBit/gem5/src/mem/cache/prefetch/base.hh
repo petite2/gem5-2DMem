@@ -91,6 +91,8 @@ class BasePrefetcher : public ClockedObject
     /* MJL_Begin */
     /** Let prefetcher decide whether prefetch in column or row */
     bool MJL_predictDir;
+    bool MJL_colPf;
+    const Addr MJL_colPageSize;
     /* MJL_End */
 
     /** Request id for prefetches */
@@ -119,6 +121,7 @@ class BasePrefetcher : public ClockedObject
     bool MJL_crossDirtyInWriteBuffer(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const;
     bool MJL_is2DCache() const;
     unsigned MJL_getRowWidth() const;
+    bool MJL_colSamePage(Addr a, Addr b) const;
     /* MJL_End */
 
     /** Determine if addresses are on the same page */

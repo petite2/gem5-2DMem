@@ -100,7 +100,9 @@ def config_cache(options, system):
         system.l2.mem_side = system.membus.slave
         # MJL_Begin
         if options.MJL_Prefetcher:
-            system.l2.prefetcher = L2StridePrefetcher(MJL_predictDir = options.MJL_predictDir) 
+            if options.MJL_predictDir and not options.MJL_colPf:
+                fatal("Cannot be prediction prefetch preference if column prefetch not activated");
+            system.l2.prefetcher = L2StridePrefetcher(MJL_predictDir = options.MJL_predictDir, MJL_colPf = options.MJL_colPf) 
         # MJL_End
 
     if options.memchecker:

@@ -234,6 +234,8 @@ StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
                     if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize) {
                         prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize;
                     }
+                } else if (abs(new_stride) < blkSize) {
+                    prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
                 }
             } else {
                 if (abs(new_stride) < blkSize) {
@@ -258,9 +260,10 @@ StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             entry->MJL_lastDir = MJL_cmdDir;
             /* MJL_End */
 
-            if (samePage(pkt_addr, new_addr)/* MJL_Begin */ || (MJL_predictDir && MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn)/* MJL_End */) {
+            if (samePage(pkt_addr, new_addr) || (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colSamePage(pkt_addr, new_addr))) {
                 DPRINTF(HWPrefetch, "Queuing prefetch to %#x.\n", new_addr);
                 addresses.push_back(AddrPriority(new_addr, 0));
+                std::cout << "MJL_Debug: prefetch address " << std::hex << new_addr << std::dec << " calculated from pkt " << pkt->print() << std::endl; 
             } else {
                 // Record the number of page crossing prefetches generated
                 pfSpanPage += degree - d + 1;
