@@ -172,7 +172,7 @@ LRU::findVictim(Addr addr)
 CacheBlk*
 LRU::MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir)
 {
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         int set = MJL_extractSet(addr, MJL_cacheBlkDir);
         // grab a replacement candidate
         BlkType *blk = nullptr;
@@ -203,7 +203,7 @@ LRU::insertBlock(PacketPtr pkt, BlkType *blk)
     BaseSetAssoc::insertBlock(pkt, blk);
 
     /* MJL_Begin */
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         int set = MJL_extractSet(pkt->getAddr(), pkt->MJL_getDataDir());
         if (cache->MJL_is2DCache()) {
             set = MJL_extractSet(pkt->getAddr(), MemCmd::MJL_DirAttribute::MJL_IsRow);

@@ -644,7 +644,7 @@ class BaseCache : public MemObject
     {
         /* MJL_Begin */
         MSHR *mshr = nullptr;
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             mshr = mshrQueue.allocate(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), blkSize,
                                         pkt, time, order++,
                                         allocOnFill(pkt->cmd));
@@ -660,7 +660,7 @@ class BaseCache : public MemObject
                                         allocOnFill(pkt->cmd));
         */
         /* MJL_Begin */
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             MJL_markBlockInfo(mshr);
         }
         /* MJL_TODO */

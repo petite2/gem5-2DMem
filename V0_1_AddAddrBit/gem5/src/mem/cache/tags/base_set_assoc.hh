@@ -309,7 +309,7 @@ public:
     CacheBlk* MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                           int context_src) override
     {
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
             int set = MJL_extractSet(addr, MJL_cacheBlkDir);
             BlkType *blk = sets[set].MJL_findBlk(tag, MJL_cacheBlkDir, is_secure);
@@ -406,7 +406,7 @@ public:
     {
         BlkType *blk = MJL_accessBlock(addr, MJL_cacheBlkDir, is_secure, lat, context_src);
         Cycles templat = lat;
-        if (blk == nullptr && (cache->name().find("dcache") != std::string::npos || cache->name().find("l2") != std::string::npos)) {
+        if (blk == nullptr && (cache->name().find("dcache") != std::string::npos || cache->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos)) {
             if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow ) {
                 blk = MJL_accessBlock(addr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure, lat, context_src);
             } else if ( MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn ) {
@@ -542,7 +542,7 @@ public:
     /* MJL_Begin */
     CacheBlk* MJL_findVictim(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir) override
     {
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             BlkType *blk = nullptr;
             int set = MJL_extractSet(addr, MJL_cacheBlkDir);
 
@@ -712,7 +712,7 @@ public:
          blk->tag = extractTag(addr);
          */
          /* MJL_Begin */
-         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
              blk->tag = MJL_extractTag(addr, pkt->MJL_getDataDir());
          } else {
              blk->tag = extractTag(addr);

@@ -116,6 +116,7 @@ class Cache : public BaseCache
             /* MJL_Test: Packet information output 
             if ((this->name().find("dcache") != std::string::npos 
                   || this->name().find("l2") != std::string::npos
+                  || this->name().find("l3") != std::string::npos
                 )
                 //&& cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() // Debug for column vec
                 //&& pkt->MJL_cmdIsColumn()
@@ -329,7 +330,7 @@ class Cache : public BaseCache
 
         /* MJL_Begin */
         virtual bool sendTimingReq(PacketPtr pkt) {
-            // if (this->name().find("l2") != std::string::npos) {
+            // if (this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             //     std::cout << "MJL_pfDebug: sendTimingReq " << pkt->print() << std::endl;
             // }
             return CacheMasterPort::sendTimingReq(pkt);

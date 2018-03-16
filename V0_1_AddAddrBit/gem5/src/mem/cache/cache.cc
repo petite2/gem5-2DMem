@@ -240,7 +240,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 for (int i = pkt->MJL_getRowOffset(blkSize); i < pkt->MJL_getRowOffset(blkSize) + pkt->getSize(); i = i + (sizeof(uint64_t) - i%sizeof(uint64_t))) {
                     memcpy(tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->data + MJL_offset + i%sizeof(uint64_t), &MJL_tempData[i * sizeof(uint64_t)], sizeof(uint64_t) - i%sizeof(uint64_t));
                 }
-            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                 // Setting the direction to make sure that offset is calculated correctly. Maybe can also be used to collect the statistics on different directional hit?
                 pkt->MJL_setDataDir(blk->MJL_blkDir);
                 /* MJL_Test 
@@ -268,7 +268,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->status |= BlkDirty;
             }
         // If the access is row or this is a physically 1D, logically 2D cache
-        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t)) {
                 blk->MJL_setWordDirty(i/sizeof(uint64_t));
             }
@@ -303,7 +303,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             }
             pkt->MJL_copyWordDirty(MJL_crossBlkWordDirty);
         // If the access is row or this is a physically 1D, logically 2D cache
-        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             pkt->MJL_setDataDir(blk->MJL_blkDir);
             pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
         }
@@ -356,7 +356,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                             tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_clearWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
                             tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                         }
-                    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                         blk->MJL_clearAllDirty();
                         blk->status &= ~BlkDirty;
                     } else {
@@ -408,7 +408,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                                 tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_clearWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
                                 tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                             }
-                        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                             blk->MJL_clearAllDirty();
                             blk->status &= ~BlkDirty;
                         } else {
@@ -454,7 +454,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                     tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                 }
                 pkt->MJL_setWordDirtyFromBlk(MJL_tempWordDirty, blkSize);
-            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                 pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
                 blk->MJL_clearAllDirty();
                 blk->status &= ~BlkDirty;
@@ -532,11 +532,11 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     // Here lat is the value passed as parameter to accessBlock() function
     // that can modify its value.
     /* MJL_Begin */
-    if ( pkt->getSize() <= sizeof(uint64_t) && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) { // Less than a word, cross direction possible
+    if ( pkt->getSize() <= sizeof(uint64_t) && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos)) { // Less than a word, cross direction possible
         blk = tags->MJL_accessBlockOneWord(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
     } else if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
         blk = tags->MJL_accessCrossBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), lat, id, pkt->MJL_getColOffset(blkSize));
-    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         blk = tags->MJL_accessBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), lat, id);
     } else {
         blk = tags->accessBlock(pkt->getAddr(), pkt->isSecure(), lat, id);
@@ -563,7 +563,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         /* MJL_Begin */
         // MJL_TODO: Eviction should be from cache, so should be cacheline size requests. Writeback should be in order. Should we check the other direction as well for clean eviction?
         WriteQueueEntry *wb_entry = nullptr;
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             wb_entry = writeBuffer.MJL_findMatch(pkt->getAddr(),
                                                                 pkt->MJL_getCmdDir(),
                                                                 pkt->isSecure());
@@ -614,9 +614,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // any ordering/decisions about ownership already taken
         if (pkt->cmd == MemCmd::WritebackClean &&
         /* MJL_Begin */
-            (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) 
+            (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) 
                 && mshrQueue.MJL_findMatch(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure())) 
-            || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos) 
+            || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos) 
                 && mshrQueue.findMatch(pkt->getAddr(), pkt->isSecure()))) ) {
         /* MJL_End */
         /* MJL_Comment
@@ -661,7 +661,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         if (blk == nullptr) {
             // need to do a replacement
             /* MJL_Begin */
-            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                 assert(pkt->MJL_getCmdDir() == pkt->MJL_getDataDir());
                 blk = MJL_allocateBlock(pkt->getAddr(), pkt->MJL_getDataDir(), pkt->isSecure(), writebacks);
             } else {
@@ -675,7 +675,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 // no replaceable block available: give up, fwd to next level.
                 incMissCount(pkt);
                 /* MJL_Begin */
-                if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                     if (pkt->MJL_cmdIsRow()) {
                         MJL_overallRowMisses++;
                         if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
@@ -772,7 +772,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 } else {
                     blk->MJL_setWordDirtyPkt(pkt, blkSize);
                 }
-            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                 assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
                 // Taking the additional tag check latency into account
                 for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
@@ -888,7 +888,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             }
         }
 
-        if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !MJL_2DCache ) {
+        if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
             // Taking the additional tag check into account
             for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
                 if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)]) {
@@ -935,7 +935,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     // We are going to bring in a cache line, crossing lines with dirty data at the crossing needs to be written back
     // And if the access were a write, then the crossing lines to the write section needs to be invalidated as well
     // If the cache is physically 2D, then there's no need for all this
-    if (blk == nullptr && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !MJL_2DCache ) {
+    if (blk == nullptr && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
         CacheBlk *MJL_crossBlk = nullptr;
         Addr MJL_crossBlkAddr;
         Cycles templat = lat;
@@ -1108,7 +1108,7 @@ Cache::promoteWholeLineWrites(PacketPtr pkt)
 {
     // Cache line clearing instructions
     /* MJL_Begin */
-    if (pkt->cmd == MemCmd::WriteReq && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos)) {
+    if (pkt->cmd == MemCmd::WriteReq && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos)) {
         // For writes, dataDir should be the same as cmdDir, and getOffset() works on MJL_dataDir
         assert(pkt->MJL_sameCmdDataDir());
     }
@@ -1217,7 +1217,7 @@ Cache::recvTimingReq(PacketPtr pkt)
         satisfied = access(pkt, blk, lat, writebacks);
         /* MJL_Begin */
         // Add the additional tag check latency for misses
-        if (!MJL_2DCache && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && 
+        if (!MJL_2DCache && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && 
             ((!satisfied && !pkt->req->isUncacheable() && pkt->cmd != MemCmd::CleanEvict && !pkt->isWriteback())
             || (satisfied && pkt->cmd == MemCmd::WritebackDirty))) {
             forward_time = clockEdge(Cycles( blkSize/sizeof(uint64_t) * forwardLatency)) + pkt->headerDelay;
@@ -1289,7 +1289,7 @@ Cache::recvTimingReq(PacketPtr pkt)
         /* MJL_Begin */
         Addr blk_addr;
         MSHR *mshr = nullptr;
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
             mshr = pkt->req->isUncacheable() ? nullptr :
                 mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), pkt->isSecure());
@@ -1352,7 +1352,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                                              pkt->req->masterId());
                 
                 /* MJL_Begin */
-                if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                     req->MJL_setReqDir(pkt->req->MJL_getReqDir());
                 }
                 req->MJL_cachelineSize = blkSize;
@@ -1407,7 +1407,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                     mshr->allocateTarget(pkt, forward_time, order++,
                                          allocOnFill(pkt->cmd));
                     /* MJL_Begin */
-                    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                         MJL_markBlockInfo(mshr);
                     }
                     /* MJL_End */
@@ -1617,7 +1617,7 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // MJL_TODO: coherence related
         cmd = MemCmd::InvalidateReq;
         /* MJL_Begin */
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
         }
         /* MJL_End */
@@ -1628,7 +1628,7 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         assert(!blk->isWritable());
         cmd = cpu_pkt->isLLSC() ? MemCmd::SCUpgradeReq : MemCmd::UpgradeReq;
         /* MJL_Begin */
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             cmd.MJL_setCmdDir(blk->MJL_blkDir);
         }
         /* MJL_End */
@@ -1640,7 +1640,7 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // all caches not being on the same local bus.
         cmd = MemCmd::SCUpgradeFailReq;
         /* MJL_Begin */
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
         }
         /* MJL_End */
@@ -1649,7 +1649,7 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         cmd = needsWritable ? MemCmd::ReadExReq :
             (isReadOnly ? MemCmd::ReadCleanReq : MemCmd::ReadSharedReq);
         /* MJL_Begin */
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             cmd.MJL_setCmdDir(cpu_pkt->MJL_getCmdDir());
         }
         /* MJL_End */
@@ -1671,18 +1671,20 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
 
     // the packet should be block aligned
     /* MJL_Begin */
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         assert(pkt->getAddr() == MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()));
     } else {
         assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
     }
 
-    if (this->name().find("l2") != std::string::npos) {
+    /* MJL_End */
+    /* MJL_Test */
+    if (this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         if (cpu_pkt->cmd == MemCmd::HardPFReq ) {
             std::cout << "MJL_colPfDebug: prefetch triggered miss packet " << pkt->print() << std::endl;
         }
     }
-    /* MJL_End */
+    /* */
     /* MJL_Comment
     assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
     */
@@ -2094,7 +2096,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (MJL_2DCache && pkt->MJL_dataIsColumn()) {
         assert(pkt->MJL_sameCmdDataDir());
         blk = tags->MJL_findCrossBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), pkt->MJL_getColOffset(blkSize));
-    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
     } else {
         blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
@@ -2306,7 +2308,7 @@ Cache::recvTimingResp(PacketPtr pkt)
             panic("Illegal target->source enum %d\n", target.source);
         }
         /* MJL_Begin */
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             MJL_writeback |= target.MJL_postWriteback;
             MJL_invalidate |= target.MJL_postInvalidate;
             assert(!target.MJL_postInvalidate || (&target == &targets.back())); 
@@ -2330,7 +2332,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (blk 
         && (blk->isValid() 
             || (MJL_2DCache && blk->MJL_hasCrossValid()))) {
-        if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !MJL_2DCache) {
+        if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache) {
             PacketPtr MJL_postPkt = nullptr;
             if (MJL_invalidate && (blk->isDirty() || writebackClean)) {
                 MJL_postPkt = writebackBlk(blk);
@@ -2504,7 +2506,7 @@ Cache::writebackBlk(CacheBlk *blk)
     writebacks[Request::wbMasterId]++;
     /* MJL_Begin */
     Request *req = nullptr;
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         req = new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set),
                                blkSize, 0, Request::wbMasterId);
         req->MJL_setReqDir(blk->MJL_blkDir);
@@ -2530,7 +2532,7 @@ Cache::writebackBlk(CacheBlk *blk)
         new Packet(req, blk->isDirty() ?
                    MemCmd::WritebackDirty : MemCmd::WritebackClean);
     /* MJL_Begin */
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
         pkt->MJL_setDataDir(req->MJL_getReqDir());
         pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
@@ -2551,7 +2553,7 @@ Cache::writebackBlk(CacheBlk *blk)
 
     // make sure the block is not marked dirty
     /* MJL_Begin */
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         blk->MJL_clearAllDirty();
     }
     /* MJL_End */
@@ -2560,7 +2562,7 @@ Cache::writebackBlk(CacheBlk *blk)
     pkt->allocate();
     std::memcpy(pkt->getPtr<uint8_t>(), blk->data, blkSize);
     /* MJL_Begin */
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         pkt->MJL_setDataDir(blk->MJL_blkDir);
     }
     /* MJL_End */
@@ -2714,7 +2716,7 @@ Cache::cleanEvictBlk(CacheBlk *blk)
     Request *req =
     /* MJL_Begin */
         nullptr;
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         req = new Request(tags->MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blkSize, 0,
                         Request::wbMasterId);
     req->MJL_setReqDir(blk->MJL_blkDir);
@@ -2738,7 +2740,7 @@ Cache::cleanEvictBlk(CacheBlk *blk)
 
     PacketPtr pkt = new Packet(req, MemCmd::CleanEvict);
     /* MJL_Begin */
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         pkt->cmd.MJL_setCmdDir(blk->MJL_blkDir);
         pkt->MJL_setDataDir(blk->MJL_blkDir);
     }
@@ -2877,7 +2879,7 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
     CacheBlk *blk = nullptr;
     if (MJL_2DCache) {
         blk = tags->MJL_findVictim(addr, MemCmd::MJL_DirAttribute::MJL_IsRow);
-    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         blk = tags->MJL_findVictim(addr, MJL_cacheBlkDir);
     } else {
         return allocateBlock(addr, is_secure, writebacks);
@@ -3181,7 +3183,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             if (MJL_2DCache) {
                 tempBlock->set = tags->MJL_extractSet(addr, MemCmd::MJL_DirAttribute::MJL_IsRow);
                 tempBlock->tag = tags->MJL_extractTag(addr, MemCmd::MJL_DirAttribute::MJL_IsRow);
-            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                 tempBlock->set = tags->MJL_extractSet(addr, pkt->MJL_getDataDir());
                 tempBlock->tag = tags->MJL_extractTag(addr, pkt->MJL_getDataDir());
             } else {
@@ -3223,7 +3225,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         /* MJL_Begin */
         if (MJL_2DCache) {
             assert((blk->MJL_blkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) && (blk->tag == tags->MJL_extractTag(addr, MemCmd::MJL_DirAttribute::MJL_IsRow)));
-        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             assert((blk->MJL_blkDir == pkt->MJL_getCmdDir()) && (blk->tag == tags->MJL_extractTag(addr, pkt->MJL_getCmdDir())));
         } else {
             assert(blk->tag == tags->extractTag(addr));
@@ -3332,7 +3334,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             // owners copy
             blk->status |= BlkDirty;
             /* MJL_Begin */
-            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                 blk->MJL_clearAllDirty();
                 blk->MJL_setWordDirtyPkt(pkt, blkSize);
             }
@@ -3374,7 +3376,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
                     }
                 }
             }
-        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             assert(pkt->MJL_getDataDir() == blk->MJL_blkDir);
             pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
             std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
@@ -3732,7 +3734,7 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
                     }
                     pkt->setDataFromBlock(MJL_tempData, blkSize);
                     pkt->MJL_setWordDirtyFromBlk(MJL_tempWordDirty,blkSize);
-                } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+                } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                     pkt->setDataFromBlock(blk->data, blkSize);
                     pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty,blkSize);
                 } else {
@@ -3800,7 +3802,7 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
 
         blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
         mshr = mshrQueue.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
-    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), is_secure);
 
         blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
@@ -3891,7 +3893,7 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
     //We also need to check the writeback buffers and handle those
     /* MJL_Begin */
     WriteQueueEntry *wb_entry = nullptr;
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         wb_entry = writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getCmdDir(), is_secure);
     } else {
         wb_entry = writeBuffer.findMatch(blk_addr, is_secure);
@@ -3995,7 +3997,7 @@ Cache::recvAtomicSnoop(PacketPtr pkt)
     CacheBlk *blk = nullptr;
     if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
         blk = tags->MJL_findCrossBlock(pkt->getAddr(), CacheBlk::MJL_CacheBlkDir::MJL_IsRow, pkt->isSecure(), pkt->MJL_getColOffset(blkSize));
-    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         blk = tags->MJL_findBlock(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure());
     } else {
         blk = tags->findBlock(pkt->getAddr(), pkt->isSecure());
@@ -4025,7 +4027,7 @@ Cache::getNextQueueEntry()
         MSHR *conflict_mshr =
         /* MJL_Begin */
             nullptr;
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             conflict_mshr = mshrQueue.MJL_findPending(wq_entry->blkAddr, wq_entry->MJL_qEntryDir, 
                                   wq_entry->isSecure);
 
@@ -4077,7 +4079,7 @@ Cache::getNextQueueEntry()
         WriteQueueEntry *conflict_mshr =
         /* MJL_Begin */
             nullptr;
-        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+        if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             conflict_mshr = writeBuffer.MJL_findPending(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, 
                                     miss_mshr->isSecure);
 
@@ -4144,14 +4146,14 @@ Cache::getNextQueueEntry()
         if (pkt) {
             /* MJL_Begin */
             Addr pf_addr;
-            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+            if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                 pf_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
             } else {
                 pf_addr = blockAlign(pkt->getAddr());
             }
-            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
+            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
                 !mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
-                !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos) && (!tags->findBlock(pf_addr, pkt->isSecure()) &&
+                !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos) && (!tags->findBlock(pf_addr, pkt->isSecure()) &&
                 !mshrQueue.findMatch(pf_addr, pkt->isSecure()) &&
                 !writeBuffer.findMatch(pf_addr, pkt->isSecure())))) {
             /* MJL_End */
@@ -4259,7 +4261,7 @@ Cache::sendMSHRQueuePacket(MSHR* mshr)
 
     /* MJL_Begin */
     CacheBlk *blk = nullptr;
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         blk = tags->MJL_findBlock(mshr->blkAddr, mshr->MJL_qEntryDir, mshr->isSecure);
     } else {
         blk = tags->findBlock(mshr->blkAddr, mshr->isSecure);
@@ -4484,6 +4486,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     /* MJL_Test: Packet information output 
     if ((this->name().find("dcache") != std::string::npos 
              || this->name().find("l2") != std::string::npos
+             || this->name().find("l3") != std::string::npos
         ) 
         && !blocked && !mustSendRetry
          //&& cache->MJL_colVecHandler.MJL_ColVecList.find(pkt->req->getPC()) != cache->MJL_colVecHandler.MJL_ColVecList.end() 
@@ -4690,7 +4693,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     }
 
     /* MJL_Test: Request packet information output  
-    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos) {
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         std::cout << this->name() << "::recvAtomicPreAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
@@ -4805,7 +4808,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     Tick time = cache->recvAtomic(pkt);
     
     /* MJL_Test: Response packet information output 
-    if (this->name().find("l2") != std::string::npos && pkt->isResponse()) {
+    if ((this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && pkt->isResponse()) {
         std::cout << this->name() << "::recvAtomicPostAcc";
         std::cout << ": PC(hex) = ";
         if (pkt->req->hasPC()) {
@@ -5057,11 +5060,11 @@ CacheParams::create()
 bool
 Cache::MemSidePort::recvTimingResp(PacketPtr pkt)
 {
-    /* MJL_Begin */
-    if (this->name().find("l2") != std::string::npos) {
+    /* MJL_Test */
+    if (this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         std::cout << "MJL_pfDebug: recvTimingResp " << pkt->print() << std::endl;
     }
-    /* MJL_End */
+    /* */
     cache->recvTimingResp(pkt);
     return true;
 }

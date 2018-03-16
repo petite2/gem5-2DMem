@@ -99,11 +99,59 @@ def config_cache(options, system):
         system.l2.cpu_side = system.tol2bus.master
         system.l2.mem_side = system.membus.slave
         # MJL_Begin
+        if options.l3cache:
+            fatal("Having l3 implies having l2, shouldn't have both flags set at the same time")
         if options.MJL_Prefetcher:
             if options.MJL_predictDir and not options.MJL_colPf:
                 fatal("Cannot be prediction prefetch preference if column prefetch not activated");
             system.l2.prefetcher = L2StridePrefetcher(MJL_predictDir = options.MJL_predictDir, MJL_colPf = options.MJL_colPf) 
         # MJL_End
+    # MJL_Begin MJL_TODO
+    if options.l3cache:
+        # Provide a clock for the L2 and the L1-to-L2 bus here as they
+        # are not connected using addTwoLevelCacheHierarchy. Use the
+        # same clock as the CPUs.
+        system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
+                                   size=options.l2_size,
+                                   assoc=options.l2_assoc\
+                                   # MJL_Begin
+                                   # , MJL_row_width=options.MJL_row_width\
+                                   # , MJL_2D_Cache=options.MJL_2DL2Cache\
+                                   , MJL_timeStep=options.MJL_timeStep\
+                                   # , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
+                                   # MJL_End
+                                   )
+
+        system.l3 = l2_cache_class(clk_domain=system.cpu_clk_domain,
+                                   size=options.l3_size,
+                                   assoc=options.l3_assoc\
+                                   # MJL_Begin
+                                   , tag_latency=20
+                                   , data_latency=20
+                                   , response_latency=20
+                                   , mshrs=20
+                                   , tgts_per_mshr=12
+                                   , write_buffers=8
+                                   # , MJL_row_width=options.MJL_row_width\
+                                   , MJL_2D_Cache=options.MJL_2DL2Cache\
+                                   , MJL_timeStep=options.MJL_timeStep\
+                                   , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
+                                   # MJL_End
+                                   )
+
+        system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
+        system.tol3bus = L2XBar(clk_domain = system.cpu_clk_domain, width=32)
+        
+        system.l2.cpu_side = system.tol2bus.master
+        system.l2.mem_side = system.tol3bus.slave
+
+        system.l3.cpu_side = system.tol3bus.master
+        system.l3.mem_side = system.membus.slave
+        if options.MJL_Prefetcher:
+            if options.MJL_predictDir and not options.MJL_colPf:
+                fatal("Cannot be prediction prefetch preference if column prefetch not activated");
+            system.l3.prefetcher = L2StridePrefetcher(MJL_predictDir = options.MJL_predictDir, MJL_colPf = options.MJL_colPf) 
+    # MJL_End
 
     if options.memchecker:
         system.memchecker = MemChecker()
@@ -182,6 +230,10 @@ def config_cache(options, system):
         system.cpu[i].createInterruptController()
         if options.l2cache:
             system.cpu[i].connectAllPorts(system.tol2bus, system.membus)
+        # MJL_Begin MJL_TODO
+        elif options.l3cache:
+            system.cpu[i].connectAllPorts(system.tol2bus, system.membus)
+        # MJL_End
         elif options.external_memory_system:
             system.cpu[i].connectUncachedPorts(system.membus)
         else:
