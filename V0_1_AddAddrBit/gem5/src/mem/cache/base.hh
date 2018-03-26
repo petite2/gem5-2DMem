@@ -485,6 +485,15 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_mshrConflictCount;
     Stats::Scalar MJL_requestedBytes;
     Stats::Scalar MJL_touchedBytes;
+    Stats::Scalar MJL_overallInterestedRowMisses;
+    Stats::Scalar MJL_overallInterestedRowHits;
+    Stats::Scalar MJL_overallInterestedColumnMisses;
+    Stats::Scalar MJL_overallInterestedColumnHits;
+    Stats::Formula MJL_overallInterestedMisses;
+    Stats::Formula MJL_overallInterestedHits;
+    Stats::Formula MJL_overallInterestedRowAccesses;
+    Stats::Formula MJL_overallInterestedColumnAccesses;
+    Stats::Formula MJL_overallInterestedAccesses;
     /* MJL_End */
 
     /**
@@ -794,6 +803,8 @@ class BaseCache : public MemObject
     virtual bool MJL_crossDirtyInCache(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const = 0;
     virtual bool MJL_crossDirtyInMissQueue(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const = 0;
     virtual bool MJL_crossDirtyInWriteBuffer(Addr addr, MemCmd::MJL_DirAttribute MJL_cacheBlkDir, bool is_secure) const = 0;
+    virtual bool MJL_isInterestedAccess(Addr addr) const = 0;
+    virtual bool MJL_isVecAccess(Addr addr) const = 0;
     /* MJL_End */
 
     void incMissCount(PacketPtr pkt)
@@ -806,12 +817,58 @@ class BaseCache : public MemObject
             if (missCount == 0)
                 exitSimLoop("A cache reached the maximum miss count");
         }
+        /* MJL_Begin */
+        if (pkt->MJL_cmdIsRow()) {
+            MJL_overallRowMisses++;
+            if (pkt->req->hasPC()) {
+                if (MJL_isInterestedAccess(pkt->req->getPC())) {
+                    MJL_overallInterestedRowMisses++;
+                }
+                if (MJL_isVecAccess(pkt->req->getPC())) {
+                    MJL_overallRowVecMisses++;
+                }
+            }
+        }  else if (pkt->MJL_cmdIsColumn()) {
+            MJL_overallColumnMisses++;
+            if (pkt->req->hasPC() {
+                if (MJL_isInterestedAccess(pkt->req->getPC())) {
+                    MJL_overallInterestedColumnMisses++;
+                }
+                if (MJL_isVecAccess(pkt->req->getPC())) {
+                    MJL_overallColVecMisses++;
+                }
+            }
+        }
+        /* MJL_End */
     }
     void incHitCount(PacketPtr pkt)
     {
         assert(pkt->req->masterId() < system->maxMasters());
         hits[pkt->cmdToIndex()][pkt->req->masterId()]++;
 
+        /* MJL_Begin */
+        if (pkt->MJL_cmdIsRow()) {
+            MJL_overallRowHits++;
+            if (pkt->req->hasPC()) {
+                if (MJL_isInterestedAccess(pkt->req->getPC())) {
+                    MJL_overallInterestedRowHits++;
+                }
+                if (MJL_isVecAccess(pkt->req->getPC())) {
+                    MJL_overallRowVecHits++;
+                }
+            }
+        }  else if (pkt->MJL_cmdIsColumn()) {
+            MJL_overallColumnHits++;
+            if (pkt->req->hasPC() {
+                if (MJL_isInterestedAccess(pkt->req->getPC())) {
+                    MJL_overallInterestedColumnHits++;
+                }
+                if (MJL_isVecAccess(pkt->req->getPC())) {
+                    MJL_overallColVecHits++;
+                }
+            }
+        }
+        /* MJL_End */
     }
 
 };

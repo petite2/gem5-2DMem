@@ -1909,6 +1909,14 @@ class Cache : public BaseCache
         }
         return crossDirtyInWriteBuffer;
     }
+    /** Test to see if the address is in the MJL_PC2DirMap */
+    virtual bool MJL_isInterestedAccess(Addr addr) const {
+        return (MJL_PC2DirMap.find(addr) != MJL_PC2DirMap.end());
+    }
+
+    virtual bool MJL_isVecAccess(Addr addr) const {
+        return (MJL_VecListSet.find(addr) != MJL_VecListSet.end());
+    }
     /* MJL_End */
 
     /**

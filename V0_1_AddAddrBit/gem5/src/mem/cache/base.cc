@@ -893,15 +893,76 @@ BaseCache::regStats()
         .flags(nozero)
         ;
 
-    MJL_requestedBytes.name(name() + ".MJL_requestedBytes")
+    MJL_requestedBytes
+        .name(name() + ".MJL_requestedBytes")
         .desc("total number of bytes requested by this cache")
         .flags(nozero)
         ;
 
-    MJL_touchedBytes.name(name() + ".MJL_touchedBytes")
+    MJL_touchedBytes
+        .name(name() + ".MJL_touchedBytes")
         .desc("total number of bytes touched in this cache at the time of eviction")
         .flags(nozero)
         ;
+
+    MJL_overallInterestedRowMisses
+        .name(name() + ".MJL_overallInterestedRowMisses")
+        .desc("number of overall row misses that are caused by interested instructions")
+        .flags(nozero)
+        ;
+    
+    MJL_overallInterestedRowHits
+        .name(name() + ".MJL_overallInterestedRowHits")
+        .desc("number of overall of row hits that are caused by interested instructions")
+        .flags(nozero)
+        ;
+
+    MJL_overallInterestedColumnMisses
+        .name(name() + ".MJL_overallInterestedColumnMisses")
+        .desc("number of overall column misses that are caused by interested instructions")
+        .flags(nozero)
+        ;
+
+    MJL_overallInterestedColumnHits
+        .name(name() + ".MJL_overallInterestedColumnHits")
+        .desc("number of overall column hits that are caused by interested instructions")
+        .flags(nozero)
+        ;
+    
+    MJL_overallInterestedMisses
+        .name(name() + ".MJL_overallInterestedMisses")
+        .desc("number of overall misses caused by interested instruction")
+        .flags(total | nozero | nonan)
+        ;
+    MJL_overallInterestedMisses = MJL_overallInterestedRowMisses + MJL_overallInterestedColumnMisses;
+
+    MJL_overallInterestedHits
+        .name(name() + ".MJL_overallInterestedHits")
+        .desc("number of overall hits caused by interested instruction")
+        .flags(total | nozero | nonan)
+        ;
+    MJL_overallInterestedHits = MJL_overallInterestedRowHits + MJL_overallInterestedColumnHits;
+
+    MJL_overallInterestedRowAccesses
+        .name(name() + ".MJL_overallInterestedRowAccesses")
+        .desc("number of overall row accesses caused by interested instruction")
+        .flags(total | nozero | nonan)
+        ;
+    MJL_overallInterestedRowAccesses = MJL_overallInterestedRowHits + MJL_overallInterestedRowMisses;
+
+    MJL_overallInterestedColumnAccesses
+        .name(name() + ".MJL_overallInterestedColumnAccesses")
+        .desc("number of overall column accesses caused by interested instruction")
+        .flags(total | nozero | nonan)
+        ;
+    MJL_overallInterestedColumnAccesses = MJL_overallInterestedColumnHits + MJL_overallInterestedColumnMisses;
+
+     MJL_overallInterestedAccesses
+        .name(name() + ".MJL_overallInterestedAccesses")
+        .desc("number of overall accesses caused by interested instruction")
+        .flags(total | nozero | nonan)
+        ;
+    MJL_overallInterestedAccesses = MJL_overallInterestedColumnAccesses + MJL_overallInterestedRowAccesses;
     /* MJL_End */
 
 }

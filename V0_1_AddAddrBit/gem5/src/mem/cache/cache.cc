@@ -675,19 +675,19 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 // no replaceable block available: give up, fwd to next level.
                 incMissCount(pkt);
                 /* MJL_Begin */
-                if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
-                    if (pkt->MJL_cmdIsRow()) {
-                        MJL_overallRowMisses++;
-                        if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-                            MJL_overallRowVecMisses++;
-                        }
-                    } else if (pkt->MJL_cmdIsColumn()) {
-                        MJL_overallColumnMisses++;
-                        if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-                            MJL_overallColVecMisses++;
-                        }
-                    }
-                }
+                // if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
+                //     if (pkt->MJL_cmdIsRow()) {
+                //         MJL_overallRowMisses++;
+                //         if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                //             MJL_overallRowVecMisses++;
+                //         }
+                //     } else if (pkt->MJL_cmdIsColumn()) {
+                //         MJL_overallColumnMisses++;
+                //         if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+                //             MJL_overallColVecMisses++;
+                //         }
+                //     }
+                // }
                 /* MJL_End */
                 return false;
             }
@@ -833,17 +833,17 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         DPRINTF(Cache, "%s new state is %s\n", __func__, blk->print());
         incHitCount(pkt);
         /* MJL_Begin */
-        if (pkt->MJL_cmdIsRow()) {
-            MJL_overallRowHits++;
-            if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-                MJL_overallRowVecHits++;
-            }
-        } else if (pkt->MJL_cmdIsColumn()) {
-            MJL_overallColumnHits++;
-            if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-                MJL_overallColVecHits++;
-            }
-        }
+        // if (pkt->MJL_cmdIsRow()) {
+        //     MJL_overallRowHits++;
+        //     if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+        //         MJL_overallRowVecHits++;
+        //     }
+        // } else if (pkt->MJL_cmdIsColumn()) {
+        //     MJL_overallColumnHits++;
+        //     if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+        //         MJL_overallColVecHits++;
+        //     }
+        // }
         /* MJL_End */
         return true;
     } else if (pkt->cmd == MemCmd::CleanEvict) {
@@ -880,17 +880,17 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
         }
 
-        if (pkt->MJL_cmdIsRow()) {
-            MJL_overallRowHits++;
-            if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-                MJL_overallRowVecHits++;
-            }
-        } else if (pkt->MJL_cmdIsColumn()) {
-            MJL_overallColumnHits++;
-            if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-                MJL_overallColVecHits++;
-            }
-        }
+        // if (pkt->MJL_cmdIsRow()) {
+        //     MJL_overallRowHits++;
+        //     if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+        //         MJL_overallRowVecHits++;
+        //     }
+        // } else if (pkt->MJL_cmdIsColumn()) {
+        //     MJL_overallColumnHits++;
+        //     if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+        //         MJL_overallColVecHits++;
+        //     }
+        // }
 
         if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
             // Taking the additional tag check into account
@@ -921,17 +921,17 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
     }
 
-    if (pkt->MJL_cmdIsRow()) {
-        MJL_overallRowMisses++;
-        if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-            MJL_overallRowVecMisses++;
-        }
-    } else if (pkt->MJL_cmdIsColumn()) {
-        MJL_overallColumnMisses++;
-        if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
-            MJL_overallColVecMisses++;
-        }
-    }
+    // if (pkt->MJL_cmdIsRow()) {
+    //     MJL_overallRowMisses++;
+    //     if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+    //         MJL_overallRowVecMisses++;
+    //     }
+    // } else if (pkt->MJL_cmdIsColumn()) {
+    //     MJL_overallColumnMisses++;
+    //     if (pkt->req->hasPC() && MJL_VecListSet.find(pkt->req->getPC()) != MJL_VecListSet.end()) {
+    //         MJL_overallColVecMisses++;
+    //     }
+    // }
     /* MJL_End */
 
     if (blk == nullptr && pkt->isLLSC() && pkt->isWrite()) {
