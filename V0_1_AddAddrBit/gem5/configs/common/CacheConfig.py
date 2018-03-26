@@ -92,6 +92,7 @@ def config_cache(options, system):
                                    , MJL_2D_Cache=options.MJL_2DL2Cache\
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
+                                   , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
                                    # MJL_End
                                    )
 
@@ -136,6 +137,7 @@ def config_cache(options, system):
                                    , MJL_2D_Cache=options.MJL_2DL2Cache\
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
+                                   , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
                                    # MJL_End
                                    )
 

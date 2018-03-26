@@ -822,6 +822,10 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         } else {
             std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
         }
+        // Add the additonal write access latency for physically 2D caches
+        if (MJL_2DCache) {
+            lat += MJL_extra2DWriteLatency;
+        }
         /* MJL_End */
         /* MJL_Comment
         std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
@@ -896,6 +900,10 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 }
             }
             MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
+        }
+        // Add the additonal write access latency for physically 2D caches
+        if (MJL_2DCache && pkt->isWrite()) {
+            lat += MJL_extra2DWriteLatency;
         }
         /* MJL_End */
         satisfyRequest(pkt, blk);
@@ -2200,6 +2208,12 @@ Cache::recvTimingResp(PacketPtr pkt)
                 // the core.
                 completion_time += clockEdge(responseLatency) +
                     (transfer_offset ? pkt->payloadDelay : 0);
+                /* MJL_Begin */
+                // Add the additonal write access latency for physically 2D caches
+                if (MJL_2DCache) {
+                    completion_time += clockEdge(MJL_extra2DWriteLatency);
+                }
+                /* MJL_End */
 
                 assert(!tgt_pkt->req->isUncacheable());
 

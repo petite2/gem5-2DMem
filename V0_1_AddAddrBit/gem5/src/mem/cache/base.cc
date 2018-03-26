@@ -77,6 +77,7 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
       MJL_defaultColumn(p->MJL_default_column),
       MJL_2DCache(p->MJL_2D_Cache),
       MJL_2DTransferType(p->MJL_2D_Transfer_Type),
+      MJL_extra2DWrite_latency(p->MJL_extra2DWriteLatency),
       /* MJL_End */
       lookupLatency(p->tag_latency),
       dataLatency(p->data_latency),

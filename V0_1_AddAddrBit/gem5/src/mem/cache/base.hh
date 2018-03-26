@@ -264,6 +264,7 @@ class BaseCache : public MemObject
     /** Whether this cache physically 2D */
     const bool MJL_2DCache;
     const int MJL_2DTransferType;
+    const Cycles MJL_extra2DWriteLatency
     /* MJL_End */
 
     /**
