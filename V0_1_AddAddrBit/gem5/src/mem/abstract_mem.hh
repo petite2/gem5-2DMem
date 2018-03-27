@@ -174,6 +174,14 @@ class AbstractMemory : public MemObject
     Stats::Formula bwWrite;
     /** Total bandwidth from this memory */
     Stats::Formula bwTotal;
+    /* MJL_Begin */
+    Stats::Scalar MJL_bytesWrittenRow;
+    Stats::Scalar MJL_bytesWrittenColumn;
+    Stats::Scalar MJL_bytesReadRow;
+    Stats::Scalar MJL_bytesReadColumn;
+    Stats::Formula MJL_bytesTotalRow;
+    Stats::Formula MJL_bytesTotalColumn;
+    /* MJL_End */
 
     /** Pointor to the System object.
      * This is used for getting the number of masters in the system which is

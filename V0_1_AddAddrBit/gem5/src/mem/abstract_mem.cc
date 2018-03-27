@@ -184,6 +184,46 @@ AbstractMemory::regStats()
     bwInstRead = bytesInstRead / simSeconds;
     bwWrite = bytesWritten / simSeconds;
     bwTotal = (bytesRead + bytesWritten) / simSeconds;
+
+    /* MJL_Begin */
+    MJL_bytesWrittenRow
+        .name(name() + ".MJL_bytes_written_row")
+        .desc("Number of bytes written to this memory in row")
+        .flags(nozero)
+        ;
+    
+    MJL_bytesWrittenColumn
+        .name(name() + ".MJL_bytes_written_column")
+        .desc("Number of bytes written to this memory in column")
+        .flags(nozero)
+        ;
+    
+    MJL_bytesReadRow
+        .name(name() + ".MJL_bytes_read_row")
+        .desc("Number of bytes read from this memory in row")
+        .flags(nozero)
+        ;
+    
+    MJL_bytesReadColumn
+        .name(name() + ".MJL_bytes_read_column")
+        .desc("Number of bytes read from this memory in column")
+        .flags(nozero)
+        ;
+
+    MJL_bytesTotalRow
+        .name(name() + ".MJL_bytes_total_row")
+        .desc("Total number of bytes transferred to/from this memory in row")
+        .flags(total | nozero)
+        ;
+    MJL_bytesTotalRow = MJL_bytesReadRow + MJL_bytesWrittenRow;
+
+    MJL_bytesTotalColumn
+        .name(name() + ".MJL_bytes_total_column")
+        .desc("Total number of bytes transferred to/from this memory in column")
+        .flags(total | nozero)
+        ;
+    MJL_bytesTotalColumn = MJL_bytesReadColumn + MJL_bytesWrittenColumn;
+    /* MJL_End */
 }
 
 AddrRange
@@ -497,6 +537,13 @@ AbstractMemory::access(PacketPtr pkt)
         TRACE_PACKET(pkt->req->isInstFetch() ? "IFetch" : "Read");
         numReads[pkt->req->masterId()]++;
         bytesRead[pkt->req->masterId()] += pkt->getSize();
+        /* MJL_Begin */
+        if (pkt->MJL_dataIsRow()) {
+            MJL_bytesReadRow += pkt->getSize();
+        } else if (pkt->MJL_dataIsColumn()) {
+            MJL_bytesReadColumn += pkt->getSize();
+        }
+        /* MJL_End */
         if (pkt->req->isInstFetch())
             bytesInstRead[pkt->req->masterId()] += pkt->getSize();
     } else if (pkt->isInvalidate()) {
@@ -533,6 +580,13 @@ AbstractMemory::access(PacketPtr pkt)
             TRACE_PACKET("Write");
             numWrites[pkt->req->masterId()]++;
             bytesWritten[pkt->req->masterId()] += pkt->getSize();
+            /* MJL_Begin */
+            if (pkt->MJL_dataIsRow()) {
+                MJL_bytesWrittenRow += pkt->getSize();
+            } else if (pkt->MJL_dataIsColumn()) {
+                MJL_bytesWrittenColumn += pkt->getSize();
+            }
+            /* MJL_End */
         }
     } else {
         panic("unimplemented");
