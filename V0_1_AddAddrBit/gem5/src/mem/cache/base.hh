@@ -264,7 +264,7 @@ class BaseCache : public MemObject
     /** Whether this cache physically 2D */
     const bool MJL_2DCache;
     const int MJL_2DTransferType;
-    const Cycles MJL_extra2DWriteLatency
+    const Cycles MJL_extra2DWriteLatency;
     /* MJL_End */
 
     /**
@@ -830,7 +830,7 @@ class BaseCache : public MemObject
             }
         }  else if (pkt->MJL_cmdIsColumn()) {
             MJL_overallColumnMisses++;
-            if (pkt->req->hasPC() {
+            if (pkt->req->hasPC()) {
                 if (MJL_isInterestedAccess(pkt->req->getPC())) {
                     MJL_overallInterestedColumnMisses++;
                 }
@@ -859,7 +859,7 @@ class BaseCache : public MemObject
             }
         }  else if (pkt->MJL_cmdIsColumn()) {
             MJL_overallColumnHits++;
-            if (pkt->req->hasPC() {
+            if (pkt->req->hasPC()) {
                 if (MJL_isInterestedAccess(pkt->req->getPC())) {
                     MJL_overallInterestedColumnHits++;
                 }

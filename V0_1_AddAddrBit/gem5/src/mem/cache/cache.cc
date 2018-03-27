@@ -2206,14 +2206,20 @@ Cache::recvTimingResp(PacketPtr pkt)
                 // responseLatency is the latency of the return path
                 // from lower level caches/memory to an upper level cache or
                 // the core.
-                completion_time += clockEdge(responseLatency) +
-                    (transfer_offset ? pkt->payloadDelay : 0);
                 /* MJL_Begin */
                 // Add the additonal write access latency for physically 2D caches
                 if (MJL_2DCache) {
-                    completion_time += clockEdge(MJL_extra2DWriteLatency);
+                    completion_time += clockEdge(responseLatency + MJL_extra2DWriteLatency) +
+                        (transfer_offset ? pkt->payloadDelay : 0);
+                } else {
+                    completion_time += clockEdge(responseLatency) +
+                        (transfer_offset ? pkt->payloadDelay : 0);
                 }
                 /* MJL_End */
+                /* MJL_Comment
+                completion_time += clockEdge(responseLatency) +
+                    (transfer_offset ? pkt->payloadDelay : 0);
+                 */
 
                 assert(!tgt_pkt->req->isUncacheable());
 
