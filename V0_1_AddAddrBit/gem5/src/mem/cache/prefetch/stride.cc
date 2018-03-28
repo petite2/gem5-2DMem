@@ -151,7 +151,7 @@ StridePrefetcher::calculatePrefetch(const PacketPtr &pkt,
             }
 
             Addr new_addr = pkt_addr + d * prefetch_stride;
-            if (samePage(pkt_addr, new_addr)) {
+            if (samePage(pkt_addr, new_addr)/* MJL_Begin */|| (MJL_colPf && pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colSamePage(pkt_addr, new_addr))/* MJL_End */) {
                 DPRINTF(HWPrefetch, "Queuing prefetch to %#x.\n", new_addr);
                 addresses.push_back(AddrPriority(new_addr, 0));
             } else {
