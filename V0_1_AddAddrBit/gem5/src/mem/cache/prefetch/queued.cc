@@ -89,17 +89,17 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
 
         // Calculate prefetches given this access
         std::vector<AddrPriority> addresses;
-        /* MJL_Comment
+        /* MJL_Comment */
         calculatePrefetch(pkt, addresses);
-        */
-        /* MJL_Begin */
+        /* */
+        /* MJL_Begin 
         MemCmd::MJL_DirAttribute MJL_predCmdDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
         if (MJL_predictDir) {
             MJL_calculatePrefetch(pkt, addresses, MJL_predCmdDir);
         } else {
             calculatePrefetch(pkt, addresses);
         }
-        /* MJL_End */
+         MJL_End */
 
         // Queue up generated prefetches
         for (AddrPriority& pf_info : addresses) {
@@ -115,11 +115,11 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
             /* MJL_Begin */
             PacketPtr pf_pkt;
             if (MJL_colPf) {
-                if (MJL_predictDir) {
-                    pf_pkt = MJL_insert(pf_info, MJL_predCmdDir, is_secure);
-                } else {
+                // if (MJL_predictDir) {
+                //     pf_pkt = MJL_insert(pf_info, MJL_predCmdDir, is_secure);
+                // } else {
                     pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
-                }
+                // }
             } else {
                 pf_pkt = insert(pf_info, is_secure);
             }

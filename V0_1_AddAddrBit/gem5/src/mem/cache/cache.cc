@@ -66,8 +66,8 @@
 Cache::Cache(const CacheParams *p)
     : BaseCache(p, p->system->cacheLineSize()),
       tags(p->tags),
-      prefetcher(p->prefetcher),/* MJL_Begin MJL_TODO
-      MJL_predictDir(p->MJL_predictDir), MJL_End */
+      prefetcher(p->prefetcher),/* MJL_Begin */
+      MJL_predictDir(p->MJL_predictDir), /* MJL_End */
       doFastWrites(true),
       prefetchOnAccess(p->prefetch_on_access),
       clusivity(p->clusivity),
@@ -105,11 +105,9 @@ Cache::Cache(const CacheParams *p)
     }
     
     std::cout << "MJL_2DCache? " << MJL_2DCache << std::endl;
-    /* MJL_TODO 
     if (MJL_predictDir) {
         MJL_dirPredictor = new MJL_dirPredictor(blkSize, MJL_rowWidth);
     }
-     */
     /* MJL_End */
 }
 
@@ -124,11 +122,9 @@ Cache::~Cache()
     if (MJL_2DCache) {
         delete MJL_footPrint;
     }
-    /* MJL_TODO
     if (MJL_predictDir) {
         delete MJL_dirPredictor;
     }
-     */
     /* MJL_End */
 }
 
@@ -1573,13 +1569,13 @@ Cache::recvTimingReq(PacketPtr pkt)
                 // Here we are using forward_time, modelling the latency of
                 // a miss (outbound) just as forwardLatency, neglecting the
                 // lookupLatency component.
-                /* MJL_Begin MJL_TODO
+                /* MJL_Begin */
                 if (MJL_predictDir) {
                     MemCmd::MJL_DirAttribute MJL_predDir = MJL_dirPredictor->MJL_predictDir(pkt);
                     pkt->cmd.MJL_setCmdDir(MJL_predDir);
                     pkt->MJL_setDataDir(MJL_predDir);
                 }
-                 MJL_End */
+                /* MJL_End */
                 allocateMissBuffer(pkt, forward_time);
                 /* MJL_Begin */
                 if (MJL_2DCache && MJL_2DTransferType == 1) {

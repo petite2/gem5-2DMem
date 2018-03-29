@@ -61,6 +61,7 @@
 #include "params/Cache.hh"
 #include "sim/eventq.hh"
 /* MJL_Begin */
+#include "base/random.hh"
 #include <fstream>
 #include <sstream>
 /* MJL_End */
@@ -346,6 +347,214 @@ class Cache : public BaseCache
 
     /** Prefetcher */
     BasePrefetcher *prefetcher;
+    /* MJL_Begin */
+    class MJL_DirPredictor {
+      protected:
+
+        /** The block size of the parent cache. */
+        unsigned blkSize;
+
+        const unsigned MJL_rowWidth;
+
+        const int maxConf;
+        const int threshConf;
+        const int minConf;
+        const int startConf;
+
+        const int pcTableAssoc;
+        const int pcTableSets;
+
+        const bool useMasterId;
+
+        struct StrideEntry
+        {
+            StrideEntry() : instAddr(0), lastAddr(0), isSecure(false), stride(0),
+                            confidence(0)
+            { }
+
+            Addr instAddr;
+            Addr lastAddr;
+            bool isSecure;
+            int stride;
+            int confidence;
+        };
+
+        class PCTable {
+          public:
+            PCTable(int assoc, int sets) :
+                pcTableAssoc(assoc), pcTableSets(sets) {}
+            StrideEntry** operator[] (int context) {
+                auto it = entries.find(context);
+                if (it != entries.end())
+                    return it->second;
+
+                return allocateNewContext(context);
+            }
+
+            ~PCTable()  {
+                for (auto entry : entries) {
+                    for (int s = 0; s < pcTableSets; s++) {
+                        delete[] entry.second[s];
+                    }
+                    delete[] entry.second;
+                }
+            }
+          private:
+            const int pcTableAssoc;
+            const int pcTableSets;
+            std::map<int, StrideEntry**> entries;
+
+            StrideEntry** allocateNewContext(int context) {
+                auto res = entries.insert(std::make_pair(context,
+                                        new StrideEntry*[pcTableSets]));
+                auto it = res.first;
+                chatty_assert(res.second, "Allocating an already created context\n");
+                assert(it->first == context);
+
+                DPRINTF(HWPrefetch, "Adding context %i with stride entries at %p\n",
+                        context, it->second);
+
+                StrideEntry** entry = it->second;
+                for (int s = 0; s < pcTableSets; s++) {
+                    entry[s] = new StrideEntry[pcTableAssoc];
+                }
+                return entry;
+            }
+        };
+        PCTable pcTable;
+        int floorLog2(unsigned x) {
+            assert(x > 0);
+
+            int y = 0;
+
+            if (x & 0xffff0000) { y += 16; x >>= 16; }
+            if (x & 0x0000ff00) { y +=  8; x >>=  8; }
+            if (x & 0x000000f0) { y +=  4; x >>=  4; }
+            if (x & 0x0000000c) { y +=  2; x >>=  2; }
+            if (x & 0x00000002) { y +=  1; }
+
+            return y;
+        }
+
+        Addr pcHash(Addr pc) const {
+            Addr hash1 = pc >> 1;
+            Addr hash2 = hash1 >> floorLog2((unsigned)pcTableSets);
+            return (hash1 ^ hash2) & (Addr)(pcTableSets - 1);
+        }
+
+        bool pcTableHit(Addr pc, bool is_secure, int master_id, StrideEntry* &entry) {
+            int set = pcHash(pc);
+            StrideEntry* set_entries = pcTable[master_id][set];
+            for (int way = 0; way < pcTableAssoc; way++) {
+                // Search ways for match
+                if (set_entries[way].instAddr == pc &&
+                    set_entries[way].isSecure == is_secure) {
+                    DPRINTF(HWPrefetch, "Lookup hit table[%d][%d].\n", set, way);
+                    entry = &set_entries[way];
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        StrideEntry* pcTableVictim(Addr pc, int master_id) {
+            // Rand replacement for now
+            int set = pcHash(pc);
+            int way = random_mt.random<int>(0, pcTableAssoc - 1);
+
+            DPRINTF(HWPrefetch, "Victimizing lookup table[%d][%d].\n", set, way);
+            return &pcTable[master_id][set][way];
+        }
+
+      public:
+        MJL_DirPredictor(unsigned _blkSize, unsigned _MJL_rowWidth)
+            : blkSize(_blkSize), MJL_rowWidth(_MJL_rowWidth), maxConf(7), 
+              threshConf(4), minConf(0), startConf(4), pcTableAssoc(4), 
+              pcTableSets(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
+            {}
+        virtual ~MJL_DirPredictor() {}
+
+        bool observeAccess(const PacketPtr &pkt) const {
+            Addr addr = pkt->getAddr();
+            bool fetch = pkt->req->isInstFetch();
+            bool read = pkt->isRead();
+            bool inv = pkt->isInvalidate();
+            bool is_secure = pkt->isSecure();
+
+            if (pkt->req->isUncacheable()) return false;
+            if (fetch) return false;
+            if (!fetch && !read && inv) return false;
+            if (pkt->cmd == MemCmd::CleanEvict) return false;
+            // Do not predict the direction of a vector access
+            if (pkt->getSize() > sizeof(uint64_t)) return false;
+
+            return true;
+        }
+
+        MemCmd::MJL_DirAttribute MJL_predictDir(const PacketPtr &pkt) {
+            MemCmd::MJL_DirAttribute predictedDir = pkt->MJL_getCmdDir();
+            if (observeAccess(pkt) && pkt->req->hasPC()) {
+                // Get required packet info
+                Addr pkt_addr = pkt->getAddr();
+                Addr pc = pkt->req->getPC();
+                bool is_secure = pkt->isSecure();
+                MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
+
+                // Lookup pc-based information
+                StrideEntry *entry;
+
+                if (pcTableHit(pc, is_secure, master_id, entry)) {
+                    // Hit in table
+                    int new_stride = pkt_addr - entry->lastAddr;
+                    bool stride_match = (new_stride == entry->stride);
+
+                    // Adjust confidence for stride entry
+                    if (stride_match && new_stride != 0) {
+                        if (entry->confidence < maxConf)
+                            entry->confidence++;
+                    } else {
+                        if (entry->confidence > minConf)
+                            entry->confidence--;
+                        // If confidence has dropped below the threshold, train new stride
+                        if (entry->confidence < threshConf)
+                            entry->stride = new_stride;
+                    }
+
+                    DPRINTF(HWPrefetch, "Hit: PC %x pkt_addr %x (%s) stride %d (%s), "
+                            "conf %d\n", pc, pkt_addr, is_secure ? "s" : "ns", new_stride,
+                            stride_match ? "match" : "change",
+                            entry->confidence);
+
+                    entry->lastAddr = pkt_addr;
+
+                    // Only generation if above confidence threshold
+                    if (entry->confidence >= threshConf) {
+                        if (new_stride % (MJL_rowWidth * blkSize) == 0) {
+                            predictedDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+                        } else {
+                            predictedDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                        }
+                    }
+                } else {
+                    // Miss in table
+                    DPRINTF(HWPrefetch, "Miss: PC %x pkt_addr %x (%s)\n", pc, pkt_addr,
+                            is_secure ? "s" : "ns");
+
+                    StrideEntry* entry = pcTableVictim(pc, master_id);
+                    entry->instAddr = pc;
+                    entry->lastAddr = pkt_addr;
+                    entry->isSecure= is_secure;
+                    entry->stride = 0;
+                    entry->confidence = startConf;
+                }
+            }
+            return predictedDir;
+        }
+    };
+
+    MJL_DirPredictor * MJL_dirPredictor;
+    bool MJL_predictDir;
+    /* MJL_End */
 
     /** Temporary cache block for occasional transitory use */
     CacheBlk *tempBlock;

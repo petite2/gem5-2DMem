@@ -228,20 +228,20 @@ StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             int prefetch_stride = new_stride;
             /* MJL_Begin */
             Addr new_addr;
-            if (MJL_predictDir) {
-                if (new_stride % (MJL_getRowWidth() * blkSize) == 0) {
-                    MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-                    if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize) {
-                        prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize;
-                    }
-                } else if (abs(new_stride) < blkSize) {
-                    prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
-                }
-            } else {
+            // if (MJL_predictDir) {
+            //     if (new_stride % (MJL_getRowWidth() * blkSize) == 0) {
+            //         MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+            //         if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize) {
+            //             prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize;
+            //         }
+            //     } else if (abs(new_stride) < blkSize) {
+            //         prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
+            //     }
+            // } else {
                 if (abs(new_stride) < blkSize) {
                     prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
                 }
-            }
+            // }
             /* MJL_End */
             /* MJL_Comment
             if (abs(new_stride) < blkSize) {

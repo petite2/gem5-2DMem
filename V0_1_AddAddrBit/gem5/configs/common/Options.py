@@ -123,7 +123,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_timeStep", action="store", type="int", default=0, help="Set the time step for intermediate outputs, default no intermediate output")
     parser.add_option("--MJL_2DL2TransferType", action="store", type="int", default=0, help="Set the type of transfer method from memory to L2 cache in physically 2D cache, 0 for per line on demand, 1 for whole tile")
     parser.add_option("--MJL_extra2DWrite_latency", action="store", type="int", default=0, help="Set the additional cycles needed for a physically 2D write access")
-    parser.add_option("--MJL_predictDir", action="store_true", help="Let prefetcher decide whether prefetch in column or row")
+    parser.add_option("--MJL_predictDir", action="store_true", help="Let direction predictor decide whether to generate miss in column or row (in L1Dcache)")
     parser.add_option("--MJL_colPf", action="store_true", help="Let prefetcher prefetch in column")
     # MJL_End
 

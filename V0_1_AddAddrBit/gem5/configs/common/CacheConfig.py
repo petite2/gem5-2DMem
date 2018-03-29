@@ -167,7 +167,7 @@ def config_cache(options, system):
                                   , MJL_VecListFile=options.MJL_VecListFile\
                                   , MJL_timeStep=options.MJL_timeStep\
                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
-                                  # , MJL_predictDir=options.MJL_predictDir\
+                                  , MJL_predictDir=options.MJL_predictDir\
                                   # MJL_End
                                   )
 

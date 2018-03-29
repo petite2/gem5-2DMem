@@ -89,8 +89,6 @@ class BasePrefetcher : public ClockedObject
     /** Consult prefetcher on instruction accesses? */
     bool onInst;
     /* MJL_Begin */
-    /** Let prefetcher decide whether prefetch in column or row */
-    bool MJL_predictDir;
     bool MJL_colPf;
     const Addr MJL_colPageSize;
     /* MJL_End */
