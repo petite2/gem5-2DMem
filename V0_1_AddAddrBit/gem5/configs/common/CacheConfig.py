@@ -88,11 +88,11 @@ def config_cache(options, system):
                                    size=options.l2_size,
                                    assoc=options.l2_assoc\
                                    # MJL_Begin
-                                   # , MJL_row_width=options.MJL_row_width\
                                    , MJL_2D_Cache=options.MJL_2DL2Cache\
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
                                    , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
+                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    # MJL_End
                                    )
 
@@ -103,11 +103,9 @@ def config_cache(options, system):
         if options.l3cache:
             fatal("Having l3 implies having l2, shouldn't have both flags set at the same time")
         if options.MJL_Prefetcher:
-            if options.MJL_predictDir and not options.MJL_colPf:
-                fatal("Cannot be prediction prefetch preference if column prefetch not activated");
-            system.l2.prefetcher = L2StridePrefetcher(MJL_predictDir = options.MJL_predictDir, MJL_colPf = options.MJL_colPf) 
+            system.l2.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf) 
         # MJL_End
-    # MJL_Begin MJL_TODO
+    # MJL_Begin
     if options.l3cache:
         # Provide a clock for the L2 and the L1-to-L2 bus here as they
         # are not connected using addTwoLevelCacheHierarchy. Use the
@@ -116,10 +114,8 @@ def config_cache(options, system):
                                    size=options.l2_size,
                                    assoc=options.l2_assoc\
                                    # MJL_Begin
-                                   # , MJL_row_width=options.MJL_row_width\
-                                   # , MJL_2D_Cache=options.MJL_2DL2Cache\
                                    , MJL_timeStep=options.MJL_timeStep\
-                                   # , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
+                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    # MJL_End
                                    )
 
@@ -133,11 +129,11 @@ def config_cache(options, system):
                                    , mshrs=20
                                    , tgts_per_mshr=12
                                    , write_buffers=8
-                                   # , MJL_row_width=options.MJL_row_width\
                                    , MJL_2D_Cache=options.MJL_2DL2Cache\
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
                                    , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
+                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    # MJL_End
                                    )
 
@@ -150,9 +146,7 @@ def config_cache(options, system):
         system.l3.cpu_side = system.tol3bus.master
         system.l3.mem_side = system.membus.slave
         if options.MJL_Prefetcher:
-            if options.MJL_predictDir and not options.MJL_colPf:
-                fatal("Cannot be prediction prefetch preference if column prefetch not activated");
-            system.l3.prefetcher = L2StridePrefetcher(MJL_predictDir = options.MJL_predictDir, MJL_colPf = options.MJL_colPf) 
+            system.l3.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf) 
     # MJL_End
 
     if options.memchecker:
@@ -163,17 +157,17 @@ def config_cache(options, system):
             icache = icache_class(size=options.l1i_size,
                                   assoc=options.l1i_assoc\
                                   # MJL_Begin
-                                  # , MJL_row_width=options.MJL_row_width\
                                   , MJL_timeStep=options.MJL_timeStep\
                                   # MJL_End
                                   )
             dcache = dcache_class(size=options.l1d_size,
                                   assoc=options.l1d_assoc\
                                   # MJL_Begin
-                                  # , MJL_row_width=options.MJL_row_width,
                                   , MJL_PC2DirFile=options.MJL_PC2DirFile\
                                   , MJL_VecListFile=options.MJL_VecListFile\
                                   , MJL_timeStep=options.MJL_timeStep\
+                                  , MJL_has2DLLC=options.MJL_2DL2Cache\
+                                  # , MJL_predictDir=options.MJL_predictDir\
                                   # MJL_End
                                   )
 
@@ -232,7 +226,7 @@ def config_cache(options, system):
         system.cpu[i].createInterruptController()
         if options.l2cache:
             system.cpu[i].connectAllPorts(system.tol2bus, system.membus)
-        # MJL_Begin MJL_TODO
+        # MJL_Begin
         elif options.l3cache:
             system.cpu[i].connectAllPorts(system.tol2bus, system.membus)
         # MJL_End

@@ -56,6 +56,7 @@ class BaseCache(MemObject):
     MJL_row_width = Param.Int(Parent.MJL_row_width, "Row size in number of cachelines")
     MJL_default_column = Param.Bool(Parent.MJL_default_column, "Set default preference of all data accesses to column")
     MJL_2D_Cache = Param.Bool(False, "Set the corresponding cache to physically 2D cache")
+    MJL_has2DLLC = Param.Bool(False, "There is a physically 2D LLC in the memory system")
     MJL_timeStep = Param.Cycles(0, "Time step of intermediate output in cycles")
     MJL_2D_Transfer_Type = Param.Int(0, "Set the type of transfer method from memory to L2 cache in physically 2D cache, 0 for per line on demand, 1 for whole tile")
     MJL_extra2DWrite_latency = Param.Cycles(0,"Additional data write access latency for physically 2D caches")
@@ -122,4 +123,5 @@ class Cache(BaseCache):
     # MJL_Begin
     MJL_PC2DirFile = Param.String("PC2Dir.txt", "File with PC to direction mapping")
     MJL_VecListFile = Param.String("", "File with list of PC numbers of vector instructions")
+    # MJL_predictDir = Param.Bool(False, "Let direction predictor decide whether to generate miss in column or row")
     # MJL_End
