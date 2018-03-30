@@ -88,11 +88,14 @@ def config_cache(options, system):
                                    size=options.l2_size,
                                    assoc=options.l2_assoc\
                                    # MJL_Begin
+                                   , tag_latency=6
+                                   , data_latency=9
                                    , MJL_2D_Cache=options.MJL_2DL2Cache\
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
                                    , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
+                                   , sequential_access=True\
                                    # MJL_End
                                    )
 
@@ -114,8 +117,11 @@ def config_cache(options, system):
                                    size=options.l2_size,
                                    assoc=options.l2_assoc\
                                    # MJL_Begin
+                                   , tag_latency=6
+                                   , data_latency=9
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
+                                   , sequential_access=True\
                                    # MJL_End
                                    )
 
@@ -123,8 +129,8 @@ def config_cache(options, system):
                                    size=options.l3_size,
                                    assoc=options.l3_assoc\
                                    # MJL_Begin
-                                   , tag_latency=20
-                                   , data_latency=20
+                                   , tag_latency=8
+                                   , data_latency=12
                                    , response_latency=20
                                    , mshrs=20
                                    , tgts_per_mshr=12
@@ -134,6 +140,7 @@ def config_cache(options, system):
                                    , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
                                    , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
+                                   , sequential_access=True\
                                    # MJL_End
                                    )
 

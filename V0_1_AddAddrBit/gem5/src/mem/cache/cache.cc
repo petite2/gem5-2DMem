@@ -106,7 +106,7 @@ Cache::Cache(const CacheParams *p)
     
     std::cout << "MJL_2DCache? " << MJL_2DCache << std::endl;
     if (MJL_predictDir) {
-        MJL_dirPredictor = new MJL_dirPredictor(blkSize, MJL_rowWidth);
+        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth);
     }
     /* MJL_End */
 }

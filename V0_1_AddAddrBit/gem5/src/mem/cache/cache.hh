@@ -411,8 +411,10 @@ class Cache : public BaseCache
                 chatty_assert(res.second, "Allocating an already created context\n");
                 assert(it->first == context);
 
+                /* MJL_Comemnt 
                 DPRINTF(HWPrefetch, "Adding context %i with stride entries at %p\n",
                         context, it->second);
+                 */
 
                 StrideEntry** entry = it->second;
                 for (int s = 0; s < pcTableSets; s++) {
@@ -422,7 +424,7 @@ class Cache : public BaseCache
             }
         };
         PCTable pcTable;
-        int floorLog2(unsigned x) {
+        int floorLog2(unsigned x) const {
             assert(x > 0);
 
             int y = 0;
@@ -449,7 +451,9 @@ class Cache : public BaseCache
                 // Search ways for match
                 if (set_entries[way].instAddr == pc &&
                     set_entries[way].isSecure == is_secure) {
+                    /* MJL_Comment 
                     DPRINTF(HWPrefetch, "Lookup hit table[%d][%d].\n", set, way);
+                     */
                     entry = &set_entries[way];
                     return true;
                 }
@@ -462,7 +466,9 @@ class Cache : public BaseCache
             int set = pcHash(pc);
             int way = random_mt.random<int>(0, pcTableAssoc - 1);
 
+            /* MJL_Comment 
             DPRINTF(HWPrefetch, "Victimizing lookup table[%d][%d].\n", set, way);
+             */
             return &pcTable[master_id][set][way];
         }
 
@@ -475,11 +481,9 @@ class Cache : public BaseCache
         virtual ~MJL_DirPredictor() {}
 
         bool observeAccess(const PacketPtr &pkt) const {
-            Addr addr = pkt->getAddr();
             bool fetch = pkt->req->isInstFetch();
             bool read = pkt->isRead();
             bool inv = pkt->isInvalidate();
-            bool is_secure = pkt->isSecure();
 
             if (pkt->req->isUncacheable()) return false;
             if (fetch) return false;
@@ -520,10 +524,12 @@ class Cache : public BaseCache
                             entry->stride = new_stride;
                     }
 
+                    /* MJL_Comment 
                     DPRINTF(HWPrefetch, "Hit: PC %x pkt_addr %x (%s) stride %d (%s), "
                             "conf %d\n", pc, pkt_addr, is_secure ? "s" : "ns", new_stride,
                             stride_match ? "match" : "change",
                             entry->confidence);
+                     */
 
                     entry->lastAddr = pkt_addr;
 
@@ -537,8 +543,10 @@ class Cache : public BaseCache
                     }
                 } else {
                     // Miss in table
+                    /* MJL_Comment 
                     DPRINTF(HWPrefetch, "Miss: PC %x pkt_addr %x (%s)\n", pc, pkt_addr,
                             is_secure ? "s" : "ns");
+                     */
 
                     StrideEntry* entry = pcTableVictim(pc, master_id);
                     entry->instAddr = pc;
