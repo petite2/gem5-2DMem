@@ -1551,17 +1551,23 @@ Cache::recvTimingReq(PacketPtr pkt)
                     // point it must have seemed like we needed it...
                     /* MJL_Test */
                     if (!pkt->needsWritable()) {
-                        std::cout << this->name() << "::MJL_Debug: needsWritable 2D: " << pkt->print() << " dir " << pkt->MJL_getCmdDir() << " blkTag " << blk->tag << " blkSet " << blk->set << " blkReadable " << blk->isReadable() << std::endl;
+                        std::cout << this->name() << "::MJL_Debug: needsWritable 2D: " << pkt->print() << " | " << blk->print()  << std::endl;
                     }/* */ 
                     /* MJL_Test  
                     else {
-                        std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingReq setting unreadable " << pkt->print() << " dir " << pkt->MJL_getCmdDir() << " blkTag " << blk->tag << " blkSet " << blk->set << " wasblkReadable " << blk->isReadable() << std::endl;
+                        std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingReq setting unreadable " << pkt->print() << " | " << blk->print() << std::endl;
                     }
                      */
                     assert(pkt->needsWritable());
                     assert(!blk->isWritable());
                     blk->status &= ~BlkReadable;
                     /* MJL_Begin */
+                    // When cross hit missing writable, should be getting permit for the hit blk instead of bringing in a new cross block?
+                    if (blk->MJL_blkDir != pkt->MJL_getCmdDir()) {
+                        assert(pkt->getSize() <= sizeof(uint64_t));
+                        pkt->cmd.MJL_setCmdDir(blk->MJL_blkDir);
+                        pkt->MJL_setDataDir(blk->MJL_blkDir);
+                    }
                     // Write miss, crossing blocks should have been invalidated
                     // MJL_unreadableOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure());
                     /* MJL_End */
@@ -2419,8 +2425,8 @@ Cache::recvTimingResp(PacketPtr pkt)
         // avoid later read getting stale data while write miss is
         // outstanding.. see comment in timingAccess()
         if (blk/* MJL_Begin */ && !MJL_2DCache/* MJL_End */) {
-            /* MJL_Test 
-            std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingResp setting unreadable " << pkt->print() << " dir " << pkt->MJL_getCmdDir() << " blkTag " << blk->tag << " blkSet " << blk->set << " wasblkReadable " << blk->isReadable() << std::endl;
+            /* MJL_Test  
+            std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingResp setting unreadable " << pkt->print() << " | " << blk->print() << std::endl;
              */
             blk->status &= ~BlkReadable;
         }/* MJL_Begin */ else if (blk && MJL_2DCache) {

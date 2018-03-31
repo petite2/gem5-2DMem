@@ -556,9 +556,16 @@ class CacheBlk
           case 0b000: s = 'I'; break;
           default:    s = 'T'; break; // @TODO add other types
         }
+        /* MJL_Comment 
         return csprintf("state: %x (%c) valid: %d writable: %d readable: %d "
                         "dirty: %d tag: %x", status, s, isValid(),
                         isWritable(), isReadable(), isDirty(), tag);
+         */
+        /* MJL_Begin */
+        return csprintf("state: %x (%c) valid: %d writable: %d readable: %d "
+                        "dirty: %d tag: %x set: %x blkdir: %d", status, s, isValid(),
+                        isWritable(), isReadable(), isDirty(), tag, set, MJL_blkDir);
+        /* MJL_End */
     }
 
     /**
