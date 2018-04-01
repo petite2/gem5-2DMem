@@ -55,7 +55,9 @@
 using namespace std;
 
 BaseTags::BaseTags(const Params *p)
-    : ClockedObject(p), blkSize(p->block_size)/* MJL_Begin */, MJL_rowWidth(p->MJL_rowWidth), MJL_timeStep(p->MJL_timeStep)/* MJL_End */, size(p->size),
+    : ClockedObject(p), blkSize(p->block_size)/* MJL_Begin */, 
+      MJL_rowWidth(p->MJL_rowWidth), MJL_timeStep(p->MJL_timeStep), 
+      MJL_timeStepScheduled(false)/* MJL_End */, size(p->size),
       lookupLatency(p->tag_latency),
       accessLatency(p->sequential_access ?
                     p->tag_latency + p->data_latency :
@@ -68,9 +70,9 @@ BaseTags::BaseTags(const Params *p)
     std::cout << this->name() << "::MJL_rowWidth = " << MJL_rowWidth << "\n";
     // MJL_Test: Test to see if the parameter of MJL_timeStep has been passed in correctly
     std::cout << this->name() << "::MJL_timeStep = " << MJL_timeStep << std::endl;
-    if (MJL_timeStep > 0) {
-        schedule(MJL_printUtilizationEvent, curTick() + 1);
-    }
+    // if (MJL_timeStep > 0) {
+    //     schedule(MJL_printUtilizationEvent, curTick() + 1);
+    // }
     /* MJL_End */
 }
 

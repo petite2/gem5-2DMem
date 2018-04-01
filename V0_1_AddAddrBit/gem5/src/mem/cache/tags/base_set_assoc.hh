@@ -270,6 +270,12 @@ public:
     CacheBlk* accessBlock(Addr addr, bool is_secure, Cycles &lat,
                           int context_src) override
     {
+        /* MJL_Begin */
+        if (!MJL_timeStepScheduled && MJL_timeStep > 0) {
+            schedule(MJL_printUtilizationEvent, curTick() + 1);
+            MJL_timeStepScheduled = true;
+        }
+        /* MJL_End */
         Addr tag = extractTag(addr);
         int set = extractSet(addr);
         BlkType *blk = sets[set].findBlk(tag, is_secure);
@@ -309,6 +315,10 @@ public:
     CacheBlk* MJL_accessBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, Cycles &lat,
                           int context_src) override
     {
+        if (!MJL_timeStepScheduled && MJL_timeStep > 0) {
+            schedule(MJL_printUtilizationEvent, curTick() + 1);
+            MJL_timeStepScheduled = true;
+        }
         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             Addr tag = MJL_extractTag(addr, MJL_cacheBlkDir);
             int set = MJL_extractSet(addr, MJL_cacheBlkDir);

@@ -263,7 +263,9 @@ StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             if (samePage(pkt_addr, new_addr) || (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colSamePage(pkt_addr, new_addr))) {
                 DPRINTF(HWPrefetch, "Queuing prefetch to %#x.\n", new_addr);
                 addresses.push_back(AddrPriority(new_addr, 0));
+                /* MJL_Test 
                 std::cout << "MJL_Debug: prefetch address " << std::hex << new_addr << std::dec << " calculated from pkt " << pkt->print() << std::endl; 
+                 */
             } else {
                 // Record the number of page crossing prefetches generated
                 pfSpanPage += degree - d + 1;

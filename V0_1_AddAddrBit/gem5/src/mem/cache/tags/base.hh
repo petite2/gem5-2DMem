@@ -71,6 +71,7 @@ class BaseTags : public ClockedObject
     /** The size of a row in the memory system (how many cachelines) */
     const unsigned MJL_rowWidth;
     const Cycles MJL_timeStep;
+    bool MJL_timeStepScheduled;
     /* MJL_End */
     /** The size of the cache. */
     const unsigned size;

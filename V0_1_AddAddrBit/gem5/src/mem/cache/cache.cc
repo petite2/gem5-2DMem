@@ -1711,13 +1711,13 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
     }
 
     /* MJL_End */
-    /* MJL_Test */
+    /* MJL_Test 
     if (this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         if (cpu_pkt->cmd == MemCmd::HardPFReq ) {
             std::cout << "MJL_colPfDebug: prefetch triggered miss packet " << pkt->print() << std::endl;
         }
     }
-    /* */
+     */
     /* MJL_Comment
     assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
     */
@@ -3878,9 +3878,11 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
     // MSHR hit, set setBlockCached.
     /* MJL_Begin */
     // Should also check for cross direction existence for mshr. This only needs to happen with a physically 2D L2 cache, but since the check is in L1, it will be done regardless. The structure is only going to be used in physically 2D L2 cache though.
+    /* MJL_Test
     if (pkt->getAddr() == 1576960) {
         std::cout << this->name() << "MJL_Debug: point Beginning of recvTimingSnoopReq " << std::endl;
     }
+     */
     if ((this->name().find("dcache") != std::string::npos || (MJL_has2DLLC && !MJL_2DCache)) && pkt->mustCheckAbove()) {
         MSHR *MJL_crossMshr = nullptr;
         for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
@@ -5105,11 +5107,11 @@ CacheParams::create()
 bool
 Cache::MemSidePort::recvTimingResp(PacketPtr pkt)
 {
-    /* MJL_Test */
+    /* MJL_Test 
     if (this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         std::cout << "MJL_pfDebug: recvTimingResp " << pkt->print() << std::endl;
     }
-    /* */
+     */
     cache->recvTimingResp(pkt);
     return true;
 }
