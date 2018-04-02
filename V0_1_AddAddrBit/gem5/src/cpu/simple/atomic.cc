@@ -388,9 +388,9 @@ AtomicSimpleCPU::readMem(Addr addr, uint8_t * data, unsigned size,
                     std::string MJL_inst_mnemonic(curStaticInst->disassemble(thread->pcState().instAddr()));
                     if ((MJL_inst_mnemonic.find("mjl") != std::string::npos) && (MJL_inst_mnemonic.find("vec") != std::string::npos)) {
                         pkt.req->MJL_setVec();
-                        /* MJL_Test: test for mulsd to vec */
+                        /* MJL_Test: test for mulsd to vec 
                         std::cout << "MJL_Vec_inst: PC(hex) " << std::hex << pkt.req->getPC() << std::dec << ", " << MJL_inst_mnemonic << "\n";
-                        /* */
+                         */
                     }
                     dcache_latency += dcachePort.sendAtomic(&pkt);
                 }
