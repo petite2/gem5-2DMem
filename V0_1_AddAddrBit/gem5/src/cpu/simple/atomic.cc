@@ -388,10 +388,18 @@ AtomicSimpleCPU::readMem(Addr addr, uint8_t * data, unsigned size,
                     std::string MJL_inst_mnemonic(curStaticInst->disassemble(thread->pcState().instAddr()));
                     if ((MJL_inst_mnemonic.find("mjl") != std::string::npos) && (MJL_inst_mnemonic.find("vec") != std::string::npos)) {
                         pkt.req->MJL_setVec();
-                        /* MJL_Test: test for mulsd to vec 
-                        std::cout << "MJL_Vec_inst: PC(hex) " << std::hex << pkt.req->getPC() << std::dec << ", " << MJL_inst_mnemonic << "\n";
-                         */
                     }
+                    /* MJL_Test 
+                    // test for movdqa to vec 
+                    if (MJL_inst_mnemonic.find("MOVDQA_XMM_M") != std::string::npos) {
+                        std::cout << "MJL_Vec_inst: pkt " << pkt.print() << ", " << MJL_inst_mnemonic;
+                        dcache_latency += dcachePort.sendAtomic(&pkt);
+                        std::cout << ", reponse: " << pkt.print() << std::endl;
+                        if ((MJL_inst_mnemonic.find("mjl") != std::string::npos) && (MJL_inst_mnemonic.find("vec") != std::string::npos)) {
+                            std::cout << std::endl;
+                        }
+                    } else
+                     */
                     dcache_latency += dcachePort.sendAtomic(&pkt);
                 }
                     /* MJL_End */
@@ -528,6 +536,12 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
                     if ((MJL_inst_mnemonic.find("mjl") != std::string::npos) && (MJL_inst_mnemonic.find("vec") != std::string::npos)) {
                         pkt.req->MJL_setVec();
                     }
+                    /* MJL_Test 
+                    // test for conv MOVDQA problem
+                    if (pkt.getAddr() == 0x123a88 && pkt.isWrite()) {
+                        std::cout << "MJL_debug: " << pkt.print() << std::endl;
+                    }
+                     */
                     dcache_latency += dcachePort.sendAtomic(&pkt);
                 }
                     /* MJL_End */

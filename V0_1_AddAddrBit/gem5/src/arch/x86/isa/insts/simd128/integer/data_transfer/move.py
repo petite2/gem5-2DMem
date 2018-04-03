@@ -36,95 +36,6 @@
 # Authors: Gabe Black
 
 # MJL_Begin 
-# microcode = '''
-# def macroop MOVQ_XMM_XMM {
-#     movfp xmml, xmmlm
-#     lfpimm xmmh, 0
-# };
-
-# def macroop MOVQ_XMM_M {
-#     ldfp xmml, seg, sib, disp, dataSize=8
-#     lfpimm xmmh, 0
-# };
-
-# def macroop MOVQ_XMM_P {
-#     rdip t7
-#     ldfp xmml, seg, riprel, disp, dataSize=8
-#     lfpimm xmmh, 0
-# };
-
-# def macroop MOVQ_M_XMM {
-#     stfp xmml, seg, sib, disp, dataSize=8
-# };
-
-# def macroop MOVQ_P_XMM {
-#     rdip t7
-#     stfp xmml, seg, riprel, disp, dataSize=8
-# };
-
-# def macroop MOVDQ2Q_MMX_XMM {
-#     movfp mmx, xmml, dataSize=8
-# };
-
-# def macroop MOVQ2DQ_XMM_MMX {
-#     movfp xmml, mmxm, dataSize=8
-#     lfpimm xmmh, 0
-# };
-
-# def macroop MOVDQA_XMM_XMM {
-#     movfp xmml, xmmlm
-#     movfp xmmh, xmmhm
-# };
-
-# def macroop MOVDQA_XMM_M {
-#     mjl_ldfpvec (xmml, xmmh), seg, sib, "DISPLACEMENT", dataSize=8
-# };
-
-# def macroop MOVDQA_XMM_P {
-#     rdip t7
-#     ldfp xmml, seg, riprel, "DISPLACEMENT", dataSize=8
-#     ldfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
-# };
-
-# def macroop MOVDQA_M_XMM {
-#     mjl_stfpvec (xmml, xmmhm), seg, sib, "DISPLACEMENT", dataSize=8
-# };
-
-# def macroop MOVDQA_P_XMM {
-#     rdip t7
-#     stfp xmml, seg, riprel, "DISPLACEMENT", dataSize=8
-#     stfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
-# };
-
-# def macroop MOVDQU_XMM_XMM {
-#     movfp xmml, xmmlm
-#     movfp xmmh, xmmhm
-# };
-
-# def macroop MOVDQU_XMM_M {
-#     ldfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
-#     ldfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
-# };
-
-# def macroop MOVDQU_XMM_P {
-#     rdip t7
-#     ldfp xmml, seg, riprel, "DISPLACEMENT", dataSize=8
-#     ldfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
-# };
-
-# def macroop MOVDQU_M_XMM {
-#     stfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
-#     stfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
-# };
-
-# def macroop MOVDQU_P_XMM {
-#     rdip t7
-#     stfp xmml, seg, riprel, "DISPLACEMENT", dataSize=8
-#     stfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
-# };
-# '''
-# MJL_End 
-# MJL_Comment
 microcode = '''
 def macroop MOVQ_XMM_XMM {
     movfp xmml, xmmlm
@@ -166,8 +77,7 @@ def macroop MOVDQA_XMM_XMM {
 };
 
 def macroop MOVDQA_XMM_M {
-    ldfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
-    ldfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
+    mjl_ldfpvec (xmml, xmmh), seg, sib, "DISPLACEMENT", dataSize=8
 };
 
 def macroop MOVDQA_XMM_P {
@@ -177,8 +87,7 @@ def macroop MOVDQA_XMM_P {
 };
 
 def macroop MOVDQA_M_XMM {
-    stfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
-    stfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
+    mjl_stfpvec (xmml, xmmh), seg, sib, "DISPLACEMENT", dataSize=8
 };
 
 def macroop MOVDQA_P_XMM {
@@ -214,4 +123,95 @@ def macroop MOVDQU_P_XMM {
     stfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
 };
 '''
+# MJL_End 
+# MJL_Comment
+# microcode = '''
+# def macroop MOVQ_XMM_XMM {
+#     movfp xmml, xmmlm
+#     lfpimm xmmh, 0
+# };
+
+# def macroop MOVQ_XMM_M {
+#     ldfp xmml, seg, sib, disp, dataSize=8
+#     lfpimm xmmh, 0
+# };
+
+# def macroop MOVQ_XMM_P {
+#     rdip t7
+#     ldfp xmml, seg, riprel, disp, dataSize=8
+#     lfpimm xmmh, 0
+# };
+
+# def macroop MOVQ_M_XMM {
+#     stfp xmml, seg, sib, disp, dataSize=8
+# };
+
+# def macroop MOVQ_P_XMM {
+#     rdip t7
+#     stfp xmml, seg, riprel, disp, dataSize=8
+# };
+
+# def macroop MOVDQ2Q_MMX_XMM {
+#     movfp mmx, xmmlm, dataSize=8
+# };
+
+# def macroop MOVQ2DQ_XMM_MMX {
+#     movfp xmml, mmxm, dataSize=8
+#     lfpimm xmmh, 0
+# };
+
+# def macroop MOVDQA_XMM_XMM {
+#     movfp xmml, xmmlm
+#     movfp xmmh, xmmhm
+# };
+
+# def macroop MOVDQA_XMM_M {
+#     ldfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
+#     ldfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
+# };
+
+# def macroop MOVDQA_XMM_P {
+#     rdip t7
+#     ldfp xmml, seg, riprel, "DISPLACEMENT", dataSize=8
+#     ldfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
+# };
+
+# def macroop MOVDQA_M_XMM {
+#     stfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
+#     stfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
+# };
+
+# def macroop MOVDQA_P_XMM {
+#     rdip t7
+#     stfp xmml, seg, riprel, "DISPLACEMENT", dataSize=8
+#     stfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
+# };
+
+# def macroop MOVDQU_XMM_XMM {
+#     movfp xmml, xmmlm
+#     movfp xmmh, xmmhm
+# };
+
+# def macroop MOVDQU_XMM_M {
+#     ldfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
+#     ldfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
+# };
+
+# def macroop MOVDQU_XMM_P {
+#     rdip t7
+#     ldfp xmml, seg, riprel, "DISPLACEMENT", dataSize=8
+#     ldfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
+# };
+
+# def macroop MOVDQU_M_XMM {
+#     stfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
+#     stfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
+# };
+
+# def macroop MOVDQU_P_XMM {
+#     rdip t7
+#     stfp xmml, seg, riprel, "DISPLACEMENT", dataSize=8
+#     stfp xmmh, seg, riprel, "DISPLACEMENT + 8", dataSize=8
+# };
+# '''
 # LDDQU
