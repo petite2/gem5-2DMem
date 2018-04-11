@@ -562,6 +562,7 @@ class Cache : public BaseCache
 
     MJL_DirPredictor * MJL_dirPredictor;
     bool MJL_predictDir;
+    bool MJL_ignoreExtraTagCheckLatency;
     /* MJL_End */
 
     /** Temporary cache block for occasional transitory use */

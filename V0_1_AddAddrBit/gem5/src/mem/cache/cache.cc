@@ -67,7 +67,8 @@ Cache::Cache(const CacheParams *p)
     : BaseCache(p, p->system->cacheLineSize()),
       tags(p->tags),
       prefetcher(p->prefetcher),/* MJL_Begin */
-      MJL_predictDir(p->MJL_predictDir), /* MJL_End */
+      MJL_predictDir(p->MJL_predictDir), 
+      MJL_ignoreExtraTagCheckLatency(p->MJL_ignoreExtraTagCheckLatency), /* MJL_End */
       doFastWrites(true),
       prefetchOnAccess(p->prefetch_on_access),
       clusivity(p->clusivity),
@@ -1237,7 +1238,7 @@ Cache::recvTimingReq(PacketPtr pkt)
         satisfied = access(pkt, blk, lat, writebacks);
         /* MJL_Begin */
         // Add the additional tag check latency for misses
-        if (!MJL_2DCache && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && 
+        if (!MJL_2DCache && (!(MJL_ignoreExtraTagCheckLatency && this->name().find("l2") != std::string::npos)) && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && 
             ((!satisfied && !pkt->req->isUncacheable() && pkt->cmd != MemCmd::CleanEvict && !pkt->isWriteback())
             || (satisfied && pkt->cmd == MemCmd::WritebackDirty))) {
             forward_time = clockEdge(Cycles( blkSize/sizeof(uint64_t) * forwardLatency)) + pkt->headerDelay;
@@ -4523,6 +4524,9 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->cmd.MJL_setCmdDir(InputDir);
         pkt->req->MJL_setReqDir(InputDir);
         pkt->MJL_setDataDir(InputDir);
+        /* MJL_Test 
+        std::cout << this->name() << "::recvTimingReq MJL_debug: " << pkt->print() << std::endl;
+         */
     }
 
     // Assign dirty bits for write requests at L1D$
@@ -4732,6 +4736,9 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         pkt->cmd.MJL_setCmdDir(InputDir);
         pkt->req->MJL_setReqDir(InputDir);
         pkt->MJL_setDataDir(InputDir);
+        /* MJL_Test 
+        std::cout << this->name() << "::recvAtomic MJL_debug: " << pkt->print() << std::endl; 
+         */
     }
 
     // Assign dirty bits for write requests at L1D$
@@ -4886,6 +4893,13 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     }
      */
 
+    /* MJL_Test 
+    if ((pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos)
+        && (cache->MJL_PC2DirMap.find(pkt->req->getPC()) != cache->MJL_PC2DirMap.end())) {
+        std::cout << this->name() << "::recvAtomic MJL_debug: " << pkt->print() << std::endl;
+    }
+     */
     if (this->name().find("dcache") != std::string::npos && pkt->isResponse()) {
         /* MJL_Test: Respnse packet information output  
         std::cout << this->name() << "::recvAtomicPostAcc";
