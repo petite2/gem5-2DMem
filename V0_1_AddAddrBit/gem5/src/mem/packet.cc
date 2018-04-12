@@ -640,10 +640,12 @@ Packet::print(ostream &o, const int verbosity, const string &prefix) const
         }
         dataStr << std::dec;
     }
-    ccprintf(o, "%s%s %x:%s (%s) [%x:%x]%s%s%s%s", prefix, cmdString(),
+    ccprintf(o, "%s%s:%s %x:%s (%s):%s [%x:%x] %s%s%s%s", prefix, cmdString(),
+             MJL_cmdIsRow() ? "r" : "c",
              req->hasPC() ? req->getPC() : 0,
              req->MJL_reqIsRow() ? "r" : "c",
              hasData() ? dataStr.str() : "noData",
+             MJL_dataIsRow() ? "r" : "c",
     /* MJL_End */
              getAddr(), getAddr() + getSize() - 1,
              req->isSecure() ? " (s)" : "",

@@ -867,6 +867,18 @@ BaseCache::regStats()
         ;
     MJL_overallColumnAccesses = MJL_overallColumnHits + MJL_overallColumnMisses;
 
+    MJL_rowAccColHit
+        .name(name() + ".MJL_rowAccColHit")
+        .desc("number of column hits with row data")
+        .flags(nozero)
+        ;
+    
+     MJL_colAccRowHit
+        .name(name() + ".MJL_colAccRowHit")
+        .desc("number of row hits with column data")
+        .flags(nozero)
+        ;
+
     MJL_conflictWBCount1
         .name(name() + ".MJL_conflictWBCount1")
         .desc("number of writebacks that are caused by conflict accesses")

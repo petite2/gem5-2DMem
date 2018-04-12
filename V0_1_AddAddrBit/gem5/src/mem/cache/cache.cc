@@ -889,6 +889,11 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // OK to satisfy access
         incHitCount(pkt);
         /* MJL_Begin */
+        if (pkt->MJL_cmdIsRow() && blk->MJL_isColumn()) {
+            MJL_rowAccColHit++;
+        } else if (pkt->MJL_cmdIsColumn() && blk->MJL_isRow()) {
+            MJL_colAccRowHit++;
+        }
         if (MJL_2DCache) {
             MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
         }
@@ -4572,8 +4577,10 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         std::cout << std::endl;
     }
      */
-    //std::cout << "MJL_colPfDebug: " << pkt->print() << std::endl;
-    
+    /* MJL_Test
+    std::cout << this->name() << "::MJL_predDebug: recvTimingReq " << pkt->print() << std::endl;
+     */    
+
     // Column vector access handler
     if ((pkt->req->hasPC())
         && (this->name().find("dcache") != std::string::npos) && !blocked && !mustSendRetry
@@ -5121,9 +5128,9 @@ CacheParams::create()
 bool
 Cache::MemSidePort::recvTimingResp(PacketPtr pkt)
 {
-    /* MJL_Test 
+    /* MJL_Test  
     if (this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
-        std::cout << "MJL_pfDebug: recvTimingResp " << pkt->print() << std::endl;
+        std::cout << this->name() << "MJL_predDebug: recvTimingResp " << pkt->print() << std::endl;
     }
      */
     cache->recvTimingResp(pkt);
