@@ -965,6 +965,11 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         CacheBlk *MJL_crossBlk = nullptr;
         Addr MJL_crossBlkAddr;
         Cycles templat = lat;
+        if (MJL_predictDir) {
+            MemCmd::MJL_DirAttribute MJL_predDir = MJL_dirPredictor->MJL_predictDir(pkt);
+            pkt->cmd.MJL_setCmdDir(MJL_predDir);
+            pkt->MJL_setDataDir(MJL_predDir);
+        }
         for (unsigned MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
             // Get the address of each word in the cache line
             MJL_crossBlkAddr = MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir(), MJL_offset);
@@ -1383,7 +1388,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                 }
                 req->MJL_cachelineSize = blkSize;
                 req->MJL_rowWidth = MJL_rowWidth;
-                // MJL_TODO: not sure whether this would cause problem, but I would assume that reqDir should be the same as cmdDir
+                // MJL_TODO: not sure whether this would cause problem, but reqDir may not be the same as cmdDir
                 //assert(pkt->req->MJL_getReqDir() == pkt->MJL_getCmdDir());
                 /* MJL_End */
                 pf = new Packet(req, pkt->cmd);
@@ -1581,13 +1586,13 @@ Cache::recvTimingReq(PacketPtr pkt)
                 // Here we are using forward_time, modelling the latency of
                 // a miss (outbound) just as forwardLatency, neglecting the
                 // lookupLatency component.
-                /* MJL_Begin */
+                /* MJL_Begin 
                 if (MJL_predictDir) {
                     MemCmd::MJL_DirAttribute MJL_predDir = MJL_dirPredictor->MJL_predictDir(pkt);
                     pkt->cmd.MJL_setCmdDir(MJL_predDir);
                     pkt->MJL_setDataDir(MJL_predDir);
                 }
-                /* MJL_End */
+                 MJL_End */
                 allocateMissBuffer(pkt, forward_time);
                 /* MJL_Begin */
                 if (MJL_2DCache && MJL_2DTransferType == 1) {
@@ -4577,7 +4582,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         std::cout << std::endl;
     }
      */
-    /* MJL_Test
+    /* MJL_Test 
     std::cout << this->name() << "::MJL_predDebug: recvTimingReq " << pkt->print() << std::endl;
      */    
 

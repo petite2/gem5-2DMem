@@ -115,7 +115,7 @@ class Cache : public BaseCache
         {
             assert(pkt->isResponse());
             /* MJL_Test 
-            std::cout << this->name() << "::sendTimingResp MJL_predDebug: " << pkt->print() << std::endl; 
+            std::cout << this->name() << "::MJL_predDebug: sendTimingResp " << pkt->print() << std::endl; 
              */
             /* MJL_Test: Packet information output 
             if ((this->name().find("dcache") != std::string::npos 
@@ -541,7 +541,7 @@ class Cache : public BaseCache
                         if (new_stride % (MJL_rowWidth * blkSize) == 0) {
                             predictedDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
                             /* MJL_Test 
-                            std::cout << "MJL_predDebug: " << pkt->print() << " predicted column" << std::endl;
+                            std::cout << "MJL_predDebug: MJL_predictDir " << pkt->print() << " predicted column" << std::endl;
                              */
                         } else {
                             predictedDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
