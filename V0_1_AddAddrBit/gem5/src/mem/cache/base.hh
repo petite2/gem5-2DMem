@@ -497,6 +497,15 @@ class BaseCache : public MemObject
     Stats::Formula MJL_overallInterestedRowAccesses;
     Stats::Formula MJL_overallInterestedColumnAccesses;
     Stats::Formula MJL_overallInterestedAccesses;
+    Stats::Scalar MJL_crossReadHitWords;
+    Stats::Scalar MJL_crossReadHits;
+    Stats::Scalar MJL_crossFullReadHits;
+    Stats::Scalar MJL_crossWriteHitWords;
+    Stats::Scalar MJL_crossWriteHits;
+    Stats::Scalar MJL_crossFullWriteHits;
+    Stats::Formula MJL_crossHitWords;
+    Stats::Formula MJL_crossHits;
+    Stats::Formula MJL_crossFullHits;
     /* MJL_End */
 
     /**

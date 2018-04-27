@@ -970,12 +970,69 @@ BaseCache::regStats()
         ;
     MJL_overallInterestedColumnAccesses = MJL_overallInterestedColumnHits + MJL_overallInterestedColumnMisses;
 
-     MJL_overallInterestedAccesses
+    MJL_overallInterestedAccesses
         .name(name() + ".MJL_overallInterestedAccesses")
         .desc("number of overall accesses caused by interested instruction")
         .flags(total | nozero | nonan)
         ;
     MJL_overallInterestedAccesses = MJL_overallInterestedColumnAccesses + MJL_overallInterestedRowAccesses;
+
+    MJL_crossReadHitWords
+        .name(name() + ".MJL_crossReadHitWords")
+        .desc("number of overall demanded words in missed reads that has cross hit")
+        .flags(nozero | nonan)
+        ;
+
+    MJL_crossReadHits
+        .name(name() + ".MJL_crossReadHits")
+        .desc("number of overall missed reads that has partial cross hit")
+        .flags(nozero | nonan)
+        ;
+
+    MJL_crossFullReadHits
+        .name(name() + ".MJL_crossFullReadHits")
+        .desc("number of overall missed reads that has full cross hit")
+        .flags(nozero | nonan)
+        ;
+
+    MJL_crossWriteHitWords
+        .name(name() + ".MJL_crossWriteHitWords")
+        .desc("number of overall demanded words in missed writes that has cross hit")
+        .flags(nozero | nonan)
+        ;
+
+    MJL_crossWriteHits
+        .name(name() + ".MJL_crossWriteHits")
+        .desc("number of overall missed writes that has partial cross hit")
+        .flags(nozero | nonan)
+        ;
+
+    MJL_crossFullWriteHits
+        .name(name() + ".MJL_crossFullWriteHits")
+        .desc("number of overall missed writes that has full cross hit")
+        .flags(nozero | nonan)
+        ;
+
+    MJL_crossHitWords
+        .name(name() + ".MJL_crossHitWords")
+        .desc("number of overall demanded words in misses that has cross hit")
+        .flags(nozero | nonan)
+        ;
+    MJL_crossHitWords = MJL_crossReadHitWords + MJL_crossWriteHitWords;
+    
+    MJL_crossHits
+        .name(name() + ".MJL_crossHits")
+        .desc("number of overall misses that has partial cross hit")
+        .flags(nozero | nonan)
+        ;
+    MJL_crossHits = MJL_crossReadHits + MJL_crossWriteHits;
+    
+    MJL_crossFullHits
+        .name(name() + ".MJL_crossFullHits")
+        .desc("number of overall misses that has full cross hit")
+        .flags(nozero | nonan)
+        ;
+    MJL_crossFullHits = MJL_crossFullReadHits + MJL_crossFullWriteHits;
     /* MJL_End */
 
 }

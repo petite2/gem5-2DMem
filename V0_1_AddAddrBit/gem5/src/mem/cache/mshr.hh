@@ -377,6 +377,11 @@ class MSHR : public QueueEntry, public Printable
     Target *getTarget()
     {
         assert(hasTargets());
+        /* MJL_Begin */
+        for (std::list<Target>::iterator it = targets.begin(); it != targets.end(); ++it) {
+            targets.front().MJL_wordDemanded[it->pkt->getOffset()/sizeof(uint64_t)] |= true;
+        }
+        /* MJL_End */
         return &targets.front();
     }
 

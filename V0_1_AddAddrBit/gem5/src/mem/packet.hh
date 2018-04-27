@@ -555,6 +555,12 @@ class Packet : public Printable
     Counter MJL_order;
     bool MJL_wordDirty[8]; // Used to identify dirty words for cross direction checks
     bool MJL_crossBlocksCached[8]; // Used to identify whether the crossing blocks are cached in above caches in physicaly 2D L2 cache mode
+    bool MJL_wordDemanded[8]; // Used to identify words demanded
+    void MJL_copyWordDemanded( bool in_MJL_wordDemanded[8] ) {
+        for (int i = 0; i < 8; ++i) {
+            MJL_wordDemanded[i] = in_MJL_wordDemanded[i];
+        }
+    }
     void MJL_copyCrossBlocksCached( bool in_MJL_crossBlocksCached[8] ) {
         for (int i = 0; i < 8; ++i) {
             MJL_crossBlocksCached[i] |= in_MJL_crossBlocksCached[i];
@@ -916,7 +922,7 @@ class Packet : public Printable
     Packet(const RequestPtr _req, MemCmd _cmd)
         :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            size(0), headerDelay(0), snoopDelay(0), payloadDelay(0),
-           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}/* MJL_End */
+           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{false, false, false, false, false, false, false, false}/* MJL_End */
     {
         if (req->hasPaddr()) {
             addr = req->getPaddr();
@@ -937,7 +943,7 @@ class Packet : public Printable
     Packet(const RequestPtr _req, MemCmd _cmd, int _blkSize)
         :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            headerDelay(0), snoopDelay(0), payloadDelay(0),
-           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}/* MJL_End */
+           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{false, false, false, false, false, false, false, false}/* MJL_End */
     {
         if (req->hasPaddr()) {
             /* MJL_Begin */
@@ -978,7 +984,7 @@ class Packet : public Printable
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
            payloadDelay(pkt->payloadDelay),
-           senderState(pkt->senderState)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}/* MJL_End */
+           senderState(pkt->senderState)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{pkt->MJL_wordDemanded[0], pkt->MJL_wordDemanded[1], pkt->MJL_wordDemanded[2], pkt->MJL_wordDemanded[3], pkt->MJL_wordDemanded[4], pkt->MJL_wordDemanded[5], pkt->MJL_wordDemanded[6], pkt->MJL_wordDemanded[7]}/* MJL_End */
     {
         if (!clear_flags)
             flags.set(pkt->flags & COPY_FLAGS);

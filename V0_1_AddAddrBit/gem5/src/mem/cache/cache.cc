@@ -970,6 +970,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             pkt->cmd.MJL_setCmdDir(MJL_predDir);
             pkt->MJL_setDataDir(MJL_predDir);
         }
+        bool MJL_crossFullHit = true;
+        bool MJL_crossHit = false;
         for (unsigned MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
             // Get the address of each word in the cache line
             MJL_crossBlkAddr = MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir(), MJL_offset);
@@ -983,8 +985,17 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 MJL_crossBlkOffset = MJL_crossBlkAddr & Addr(blkSize - 1);
             }
             templat = templat + lat;
+            MJL_crossFullHit = MJL_crossFullHit & (MJL_crossBlk && MJL_crossBlk->isValid());
             // If the crossing line exists
             if (MJL_crossBlk && MJL_crossBlk->isValid()) {
+                if (pkt->MJL_wordDemanded[MJL_offset/sizeof(uint64_t)]) {
+                    MJL_crossHit = MJL_crossHit | true;
+                    if (pkt->isRead()) {
+                        MJL_crossReadHitWords++;
+                    } else if (pkt->isWrite()) {
+                        MJL_crossWriteHitWords++;
+                    }
+                }
                 // Invalidate for the written section of the write request
                 if (pkt->isWrite() && (MJL_offset >= pkt->getOffset(blkSize) && MJL_offset < pkt->getOffset(blkSize) + pkt->getSize())) {
                     MJL_conflictWBCount1++;
@@ -1002,6 +1013,20 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 } else {
                     MJL_crossBlk->status &= ~BlkWritable;
                 }
+            }
+        }
+        if (MJL_crossFullHit) {
+            if (pkt->isRead()) {
+                MJL_crossFullReadHits++;
+            } else if (pkt->isWrite()) {
+                MJL_crossFullWriteHits++;
+            }
+        }
+        if (MJL_crossHit) {
+            if (pkt->isRead()) {
+                MJL_crossReadHits++;
+            } else if (pkt->isWrite()) {
+                MJL_crossWriteHits++;
             }
         }
         lat = templat;
@@ -1715,6 +1740,7 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
 
     // the packet should be block aligned
     /* MJL_Begin */
+    pkt->MJL_copyWordDemanded(cpu_pkt->MJL_wordDemanded);
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         assert(pkt->getAddr() == MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()));
     } else {
