@@ -377,15 +377,16 @@ class MSHR : public QueueEntry, public Printable
     Target *getTarget()
     {
         assert(hasTargets());
-        /* MJL_Begin */
-        for (std::list<Target>::iterator it = targets.begin(); it != targets.end(); ++it) {
-            targets.front().MJL_wordDemanded[it->pkt->getOffset()/sizeof(uint64_t)] |= true;
-        }
-        /* MJL_End */
         return &targets.front();
     }
 
     /* MJL_Begin */
+    void MJL_getWordDemanded(unsigned blk_size)
+    {
+        for (std::list<Target>::iterator it = targets.begin(); it != targets.end(); ++it) {
+            targets.front().pkt->MJL_wordDemanded[it->pkt->getOffset(blk_size)/sizeof(uint64_t)] |= true;
+        }
+    }
     /**
      * Returns a reference to the last target.
      * @return A pointer to the last target.

@@ -84,12 +84,19 @@ def config_cache(options, system):
         # Provide a clock for the L2 and the L1-to-L2 bus here as they
         # are not connected using addTwoLevelCacheHierarchy. Use the
         # same clock as the CPUs.
+        # MJL_Begin
+        l2_tag_latency = 6
+        l2_data_latency = 9
+        if options.l2_size in ["2MB"]:
+            l2_tag_latency = 8
+            l2_data_latency = 12
+        # MJL_End 
         system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
                                    size=options.l2_size,
                                    assoc=options.l2_assoc\
                                    # MJL_Begin
-                                   , tag_latency=6
-                                   , data_latency=9
+                                   , tag_latency=l2_tag_latency
+                                   , data_latency=l2_data_latency
                                    , MJL_2D_Cache=options.MJL_2DL2Cache\
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\

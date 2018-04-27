@@ -4338,6 +4338,7 @@ Cache::sendMSHRQueuePacket(MSHR* mshr)
 {
     assert(mshr);
 
+    mshr->MJL_getWordDemanded(blkSize);
     // use request from 1st target
     PacketPtr tgt_pkt = mshr->getTarget()->pkt;
 
