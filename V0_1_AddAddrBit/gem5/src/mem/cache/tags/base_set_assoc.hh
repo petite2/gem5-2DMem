@@ -884,7 +884,7 @@ public:
             } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
                 return MJL_swapRowColBits(MJL_movColLeft(commonHigh | ((tag & (Addr)MJL_wordMask) << setShift)));
             } else {
-                return (addr >> tagShift);
+                return ((tag << tagShift) | ((Addr)set << setShift));
             }
         } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             return MJL_movColLeft(((tag << tagShift) | ((Addr)set << setShift)));
