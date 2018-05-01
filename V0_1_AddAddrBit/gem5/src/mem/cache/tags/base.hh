@@ -72,6 +72,7 @@ class BaseTags : public ClockedObject
     const unsigned MJL_rowWidth;
     const Cycles MJL_timeStep;
     bool MJL_timeStepScheduled;
+    const bool MJL_sameSetMapping;
     /* MJL_End */
     /** The size of the cache. */
     const unsigned size;

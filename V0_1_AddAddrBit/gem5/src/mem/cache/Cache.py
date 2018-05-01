@@ -60,6 +60,7 @@ class BaseCache(MemObject):
     MJL_timeStep = Param.Cycles(0, "Time step of intermediate output in cycles")
     MJL_2D_Transfer_Type = Param.Int(0, "Set the type of transfer method from memory to L2 cache in physically 2D cache, 0 for per line on demand, 1 for whole tile")
     MJL_extra2DWrite_latency = Param.Cycles(0,"Additional data write access latency for physically 2D caches")
+    MJL_sameSetMapping = Param.Bool(False, "The flag to get same set mapping for row and column in the cache")
     # MJL_End 
 
     tag_latency = Param.Cycles("Tag lookup latency")

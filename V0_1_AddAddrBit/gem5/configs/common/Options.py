@@ -125,6 +125,9 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_extra2DWrite_latency", action="store", type="int", default=0, help="Set the additional cycles needed for a physically 2D write access")
     parser.add_option("--MJL_predictDir", action="store_true", help="Let direction predictor decide whether to generate miss in column or row (in L1Dcache)")
     parser.add_option("--MJL_colPf", action="store_true", help="Let prefetcher prefetch in column")
+    parser.add_option("--MJL_L1sameSetMapping", action="store_true", help="Use same set mapping for L1 dcaches")
+    parser.add_option("--MJL_L2sameSetMapping", action="store_true", help="Use same set mapping for L2 caches")
+    parser.add_option("--MJL_L3sameSetMapping", action="store_true", help="Use same set mapping for L3 caches")
     # MJL_End
 
     # Enable Ruby

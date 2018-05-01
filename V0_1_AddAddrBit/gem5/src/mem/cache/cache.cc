@@ -109,6 +109,9 @@ Cache::Cache(const CacheParams *p)
     if (MJL_predictDir) {
         MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth);
     }
+    if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
+        std::cout << "MJL_ignoreExtraTagCheckLatency? " << MJL_ignoreExtraTagCheckLatency << std::endl;
+    }
     /* MJL_End */
 }
 
@@ -910,7 +913,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         //     }
         // }
 
-        if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
+        if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache && !MJL_ignoreExtraTagCheckLatency ) {
             // Taking the additional tag check into account
             for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
                 if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)]) {
@@ -1273,7 +1276,7 @@ Cache::recvTimingReq(PacketPtr pkt)
         satisfied = access(pkt, blk, lat, writebacks);
         /* MJL_Begin */
         // Add the additional tag check latency for misses
-        if (!MJL_2DCache && (!(MJL_ignoreExtraTagCheckLatency && this->name().find("l2") != std::string::npos)) && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && 
+        if (!MJL_2DCache && !MJL_ignoreExtraTagCheckLatency && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && 
             ((!satisfied && !pkt->req->isUncacheable() && pkt->cmd != MemCmd::CleanEvict && !pkt->isWriteback())
             || (satisfied && pkt->cmd == MemCmd::WritebackDirty))) {
             forward_time = clockEdge(Cycles( blkSize/sizeof(uint64_t) * forwardLatency)) + pkt->headerDelay;

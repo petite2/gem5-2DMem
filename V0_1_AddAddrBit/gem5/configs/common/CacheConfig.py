@@ -103,6 +103,8 @@ def config_cache(options, system):
                                    , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
+                                   , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
+                                   , MJL_ignoreExtraTagCheckLatency=options.MJL_L2sameSetMapping\
                                    # MJL_End
                                    )
 
@@ -129,6 +131,8 @@ def config_cache(options, system):
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
+                                   , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
+                                   , MJL_ignoreExtraTagCheckLatency=options.MJL_L2sameSetMapping\
                                    # MJL_End
                                    )
 
@@ -148,6 +152,8 @@ def config_cache(options, system):
                                    , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
+                                   , MJL_sameSetMapping=options.MJL_L3sameSetMapping\
+                                   , MJL_ignoreExtraTagCheckLatency=options.MJL_L3sameSetMapping\
                                    # MJL_End
                                    )
 
@@ -182,6 +188,8 @@ def config_cache(options, system):
                                   , MJL_timeStep=options.MJL_timeStep\
                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
                                   , MJL_predictDir=options.MJL_predictDir\
+                                  , MJL_sameSetMapping=options.MJL_L1sameSetMapping\
+                                  , MJL_ignoreExtraTagCheckLatency=options.MJL_L1sameSetMapping\
                                   # MJL_End
                                   )
 
