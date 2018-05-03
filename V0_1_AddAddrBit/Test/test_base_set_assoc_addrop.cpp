@@ -21,6 +21,7 @@ class CacheBlk {
 int numSets = 1024;
 int blkSize = 64;
 int MJL_rowWidth = 512;
+bool MJL_sameSetMapping = true;
 
 int setShift;
 /** The amount to shift the address to get the tag. */
@@ -70,9 +71,18 @@ Addr MJL_movColLeft(Addr addr)
 
 Addr MJL_extractTag(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir)
 {
-    if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+    if (MJL_sameSetMapping) {
+        Addr commonHigh = (MJL_movColRight(addr) >> (tagShift + MJL_rowShift)) << MJL_rowShift;
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            return (commonHigh | ((addr >> MJL_colShift) & (Addr)MJL_wordMask));
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            return (commonHigh | ((addr >> MJL_rowShift) & (Addr)MJL_wordMask));
+        } else {
+            return (addr >> tagShift);
+        }
+    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
         return (MJL_movColRight(addr) >> tagShift);
-    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column 
+    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_Temp: temporary fix for column 
         return (MJL_movColRight(MJL_swapRowColBits(addr)) >> tagShift);
     } else {
         return (addr >> tagShift);
@@ -81,9 +91,11 @@ Addr MJL_extractTag(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir)
 
 int MJL_extractSet(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir)
 {
-    if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+    if (MJL_sameSetMapping) {
+        return ((MJL_movColRight(addr) >> (setShift + MJL_rowShift)) & setMask);
+    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
         return ((MJL_movColRight(addr) >> setShift) & setMask);
-    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column 
+    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_Temp: temporary fix for column 
         return ((MJL_movColRight(MJL_swapRowColBits(addr)) >> setShift) & setMask);
     } else {
         return ((addr >> setShift) & setMask);
@@ -101,11 +113,20 @@ Addr MJL_blkAlign(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir)
     }
 }
 
-Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set) 
+Addr MJL_regenerateBlkAddr(Addr tag, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, unsigned set)
 {
-    if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+    if (MJL_sameSetMapping) {
+        Addr commonHigh = (((tag >> MJL_rowShift) << tagShift) | ((Addr)set << setShift)) << MJL_rowShift;
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            return MJL_movColLeft(commonHigh | ((tag & (Addr)MJL_wordMask) << setShift));
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            return MJL_swapRowColBits(MJL_movColLeft(commonHigh | ((tag & (Addr)MJL_wordMask) << setShift)));
+        } else {
+            return ((tag << tagShift) | ((Addr)set << setShift));
+        }
+    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
         return MJL_movColLeft(((tag << tagShift) | ((Addr)set << setShift)));
-    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_TODO: Placeholder for column
+    } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_Temp: temporary fix for column 
         return MJL_swapRowColBits(MJL_movColLeft(((tag << tagShift) | ((Addr)set << setShift))));
     } else {
         return ((tag << tagShift) | ((Addr)set << setShift));
