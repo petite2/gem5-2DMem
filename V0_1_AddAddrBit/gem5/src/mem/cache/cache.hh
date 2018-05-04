@@ -372,7 +372,7 @@ class Cache : public BaseCache
         struct StrideEntry
         {
             StrideEntry() : instAddr(0), lastAddr(0), isSecure(false), stride(0),
-                            confidence(0)
+                            confidence(0), lastPredDir(MemCmd::MJL_DirAttribute::MJL_IsRow)
             { }
 
             Addr instAddr;
@@ -380,6 +380,7 @@ class Cache : public BaseCache
             bool isSecure;
             int stride;
             int confidence;
+            MemCmd::MJL_DirAttribute lastPredDir;
         };
 
         class PCTable {
@@ -427,6 +428,26 @@ class Cache : public BaseCache
             }
         };
         PCTable pcTable;
+
+        struct PredictMshrEntry
+        {
+            PredictMshrEntry(Addr in_pc, Addr in_blkAddr, Addr in_crossBlkAddr, MemCmd::MJL_DirAttribute in_blkDir, MemCmd::MJL_DirAttribute in_crossBlkDir, bool in_isSecure, Addr in_accessAddr, const MSHR* in_mshr, MasterID in_masterId) : pc(in_pc), blkAddr(in_blkAddr), crossBlkAddr(in_crossBlkAddr), blkDir(in_blkDir), crossBlkDir(in_crossBlkDir), isSecure(in_isSecure), accessAddr(in_accessAddr), mshr(in_mshr), masterId(in_masterId), blkHitCounter(0), crossBlkHitCounter(0)
+            { }
+
+            Addr pc;
+            Addr blkAddr;
+            Addr crossBlkAddr;
+            MemCmd::MJL_DirAttribute blkDir;
+            MemCmd::MJL_DirAttribute crossBlkDir;
+            bool isSecure;
+            Addr accessAddr;
+            const MSHR* mshr;
+            MasterID masterId;
+            uint64_t blkHitCounter;
+            uint64_t crossBlkHitCounter;
+        };
+        std::list<PredictMshrEntry> copyPredictMshrQueue;
+
         int floorLog2(unsigned x) const {
             assert(x > 0);
 
@@ -498,6 +519,115 @@ class Cache : public BaseCache
             return true;
         }
 
+        MemCmd::MJL_DirAttribute MJL_stridePredict(Addr pkt_addr, StrideEntry* entry) {
+            int new_stride = pkt_addr - entry->lastAddr;
+            bool stride_match = (new_stride == entry->stride);
+
+            // Adjust confidence for stride entry
+            if (stride_match && new_stride != 0) {
+                if (entry->confidence < maxConf)
+                    entry->confidence++;
+            } else {
+                if (entry->confidence > minConf)
+                    entry->confidence--;
+                // If confidence has dropped below the threshold, train new stride
+                if (entry->confidence < threshConf)
+                    entry->stride = new_stride;
+            }
+
+            /* MJL_Comment 
+            DPRINTF(HWPrefetch, "Hit: PC %x pkt_addr %x (%s) stride %d (%s), "
+                    "conf %d\n", pc, pkt_addr, is_secure ? "s" : "ns", new_stride,
+                    stride_match ? "match" : "change",
+                    entry->confidence);
+                */
+
+            entry->lastAddr = pkt_addr;
+
+            // Only generation if above confidence threshold
+            if (entry->confidence >= threshConf) {
+                if (new_stride % (MJL_rowWidth * blkSize) == 0) {
+                    predictedDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+                    /* MJL_Test 
+                    std::cout << "MJL_predDebug: MJL_predictDir " << pkt->print() << " predicted column" << std::endl;
+                        */
+                } else {
+                    predictedDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                }
+            }
+            entry->lastPredDir = predictedDir;
+            return predictedDir;
+        }
+
+        // Update counters on access
+        void MJL_updatePredictMshrQueue(const PacketPtr pkt) {
+            Addr pkt_blkAddr = pkt->getBlockAddr(blkSize);
+            Addr pkt_crossBlkAddr = pkt->MJL_getCrossBlockAddr(blkSize);
+            bool pkt_isSecure = pkt->isSecure();
+            for (std::list<PredictMshrEntry>::iterator it = copyPredictMshrQueue.begin(); it != copyPredictMshrQueue.end(); it++) {
+                if (pkt->getSize() > sizeof(uint64_t)) {
+                    pkt_blkAddr = pkt->getBlockAddr(blkSize);
+                    if (pkt_blkAddr == it->blkAddr && pkt->MJL_getCmdDir() == it->blkDir && pkt_isSecure == it->isSecure) {
+                        it->blkHitCounter++;
+                    }
+                    pkt_crossBlkAddr = pkt->getBlockAddr(blkSize);
+                    if (pkt_crossBlkAddr == it->crossBlkAddr && pkt->MJL_getCmdDir() == it->crossBlkDir && pkt_isSecure == it->isSecure) {
+                        it->crossBlkHitCounter++;
+                    }
+                } else {
+                    pkt_blkAddr = pkt->MJL_getDirBlockAddr(blkSize, it->blkDir);
+                    if (pkt_blkAddr == it->blkAddr && pkt_isSecure == it->isSecure) {
+                        it->blkHitCounter++;
+                    }
+                    pkt_crossBlkAddr = pkt->MJL_getDirBlockAddr(blkSize, it->crossBlkDir);
+                    if (pkt_crossBlkAddr == it->crossBlkAddr && pkt_isSecure == it->isSecure) {
+                        it->crossBlkHitCounter++;
+                    }
+                }
+            }
+        }
+        // Add entry to both predict queue
+        void MJL_addToPredictMshrQueue(const PacketPtr pkt, const MSHR* mshr) {
+            copyPredictMshrQueue.emplace_back(pkt->req->getPC(), pkt->getBlockAddr(blkSize), pkt->MJL_getCrossBlockAddr(blkSize), pkt->MJL_getCmdDir(), pkt->MJL_getCrossCmdDir(), pkt->isSecure(), pkt->getAddr(), mshr, pkt->req->masterId());
+        }
+        // Remove entry from both predict queues and get predict direction
+        void MJL_removeFromPredictMshrQueue(const MSHR* mshr) {
+            std::list<PredictMshrEntry>::iterator entry_found = copyPredictMshrQueue.end();
+            MemCmd::MJL_DirAttribute predict_dir = mshr->MJL_qEntryDir;
+            StrideEntry *pcTable_entry;
+            MasterID master_id = 0;
+            // Find the entry to be removed
+            for (std::list<PredictMshrEntry>::iterator it = copyPredictMshrQueue.begin(); it != copyPredictMshrQueue.end(); it++) {
+                if (mshr == it->mshr) {
+                    entry_found = it;
+                    assert(mshr->blkAddr == it->blkAddr && mshr->MJL_qEntryDir == it->blkDir && mshr->isSecure == it->isSecure);
+                    break;
+                }
+            }
+            assert(entry_found != copyPredictMshrQueue.end());
+            // Predict the direction
+            if (entry_found->crossBlkHitCounter > entry_found->blkHitCounter) {
+                predict_dir = entry_found->crossBlkDir;
+            } else {
+                predict_dir = entry_found->blkDir;
+            }
+            // Add predict direction to pc table
+            master_id = useMasterId ? entry_found->masterId : 0;
+            if (pcTableHit(entry_found->pc, entry_found->isSecure, master_id, pcTable_entry)) {
+                pcTable_entry->lastPredDir = predict_dir;
+            } else {
+                StrideEntry* victim_entry = pcTableVictim(entry_found->pc, master_id);
+                victim_entry->instAddr = entry_found->pc;
+                victim_entry->lastAddr = entry_found->accessAddr;
+                victim_entry->isSecure= entry_found->isSecure;
+                victim_entry->stride = 0;
+                victim_entry->confidence = startConf;
+                victim_entry->lastPredDir = predict_dir;
+            }
+
+            copyPredictMshrQueue.erase(entry_found);
+        }
+
         MemCmd::MJL_DirAttribute MJL_predictDir(const PacketPtr &pkt) {
             MemCmd::MJL_DirAttribute predictedDir = pkt->MJL_getCmdDir();
             if (observeAccess(pkt) && pkt->req->hasPC()) {
@@ -512,40 +642,10 @@ class Cache : public BaseCache
 
                 if (pcTableHit(pc, is_secure, master_id, entry)) {
                     // Hit in table
-                    int new_stride = pkt_addr - entry->lastAddr;
-                    bool stride_match = (new_stride == entry->stride);
-
-                    // Adjust confidence for stride entry
-                    if (stride_match && new_stride != 0) {
-                        if (entry->confidence < maxConf)
-                            entry->confidence++;
+                    if (MJL_mshrPredictDir) {
+                        predictedDir = entry->lastPredDir;
                     } else {
-                        if (entry->confidence > minConf)
-                            entry->confidence--;
-                        // If confidence has dropped below the threshold, train new stride
-                        if (entry->confidence < threshConf)
-                            entry->stride = new_stride;
-                    }
-
-                    /* MJL_Comment 
-                    DPRINTF(HWPrefetch, "Hit: PC %x pkt_addr %x (%s) stride %d (%s), "
-                            "conf %d\n", pc, pkt_addr, is_secure ? "s" : "ns", new_stride,
-                            stride_match ? "match" : "change",
-                            entry->confidence);
-                     */
-
-                    entry->lastAddr = pkt_addr;
-
-                    // Only generation if above confidence threshold
-                    if (entry->confidence >= threshConf) {
-                        if (new_stride % (MJL_rowWidth * blkSize) == 0) {
-                            predictedDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-                            /* MJL_Test 
-                            std::cout << "MJL_predDebug: MJL_predictDir " << pkt->print() << " predicted column" << std::endl;
-                             */
-                        } else {
-                            predictedDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
-                        }
+                        predictedDir = MJL_stridePredict(pkt_addr, entry);
                     }
                 } else {
                     // Miss in table
@@ -554,12 +654,15 @@ class Cache : public BaseCache
                             is_secure ? "s" : "ns");
                      */
 
-                    StrideEntry* entry = pcTableVictim(pc, master_id);
-                    entry->instAddr = pc;
-                    entry->lastAddr = pkt_addr;
-                    entry->isSecure= is_secure;
-                    entry->stride = 0;
-                    entry->confidence = startConf;
+                    if (!MJL_mshrPredictDir) {
+                        StrideEntry* entry = pcTableVictim(pc, master_id);
+                        entry->instAddr = pc;
+                        entry->lastAddr = pkt_addr;
+                        entry->isSecure= is_secure;
+                        entry->stride = 0;
+                        entry->confidence = startConf;
+                        entry->lastPredDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                    }
                 }
             }
             return predictedDir;
@@ -568,6 +671,7 @@ class Cache : public BaseCache
 
     MJL_DirPredictor * MJL_dirPredictor;
     bool MJL_predictDir;
+    bool MJL_mshrPredictDir;
     bool MJL_ignoreExtraTagCheckLatency;
     /* MJL_End */
 
@@ -1318,11 +1422,9 @@ class Cache : public BaseCache
                                                 allocOnFill(pkt->cmd));
                 
                 MJL_markBlockInfo(mshr);
-                /* MJL_TODO */
                 if (MJL_2DCache) { 
                     MJL_markBlocked2D(fp_pkt, mshr);
                 }
-                /* */
 
                 if (mshrQueue.isFull()) {
                     setBlocked((BlockedCause)MSHRQueue_MSHRs);
@@ -1371,11 +1473,9 @@ class Cache : public BaseCache
                                                 allocOnFill(pkt->cmd));
                 
                 MJL_markBlockInfo(mshr);
-                /* MJL_TODO */
                 if (MJL_2DCache) { 
                     MJL_markBlocked2D(fp_pkt, mshr);
                 }
-                /* */
 
                 if (mshrQueue.isFull()) {
                     setBlocked((BlockedCause)MSHRQueue_MSHRs);
@@ -1699,7 +1799,6 @@ class Cache : public BaseCache
     void invalidateBlock(CacheBlk *blk);
     /* MJL_Begin */
     void MJL_invalidateTile(CacheBlk *blk);
-    // MJL_TODO: Make this happen, but probably after the only one core version happens
     /**
      * Invalidate blocks that are cross direction of the addresses written
      * MJL_written_addr: starting address of the words written
@@ -2032,7 +2131,6 @@ class Cache : public BaseCache
     }
     /* MJL_End */
 
-    // MJL_TODO: seems inCache() and inMissQueue() are only used by the prefetcher, would need to change if we use prefetchers
     bool inCache(Addr addr, bool is_secure) const override {
         return (tags->findBlock(addr, is_secure) != 0);
     }

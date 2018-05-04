@@ -125,5 +125,6 @@ class Cache(BaseCache):
     MJL_PC2DirFile = Param.String("PC2Dir.txt", "File with PC to direction mapping")
     MJL_VecListFile = Param.String("", "File with list of PC numbers of vector instructions")
     MJL_predictDir = Param.Bool(False, "Let direction predictor decide whether to generate miss in column or row")
+    MJL_mshrPredictDir = Param.Bool(False, "Use the mshr scheme for direction predictor")
     MJL_ignoreExtraTagCheckLatency = Param.Bool(False, "Used for debug")
     # MJL_End

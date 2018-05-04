@@ -114,6 +114,8 @@ def config_cache(options, system):
         # MJL_Begin
         if options.l3cache:
             fatal("Having l3 implies having l2, shouldn't have both flags set at the same time")
+        if options.MJL_2DL2Cache and options.MJL_L2sameSetMapping:
+            fatal("Physically 2D caches option does not coexist with same set mapping option")
         if options.MJL_Prefetcher:
             system.l2.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf) 
         # MJL_End
@@ -165,6 +167,9 @@ def config_cache(options, system):
 
         system.l3.cpu_side = system.tol3bus.master
         system.l3.mem_side = system.membus.slave
+
+        if options.MJL_2DL2Cache and options.MJL_L3sameSetMapping:
+            fatal("Physically 2D caches option does not coexist with same set mapping option")
         if options.MJL_Prefetcher:
             system.l3.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf) 
     # MJL_End
@@ -188,10 +193,15 @@ def config_cache(options, system):
                                   , MJL_timeStep=options.MJL_timeStep\
                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
                                   , MJL_predictDir=options.MJL_predictDir\
+                                  , MJL_mshrPredictDir=options.MJL_mshrPredictDir\
                                   , MJL_sameSetMapping=options.MJL_L1sameSetMapping\
                                   , MJL_ignoreExtraTagCheckLatency=options.MJL_L1sameSetMapping\
                                   # MJL_End
                                   )
+            # MJL_Begin
+            if options.MJL_predictDir and not options.MJL_mshrPredictDir:
+                fatal("Cannot use mshr scheme for prediction when prediction is not enabled")
+            # MJL_End
 
             # If we have a walker cache specified, instantiate two
             # instances here

@@ -68,6 +68,7 @@ Cache::Cache(const CacheParams *p)
       tags(p->tags),
       prefetcher(p->prefetcher),/* MJL_Begin */
       MJL_predictDir(p->MJL_predictDir), 
+      MJL_mshrPredictDir(p->MJL_mshrPredictDir), 
       MJL_ignoreExtraTagCheckLatency(p->MJL_ignoreExtraTagCheckLatency), /* MJL_End */
       doFastWrites(true),
       prefetchOnAccess(p->prefetch_on_access),
@@ -558,6 +559,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         blk = tags->accessBlock(pkt->getAddr(), pkt->isSecure(), lat, id);
     }
     // MJL_TODO: may need to change lat if vector load/store is not possible
+    if (MJL_predictDir && MJL_mshrPredictDir) {
+        MJL_dirPredictor->MJL_updatePredictMshrQueue(pkt);
+    }
     /* MJL_End */
     /* MJL_Comment
     blk = tags->accessBlock(pkt->getAddr(), pkt->isSecure(), lat, id);
@@ -1614,15 +1618,12 @@ Cache::recvTimingReq(PacketPtr pkt)
                 // Here we are using forward_time, modelling the latency of
                 // a miss (outbound) just as forwardLatency, neglecting the
                 // lookupLatency component.
-                /* MJL_Begin 
-                if (MJL_predictDir) {
-                    MemCmd::MJL_DirAttribute MJL_predDir = MJL_dirPredictor->MJL_predictDir(pkt);
-                    pkt->cmd.MJL_setCmdDir(MJL_predDir);
-                    pkt->MJL_setDataDir(MJL_predDir);
-                }
-                 MJL_End */
-                allocateMissBuffer(pkt, forward_time);
                 /* MJL_Begin */
+                MSHR* MJL_newMshr = /* MJL_End */allocateMissBuffer(pkt, forward_time);
+                /* MJL_Begin */
+                if (MJL_predictDir && MJL_mshrPredictDir) {
+                    MJL_dirPredictor->MJL_addToPredictMshrQueue(pkt, MJL_newMshr);
+                }
                 if (MJL_2DCache && MJL_2DTransferType == 1) {
                      MJL_allocateFullMissBuffer(pkt, forward_time);
                      //MJL_requestedBytes += 7 * blkSize;
@@ -2479,6 +2480,11 @@ Cache::recvTimingResp(PacketPtr pkt)
         mshrQueue.markPending(mshr);
         schedMemSideSendEvent(clockEdge() + pkt->payloadDelay);
     } else {
+        /* MJL_Begin */
+        if (MJL_predictDir && MJL_mshrPredictDir) {
+            MJL_dirPredictor->MJL_removeFromPredictMshrQueue(mshr);
+        }
+        /* MJL_End */
         mshrQueue.deallocate(mshr);
         if (wasFull && !mshrQueue.isFull()) {
             clearBlocked(Blocked_NoMSHRs);

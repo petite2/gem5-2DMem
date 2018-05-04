@@ -685,11 +685,9 @@ class BaseCache : public MemObject
         if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             MJL_markBlockInfo(mshr);
         }
-        /* MJL_TODO */
         if (MJL_2DCache && mshr->getTarget()->source != MSHR::Target::FromPrefetcher) { 
             MJL_markBlocked2D(pkt, mshr);
         }
-        /* */
         /* MJL_End */
 
         if (mshrQueue.isFull()) {

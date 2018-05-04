@@ -851,6 +851,42 @@ class Packet : public Printable
         return getAddr() & ~(Addr(blk_size - 1));*/
     }
     /* MJL_Begin */
+    Addr MJL_getCrossBlockAddr(unsigned int blk_size) const
+    {
+        /* MJL_Begin */
+        /* Deals with different access directions respectively
+        */
+        if ( MJL_cmdIsColumn() ) {
+            return getAddr() & ~(Addr(blk_size - 1));
+        } else if ( MJL_cmdIsRow() ) {
+            // MJL_temp: temporary fix for column block address calculation
+            return getAddr() & ~(Addr(MJL_blkMaskColumn(blk_size, req->MJL_rowWidth)));
+        } else {
+            return getAddr() & ~(Addr(blk_size - 1));
+        }
+        /* MJL_End */
+        /* MJL_Comment
+        return getAddr() & ~(Addr(blk_size - 1));*/
+    }
+
+    Addr MJL_getDirBlockAddr(unsigned int blk_size, MemCmd::MJL_DirAttribute blk_dir) const
+    {
+        /* MJL_Begin */
+        /* Deals with different access directions respectively
+        */
+        if ( blk_dir == MemCmd::MJL_DirAttribute::MJL_IsRow ) {
+            return getAddr() & ~(Addr(blk_size - 1));
+        } else if ( blk_dir == MemCmd::MJL_DirAttribute::MJL_IsColumn ) {
+            // MJL_temp: temporary fix for column block address calculation
+            return getAddr() & ~(Addr(MJL_blkMaskColumn(blk_size, req->MJL_rowWidth)));
+        } else {
+            return getAddr() & ~(Addr(blk_size - 1));
+        }
+        /* MJL_End */
+        /* MJL_Comment
+        return getAddr() & ~(Addr(blk_size - 1));*/
+    }
+
     Addr MJL_getBlockAddrs(unsigned int blk_size, int offset) const
     {
         assert(offset < blk_size/sizeof(uint64_t));
