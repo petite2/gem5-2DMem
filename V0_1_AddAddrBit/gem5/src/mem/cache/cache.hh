@@ -566,34 +566,59 @@ class Cache : public BaseCache
             Addr pkt_blkAddr = pkt->getBlockAddr(blkSize);
             Addr pkt_crossBlkAddr = pkt->MJL_getCrossBlockAddr(blkSize);
             bool pkt_isSecure = pkt->isSecure();
+            /* MJL_Test 
+            std::cout << "MJL_predDebug: MJL_mshrPredictDir update " << pkt->print() << ". ";
+             */
             for (std::list<PredictMshrEntry>::iterator it = copyPredictMshrQueue.begin(); it != copyPredictMshrQueue.end(); it++) {
                 if (pkt->getSize() > sizeof(uint64_t)) {
                     pkt_blkAddr = pkt->getBlockAddr(blkSize);
                     if (pkt_blkAddr == it->blkAddr && pkt->MJL_getCmdDir() == it->blkDir && pkt_isSecure == it->isSecure) {
                         it->blkHitCounter++;
+                        /* MJL_Test  if (pkt->req->hasPC() && pkt->req->getPC() == it->pc ) { it->blkHitCounter+=3; }  */ // Results in SE_test 2xPcHit
                     }
                     pkt_crossBlkAddr = pkt->getBlockAddr(blkSize);
                     if (pkt_crossBlkAddr == it->crossBlkAddr && pkt->MJL_getCmdDir() == it->crossBlkDir && pkt_isSecure == it->isSecure) {
                         it->crossBlkHitCounter++;
+                        /* MJL_Test  if (pkt->req->hasPC() && pkt->req->getPC() == it->pc ) { it->crossBlkHitCounter+=3; }  */ // Results in SE_test 2xPcHit
                     }
+                    /* MJL_Test 
+                    if ((pkt_blkAddr == it->blkAddr && pkt->MJL_getCmdDir() == it->blkDir && pkt_isSecure == it->isSecure) || (pkt_crossBlkAddr == it->crossBlkAddr && pkt->MJL_getCmdDir() == it->crossBlkDir && pkt_isSecure == it->isSecure)) {
+                        std::cout << "pc " << it->pc << " hit " << it->blkHitCounter << " crosshit " << it->crossBlkHitCounter;
+                    }
+                     */
                 } else {
                     pkt_blkAddr = pkt->MJL_getDirBlockAddr(blkSize, it->blkDir);
                     if (pkt_blkAddr == it->blkAddr && pkt_isSecure == it->isSecure) {
                         it->blkHitCounter++;
+                        /* MJL_Test  if (pkt->req->hasPC() && pkt->req->getPC() == it->pc ) { it->blkHitCounter+=3; }  */ // Results in SE_test 2xPcHit
                     }
                     pkt_crossBlkAddr = pkt->MJL_getDirBlockAddr(blkSize, it->crossBlkDir);
                     if (pkt_crossBlkAddr == it->crossBlkAddr && pkt_isSecure == it->isSecure) {
                         it->crossBlkHitCounter++;
+                        /* MJL_Test  if (pkt->req->hasPC() && pkt->req->getPC() == it->pc ) { it->crossBlkHitCounter+=3; }  */ // Results in SE_test 2xPcHit
                     }
+                    /* MJL_Test 
+                    if ((pkt_blkAddr == it->blkAddr && pkt_isSecure == it->isSecure) || (pkt_crossBlkAddr == it->crossBlkAddr && pkt_isSecure == it->isSecure)) {
+                        std::cout << "pc " << it->pc << " hit " << it->blkHitCounter << " crosshit " << it->crossBlkHitCounter;
+                    }
+                     */
+                }
+                if (pkt->req->hasPC() && pkt->req->getPC() == it->pc) {
+                    it->accessAddr = pkt->getAddr();
                 }
             }
+            /* MJL_Test */
+            std::cout << std::endl;
+            /* */
         }
         // Add entry to both predict queue
         void MJL_addToPredictMshrQueue(const PacketPtr pkt, const MSHR* mshr) {
-            copyPredictMshrQueue.emplace_back(pkt->req->getPC(), pkt->getBlockAddr(blkSize), pkt->MJL_getCrossBlockAddr(blkSize), pkt->MJL_getCmdDir(), pkt->MJL_getCrossCmdDir(), pkt->isSecure(), pkt->getAddr(), mshr, pkt->req->masterId());
-            /* MJL_Test 
+            if (pkt->req->hasPC()) {
+                copyPredictMshrQueue.emplace_back(pkt->req->getPC(), pkt->getBlockAddr(blkSize), pkt->MJL_getCrossBlockAddr(blkSize), pkt->MJL_getCmdDir(), pkt->MJL_getCrossCmdDir(), pkt->isSecure(), pkt->getAddr(), mshr, pkt->req->masterId());
+                /* MJL_Test 
                 std::cout << "MJL_predDebug: MJL_mshrPredictDir create mshr " << pkt->print() << std::endl;
-             */
+                 */
+            }
         }
         // Remove entry from both predict queues and get predict direction
         void MJL_removeFromPredictMshrQueue(const MSHR* mshr) {
@@ -611,7 +636,8 @@ class Cache : public BaseCache
             }
             assert(entry_found != copyPredictMshrQueue.end());
             // Predict the direction
-            if (entry_found->crossBlkHitCounter > entry_found->blkHitCounter) {
+            /* MJL_Test */ if (entry_found->crossBlkHitCounter > entry_found->blkHitCounter) { /* */ // Result in DirPredict_test
+            /* MJL_Test  if (entry_found->crossBlkHitCounter >= entry_found->blkHitCounter) {  */ // Result in SE_test 
                 predict_dir = entry_found->crossBlkDir;
             } else {
                 predict_dir = entry_found->blkDir;
