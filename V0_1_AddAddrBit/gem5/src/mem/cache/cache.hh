@@ -358,6 +358,7 @@ class Cache : public BaseCache
         unsigned blkSize;
 
         const unsigned MJL_rowWidth;
+        const bool MJL_mshrPredictDir;
 
         const int maxConf;
         const int threshConf;
@@ -497,8 +498,8 @@ class Cache : public BaseCache
         }
 
       public:
-        MJL_DirPredictor(unsigned _blkSize, unsigned _MJL_rowWidth)
-            : blkSize(_blkSize), MJL_rowWidth(_MJL_rowWidth), maxConf(7), 
+        MJL_DirPredictor(unsigned _blkSize, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir)
+            : blkSize(_blkSize), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), maxConf(7), 
               threshConf(4), minConf(0), startConf(4), pcTableAssoc(4), 
               pcTableSets(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
             {}
@@ -519,7 +520,8 @@ class Cache : public BaseCache
             return true;
         }
 
-        MemCmd::MJL_DirAttribute MJL_stridePredict(Addr pkt_addr, StrideEntry* entry) {
+        MemCmd::MJL_DirAttribute MJL_stridePredict(Addr pkt_addr, StrideEntry* entry, MemCmd::MJL_DirAttribute pkt_dir) {
+            MemCmd::MJL_DirAttribute predictedDir = pkt_dir;
             int new_stride = pkt_addr - entry->lastAddr;
             bool stride_match = (new_stride == entry->stride);
 
@@ -589,6 +591,9 @@ class Cache : public BaseCache
         // Add entry to both predict queue
         void MJL_addToPredictMshrQueue(const PacketPtr pkt, const MSHR* mshr) {
             copyPredictMshrQueue.emplace_back(pkt->req->getPC(), pkt->getBlockAddr(blkSize), pkt->MJL_getCrossBlockAddr(blkSize), pkt->MJL_getCmdDir(), pkt->MJL_getCrossCmdDir(), pkt->isSecure(), pkt->getAddr(), mshr, pkt->req->masterId());
+            /* MJL_Test 
+                std::cout << "MJL_predDebug: MJL_mshrPredictDir create mshr " << pkt->print() << std::endl;
+             */
         }
         // Remove entry from both predict queues and get predict direction
         void MJL_removeFromPredictMshrQueue(const MSHR* mshr) {
@@ -644,8 +649,11 @@ class Cache : public BaseCache
                     // Hit in table
                     if (MJL_mshrPredictDir) {
                         predictedDir = entry->lastPredDir;
+                        /* MJL_Test 
+                        std::cout << "MJL_predDebug: MJL_mshrPredictDir " << pkt->print() << " predicted " << predictedDir << std::endl;
+                         */
                     } else {
-                        predictedDir = MJL_stridePredict(pkt_addr, entry);
+                        predictedDir = MJL_stridePredict(pkt_addr, entry, pkt->MJL_getCmdDir());
                     }
                 } else {
                     // Miss in table

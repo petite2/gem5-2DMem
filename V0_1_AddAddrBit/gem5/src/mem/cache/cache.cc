@@ -108,7 +108,7 @@ Cache::Cache(const CacheParams *p)
     
     std::cout << "MJL_2DCache? " << MJL_2DCache << std::endl;
     if (MJL_predictDir) {
-        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth);
+        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth, MJL_mshrPredictDir);
     }
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         std::cout << "MJL_ignoreExtraTagCheckLatency? " << MJL_ignoreExtraTagCheckLatency << std::endl;
