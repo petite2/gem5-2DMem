@@ -813,6 +813,25 @@ class Packet : public Printable
     {
         return MJL_swapRowColBits(getAddr(), blk_size, req->MJL_rowWidth) & Addr(blk_size - 1);
     }
+
+    Addr MJL_getDirOffset(unsigned int blk_size, MemCmd::MJL_DirAttribute blk_dir) const
+    {
+        /* MJL_Begin */
+        /* Deals with different access directions respectively
+        */
+        // MJL_TODO: looks like it's been used with blkdata in this file, so changing to data direction. Need to check whether it is true over all
+        if ( blk_dir == MemCmd::MJL_DirAttribute::MJL_IsRow ) {
+            return getAddr() & Addr(blk_size - 1);
+        } else if ( blk_dir == MemCmd::MJL_DirAttribute::MJL_IsColumn ) {
+            // MJL_temp: temporary fix for column offset calculation, maybe should use data direction? check use cases
+            return MJL_swapRowColBits(getAddr(), blk_size, req->MJL_rowWidth) & Addr(blk_size - 1);
+        } else {
+            return getAddr() & Addr(blk_size - 1);
+        }
+        /* MJL_End */
+        /* MJL_Comment
+        return getAddr() & Addr(blk_size - 1);*/
+    }
     /* MJL_End */
     Addr getOffset(unsigned int blk_size) const
     {
