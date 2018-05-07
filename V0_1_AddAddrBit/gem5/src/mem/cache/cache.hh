@@ -450,7 +450,7 @@ class Cache : public BaseCache
 
         struct PredictMshrEntry
         {
-            PredictMshrEntry(const PacketPtr pkt, const MSHR* in_mshr) : pc(pkt->req->getPC()), blkAddr(pkt->getBlockAddr(blkSize)), crossBlkAddr(pkt->MJL_getCrossBlockAddr(blkSize)), blkDir(pkt->MJL_getCmdDir()), crossBlkDir(pkt->MJL_getCrossCmdDir()), isSecure(pkt->isSecure()), accessAddr(pkt->getAddr()), mshr(in_mshr), masterId(pkt->req->masterId()), blkHits{false, false, false, false, false, false, false, false}, crossBlkHits{false, false, false, false, false, false, false, false}, lastRowOff(pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsRow)/sizeof(uint64_t)), lastColOff(pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsColumn)/sizeof(uint64_t))
+            PredictMshrEntry(const PacketPtr pkt, const MSHR* in_mshr, unsigned blkSize) : pc(pkt->req->getPC()), blkAddr(pkt->getBlockAddr(blkSize)), crossBlkAddr(pkt->MJL_getCrossBlockAddr(blkSize)), blkDir(pkt->MJL_getCmdDir()), crossBlkDir(pkt->MJL_getCrossCmdDir()), isSecure(pkt->isSecure()), accessAddr(pkt->getAddr()), mshr(in_mshr), masterId(pkt->req->masterId()), blkHits{false, false, false, false, false, false, false, false}, crossBlkHits{false, false, false, false, false, false, false, false}, lastRowOff(pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsRow)/sizeof(uint64_t)), lastColOff(pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsColumn)/sizeof(uint64_t))
             {
                 blkHits[pkt->MJL_getDirOffset(blkSize, blkDir)/sizeof(uint64_t)] |= true;
                 crossBlkHits[pkt->MJL_getDirOffset(blkSize, crossBlkDir)/sizeof(uint64_t)] |= true;
@@ -597,8 +597,8 @@ class Cache : public BaseCache
                     selfStrideStep = rowOffset - entry->lastRowOff;
                 }
             }
-
-            if (selfStrideStep != 0) {
+            
+            if (selfStrideStep != 0 && stride_match) {
                 if (selfStrideDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
                     for (int i = entry->lastRowOff + selfStrideStep; i >= 0 && i < (int) (blkSize/sizeof(uint64_t)); i += selfStrideStep) {
                         if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
@@ -725,7 +725,7 @@ class Cache : public BaseCache
         // Add entry to both predict queue
         void MJL_addToPredictMshrQueue(const PacketPtr pkt, const MSHR* mshr) {
             if (pkt->req->hasPC()) {
-                copyPredictMshrQueue.emplace_back(pkt, mshr);
+                copyPredictMshrQueue.emplace_back(pkt, mshr, blkSize);
                 /* MJL_Test 
                 std::cout << "MJL_predDebug: MJL_mshrPredictDir create mshr " << pkt->print() << std::endl;
                  */
