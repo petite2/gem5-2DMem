@@ -114,10 +114,21 @@ Cache::Cache(const CacheParams *p)
         std::cout << "MJL_ignoreExtraTagCheckLatency? " << MJL_ignoreExtraTagCheckLatency << std::endl;
     }
     /* MJL_End */
+    /* MJL_Test */
+    if (this->name().find("l2") != std::string::npos) {
+        MJL_perPCAccessCount = new std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > >();
+    }
+    /* */
 }
 
 Cache::~Cache()
 {
+    /* MJL_Test */
+    if (this->name().find("l2") != std::string::npos) {
+        MJL_printAccess();
+        delete MJL_perPCAccessCount;
+    }
+    /* */
     delete [] tempBlock->data;
     delete tempBlock;
 
@@ -4579,6 +4590,14 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     if ((this->name().find("dcache") != std::string::npos) && pkt->isWrite()) {
         pkt->MJL_setAllDirty();
     }
+
+    /* MJL_Test */
+    if (this->name().find("l2") != std::string::npos) {
+        if (pkt->req->hasPC()) {
+            cache->MJL_countAccess(pkt->req->getPC(), pkt->MJL_getDataDir());
+        }
+    }
+    /* */
 
     /* MJL_Test: Packet information output 
     if ((this->name().find("dcache") != std::string::npos 

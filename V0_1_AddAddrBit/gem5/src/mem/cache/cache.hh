@@ -824,6 +824,30 @@ class Cache : public BaseCache
     bool MJL_mshrPredictDir;
 
     bool MJL_ignoreExtraTagCheckLatency;
+
+    std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > > * MJL_perPCAccessCount;
+
+    void MJL_countAccess(Addr pc, MemCmd::MJL_DirAttribute dir) {
+        if ( MJL_perPCAccessCount->find(pc) != MJL_perPCAccessCount->end() || MJL_perPCAccessCount[pc]->find(dir) != MJL_perPCAccessCount[pc]->end() ) {
+            (*MJL_perPCAccessCount)[pc][dir] = 0;
+        }
+        (*MJL_perPCAccessCount)[pc][dir]++;
+    }
+
+    void MJL_printAccess() {
+        std::cout << std::endl << "==== MJL_perPCAccessCount Begin ====" << std::endl;
+        std::cout << "PC Row_Accesses Col_Accesses" << std::endl;
+        for (auto it = MJL_perPCAccessCount->begin(); it != MJL_perPCAccessCount->end(); ++it) {
+            if ( it->second.find(MemCmd::MJL_DirAttribute::MJL_IsRow) == it->second.end() ) {
+                (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] = 0;
+            }
+            if ( it->second.find(MemCmd::MJL_DirAttribute::MJL_IsColumn) == it->second.end() ) {
+                (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] = 0;
+            }
+             std::cout << it->first << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] << std::endl;
+        }
+        std::cout << "==== MJL_perPCAccessCount End ====" << std::endl;
+    }
     /* MJL_End */
 
     /** Temporary cache block for occasional transitory use */
