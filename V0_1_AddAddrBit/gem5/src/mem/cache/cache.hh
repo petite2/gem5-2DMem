@@ -828,7 +828,7 @@ class Cache : public BaseCache
     std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > > * MJL_perPCAccessCount;
 
     void MJL_countAccess(Addr pc, MemCmd::MJL_DirAttribute dir) {
-        if ( MJL_perPCAccessCount->find(pc) != MJL_perPCAccessCount->end() || MJL_perPCAccessCount[pc]->find(dir) != MJL_perPCAccessCount[pc]->end() ) {
+        if ( MJL_perPCAccessCount->find(pc) == MJL_perPCAccessCount->end() || (*MJL_perPCAccessCount)[pc].find(dir) == (*MJL_perPCAccessCount)[pc].end() ) {
             (*MJL_perPCAccessCount)[pc][dir] = 0;
         }
         (*MJL_perPCAccessCount)[pc][dir]++;
