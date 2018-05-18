@@ -2000,6 +2000,9 @@ class Cache : public BaseCache
                 if ((MJL_diffDir_blk != nullptr) && MJL_diffDir_blk->isValid()) {
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
                     MJL_conflictWBCount4++;
+                    /* MJL_Test 
+                    std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_diffDir_blk->print() << ", invalidated by pkt_addr " << std::hex << MJL_written_addr << std::dec << std::endl;
+                     */
                     if (MJL_diffDir_blk->isDirty()) {
                         writebacks.push_back(writebackBlk(MJL_diffDir_blk));
                     } else {

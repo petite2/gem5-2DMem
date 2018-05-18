@@ -621,7 +621,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 // cache have the block, so we can clear the
                 // BLOCK_CACHED flag in the Writeback if set and
                 // discard the CleanEvict by returning true.
+                /* MJL_Begin */
+                if (blk == nullptr) {
+                    wbPkt->clearBlockCached();
+                }
+                /* MJL_End */
+                /* MJL_Comment
                 wbPkt->clearBlockCached();
+                 */
                 return true;
             } else {
                 assert(pkt->cmd == MemCmd::WritebackDirty);
@@ -1017,6 +1024,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 // Invalidate for the written section of the write request
                 if (pkt->isWrite() && (MJL_offset >= pkt->getOffset(blkSize) && MJL_offset < pkt->getOffset(blkSize) + pkt->getSize())) {
                     MJL_conflictWBCount1++;
+                    /* MJL_Test 
+                    std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_crossBlk->print() << ", evict by " << pkt->print() << std::endl;
+                     */
                     if (MJL_crossBlk->isDirty() || writebackClean) {
                         writebacks.push_back(writebackBlk(MJL_crossBlk));
                     } else {
@@ -1026,6 +1036,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 // Write back for read requests and non written sections of the write request if the crossing word is dirty
                 } else if (MJL_crossBlk->isDirty() && MJL_crossBlk->MJL_wordDirty[MJL_crossBlkOffset/sizeof(uint64_t)]){
                     MJL_conflictWBCount2++;
+                    /* MJL_Test 
+                    std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_crossBlk->print() << ", cached written back by " << pkt->print() << std::endl;
+                     */
                     writebacks.push_back(MJL_writebackCachedBlk(MJL_crossBlk));
                 // Otherwise, just revoke writable
                 } else {
@@ -4638,7 +4651,12 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     }
      */
     /* MJL_Test 
-    std::cout << this->name() << "::MJL_predDebug: recvTimingReq " << pkt->print() << std::endl;
+    if (this->name().find("dcache") != std::string::npos
+             || this->name().find("l2") != std::string::npos
+             || this->name().find("l3") != std::string::npos
+        ) {
+        std::cout << this->name() << "::MJL_Debug: recvTimingReq " << pkt->print() << std::endl;
+    }
      */    
 
     // Column vector access handler
