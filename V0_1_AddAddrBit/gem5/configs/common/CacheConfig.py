@@ -90,6 +90,10 @@ def config_cache(options, system):
         if options.l2_size in ["2MB"]:
             l2_tag_latency = 8
             l2_data_latency = 12
+        if options.MJL_L2sameSetMapping:
+            MJL_ignore_extra_tag_check_latecy = options.MJL_L2sameSetMapping
+        else:
+            MJL_ignore_extra_tag_check_latecy = options.MJL_noLatOverhead
         # MJL_End 
         system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
                                    size=options.l2_size,
@@ -104,7 +108,7 @@ def config_cache(options, system):
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
-                                   , MJL_ignoreExtraTagCheckLatency=options.MJL_L2sameSetMapping\
+                                   , MJL_ignoreExtraTagCheckLatency=MJL_ignore_extra_tag_check_latecy\
                                    # MJL_End
                                    )
 
@@ -124,6 +128,11 @@ def config_cache(options, system):
         # Provide a clock for the L2 and the L1-to-L2 bus here as they
         # are not connected using addTwoLevelCacheHierarchy. Use the
         # same clock as the CPUs.
+        if options.MJL_L2sameSetMapping:
+            MJL_l2_ignore_extra_tag_check_latecy = options.MJL_L2sameSetMapping
+        else:
+            MJL_l2_ignore_extra_tag_check_latecy = options.MJL_noLatOverhead
+
         system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
                                    size=options.l2_size,
                                    assoc=options.l2_assoc\
@@ -134,9 +143,14 @@ def config_cache(options, system):
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
-                                   , MJL_ignoreExtraTagCheckLatency=options.MJL_L2sameSetMapping\
+                                   , MJL_ignoreExtraTagCheckLatency=MJL_l2_ignore_extra_tag_check_latecy\
                                    # MJL_End
                                    )
+
+        if options.MJL_L3sameSetMapping:
+            MJL_l3_ignore_extra_tag_check_latecy = options.MJL_L3sameSetMapping
+        else:
+            MJL_l3_ignore_extra_tag_check_latecy = options.MJL_noLatOverhead
 
         system.l3 = l2_cache_class(clk_domain=system.cpu_clk_domain,
                                    size=options.l3_size,
@@ -155,7 +169,7 @@ def config_cache(options, system):
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L3sameSetMapping\
-                                   , MJL_ignoreExtraTagCheckLatency=options.MJL_L3sameSetMapping\
+                                   , MJL_ignoreExtraTagCheckLatency=MJL_l3_ignore_extra_tag_check_latecy\
                                    # MJL_End
                                    )
 
@@ -185,6 +199,12 @@ def config_cache(options, system):
                                   , MJL_timeStep=options.MJL_timeStep\
                                   # MJL_End
                                   )
+            # MJL_Begin
+            if options.MJL_L1sameSetMapping:
+                MJL_ignore_extra_tag_check_latecy = options.MJL_L1sameSetMapping
+            else:
+                MJL_ignore_extra_tag_check_latecy = options.MJL_noLatOverhead
+            # MJL_End
             dcache = dcache_class(size=options.l1d_size,
                                   assoc=options.l1d_assoc\
                                   # MJL_Begin
@@ -195,7 +215,7 @@ def config_cache(options, system):
                                   , MJL_predictDir=options.MJL_predictDir\
                                   , MJL_mshrPredictDir=options.MJL_mshrPredictDir\
                                   , MJL_sameSetMapping=options.MJL_L1sameSetMapping\
-                                  , MJL_ignoreExtraTagCheckLatency=options.MJL_L1sameSetMapping\
+                                  , MJL_ignoreExtraTagCheckLatency=MJL_ignore_extra_tag_check_latecy\
                                   # MJL_End
                                   )
             # MJL_Begin

@@ -129,6 +129,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_L1sameSetMapping", action="store_true", help="Use same set mapping for L1 dcaches")
     parser.add_option("--MJL_L2sameSetMapping", action="store_true", help="Use same set mapping for L2 caches")
     parser.add_option("--MJL_L3sameSetMapping", action="store_true", help="Use same set mapping for L3 caches")
+    parser.add_option("--MJL_noLatOverhead", action="store_true", help="Test use")
     # MJL_End
 
     # Enable Ruby
