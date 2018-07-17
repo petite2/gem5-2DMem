@@ -533,7 +533,7 @@ MSHR::extractServiceableTargets(PacketPtr pkt)
     } else {
         /* MJL_Begin */
         auto target_it = targets.begin();
-        /* MJL_Test 
+        /* MJL_Test */
         if (target_it->MJL_isBlocked()) {
             std::cout << "MJL_Debug: blocked pkt " << target_it->pkt->print() << " cmd " << target_it->pkt->MJL_getCmdDir() << " src " << target_it->source << " self " << &(*target_it) << ", blocked by ";
             bool MJL_blockedByinBlocking = false;
@@ -547,9 +547,9 @@ MSHR::extractServiceableTargets(PacketPtr pkt)
                      MJL_blockedByinBlocking = true;
             }
             assert(MJL_blockedByinBlocking);
-            std::cout << "MJL_Debug blocking pkt " << target_it->MJL_isBlockedBy.front()->pkt->getAddr() << " cmd " << target_it->MJL_isBlockedBy.front()->pkt->MJL_getCmdDir() << " src " << target_it->MJL_isBlockedBy.front()->source << std::endl;
+            std::cout << "MJL_Debug blocking pkt " << std::hex << target_it->MJL_isBlockedBy.front()->pkt->getAddr() << std::dec << " cmd " << target_it->MJL_isBlockedBy.front()->pkt->MJL_getCmdDir() << " src " << target_it->MJL_isBlockedBy.front()->source << std::endl;
         }
-         */
+        /* */
         assert(!target_it->MJL_isBlocked());
         while ((target_it != targets.end()) && (!target_it->MJL_isBlocked())) {
             ready_targets.push_back(*target_it);
@@ -662,9 +662,16 @@ MSHR::sendPacket(Cache &cache)
 void
 MSHR::print(std::ostream &os, int verbosity, const std::string &prefix) const
 {
+    /* MJL_Begin */
+    ccprintf(os, "%s[%#llx:%#llx](%s):%s %s %s %s state: %s %s %s %s %s\n",
+    /* MJL_End */
+    /* MJL_Comment
     ccprintf(os, "%s[%#llx:%#llx](%s) %s %s %s state: %s %s %s %s %s\n",
+    */
              prefix, blkAddr, blkAddr + blkSize - 1,
-             isSecure ? "s" : "ns",
+             isSecure ? "s" : "ns",/* MJL_Begin */
+             (MJL_qEntryDir==MJL_QEntryDir::MJL_IsRow) ? "r" : "c",
+             /* MJL_End */
              isForward ? "Forward" : "",
              allocOnFill() ? "AllocOnFill" : "",
              needsWritable() ? "Wrtbl" : "",

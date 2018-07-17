@@ -114,9 +114,26 @@ class Cache : public BaseCache
         virtual bool sendTimingResp(PacketPtr pkt)
         {
             assert(pkt->isResponse());
-            /* MJL_Test 
-            std::cout << this->name() << "::MJL_predDebug: sendTimingResp " << pkt->print() << std::endl; 
-             */
+            /* MJL_Test */
+            // if (this->name().find("dcache") != std::string::npos && pkt->req->hasPC() && pkt->req->getPC() == 0x43296c && pkt->getAddr() == 0x38c8c0 && pkt->MJL_dataIsColumn()) {
+            //     MJL_debugOutFlag = false;
+            // } 
+            if ((this->name().find("dcache") != std::string::npos
+                 || this->name().find("l2") != std::string::npos)
+                // || this->name().find("l3") != std::string::npos
+                // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
+                // && (pkt->getAddr() <= 0x38c8c0 && (pkt->getAddr() + pkt->getSize()) >= 0x38c8c0)
+                // && MJL_debugOutFlag
+                // && (pkt->getAddr() >= 0x38c000 && pkt->getAddr() < 0x390000)
+                // && (pkt->getAddr() >= 0x374000 && pkt->getAddr() < 0x378000)
+                // && pkt->req->hasPC() && (pkt->req->getPC() == 0x4b8526 || pkt->req->getPC() == 0x4b9e9e || pkt->req->getPC() == 0x4ba0ea || pkt->req->getPC() == 0x4ba0f4 || pkt->req->getPC() == 0x4b84db || pkt->req->getPC() == 0x4ba007)
+                // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x4b82d0 && pkt->req->getPC() <=0x4ba2ab )
+                && (pkt->getAddr() >= 0x8ffc000 && pkt->getAddr() < 0x9000000)
+                // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x44eb30 && pkt->req->getPC() <=0x44f00b )
+            ) {
+                std::cout << this->name() << "::MJL_Debug: sendTimingResp " << pkt->print() << std::endl; 
+            }
+            /* */
             /* MJL_Test: Packet information output 
             if ((this->name().find("dcache") != std::string::npos 
                   || this->name().find("l2") != std::string::npos
@@ -249,6 +266,10 @@ class Cache : public BaseCache
         virtual bool MJL_is2DCache() {
             return cache->MJL_is2DCache();
         }
+       
+        /* MJL_Test */
+        bool MJL_debugOutFlag;
+        /* */
         /* MJL_End */
 
     };
@@ -732,7 +753,12 @@ class Cache : public BaseCache
             }
         }
         // Remove entry from both predict queues and get predict direction
-        void MJL_removeFromPredictMshrQueue(const MSHR* mshr) {
+        void MJL_removeFromPredictMshrQueue(const MSHR* mshr, bool targetHasPC) {
+            // software prefetch actually happened and does not have a pc... need to bypass this case since prediction cannot be made without a pc
+            if (!targetHasPC) {
+                return;
+            }
+
             std::list<PredictMshrEntry>::iterator entry_found = copyPredictMshrQueue.end();
             StrideEntry *pcTable_entry;
             MasterID master_id = 0;
@@ -2000,9 +2026,9 @@ class Cache : public BaseCache
                 if ((MJL_diffDir_blk != nullptr) && MJL_diffDir_blk->isValid()) {
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
                     MJL_conflictWBCount4++;
-                    /* MJL_Test 
-                    std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_diffDir_blk->print() << ", invalidated by pkt_addr " << std::hex << MJL_written_addr << std::dec << std::endl;
-                     */
+                    /* MJL_Test */ 
+                    std::cout << this->name() << "::MJL_writebufferHitDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_diffDir_blk->tag, MJL_diffDir_blk->MJL_blkDir, MJL_diffDir_blk->set) << std::dec << ", " << MJL_diffDir_blk->print() << ", invalidated by pkt_addr " << std::hex << MJL_written_addr << std::dec << std::endl;
+                    /* */
                     if (MJL_diffDir_blk->isDirty()) {
                         writebacks.push_back(writebackBlk(MJL_diffDir_blk));
                     } else {

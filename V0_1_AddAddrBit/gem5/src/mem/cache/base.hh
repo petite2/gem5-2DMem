@@ -623,6 +623,8 @@ class BaseCache : public MemObject
         } else if (mshr->MJL_qEntryDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
             crossBlkDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
         }
+        
+        Addr target_cross_offset = pkt->MJL_getDirOffset(blkSize, crossBlkDir);
 
         // Search for crossing mshr entries
         for (Addr offset = 0; offset < blkSize; offset = offset + sizeof(uint64_t)) {
@@ -632,7 +634,15 @@ class BaseCache : public MemObject
             if (crossMshr) {
                 MJL_mshrConflictCount++;
                 // If the packet is a write and the crossing word is written
-                if (pkt->isWrite() && (offset >= target_offset && offset < target_offset + size)) {
+                if (pkt->isWrite() && (offset < target_offset + size && offset + sizeof(uint64_t) > target_offset)) {
+                    /* MJL_Test */
+                    if (this->name().find("dcache") != std::string::npos) {
+                        std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
+                        std::cout << mshr->print() << std::endl;
+                        std::cout << ", blocked by " << crossMshr << std::endl;
+                        std::cout << crossMshr->print() << std::endl;
+                    }
+                    /* */
                     // The new target is blocked by the crossing mshr's last target
                     new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastTarget());
                     crossMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(new_target);
@@ -640,12 +650,21 @@ class BaseCache : public MemObject
                     crossMshr->MJL_getLastTarget()->MJL_postInvalidate = true;
                 // Else if the packet is read or the packet is write but the crossing word is not written
                 // And If there is a write target in the crossing mshr
-                } else if (crossMshr->MJL_getLastWriteTarget()) {
+                } else if (crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize)) {
+                    /* MJL_Test */
+                    if (this->name().find("dcache") != std::string::npos) {
+                        std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
+                        std::cout << mshr->print() << std::endl;
+                        std::cout << ", blocked by " << crossMshr << std::endl;
+                        std::cout << crossMshr->print() << std::endl;
+                    }
+                    /* */
                     // The new target is blocked by the crossing mshr's latest write target
-                    new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastWriteTarget());
-                    crossMshr->MJL_getLastWriteTarget()->MJL_isBlocking.push_back(new_target);
+                    new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize));
+                    crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize)->MJL_isBlocking.push_back(new_target);
                     // And the crossing mshr's last write target should writeback
-                    crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;
+                    // crossMshr->MJL_getLastUnblockedTargetAfterLastWrite(target_cross_offset, blkSize)->MJL_postWriteback = true;
+                    crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize)->MJL_postWriteback = true;
                 // Else the crossing mshr's last target should have post lose writable
                 // MJL_TODO: In physically 2D cache, the mshr entry should be blocked if there's an invalidation as well, but assuming that this never happens for now.
                 } else {
@@ -707,6 +726,17 @@ class BaseCache : public MemObject
         // should only see writes or clean evicts here
         assert(pkt->isWrite() || pkt->cmd == MemCmd::CleanEvict);
 
+        /* MJL_Test 
+        if ((this->name().find("dcache") != std::string::npos
+                || this->name().find("l2") != std::string::npos)
+                // || this->name().find("l3") != std::string::npos
+                // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
+                // && ( MJL_debugOutFlag )
+                && (pkt->getAddr() >= 0x38c000 && pkt->getAddr() < 0x390000)
+            ) {
+            std::cout << this->name() << "::MJL_Debug: allocateWriteBuffer " << pkt->print() << std::endl;
+        }
+         */
         /* MJL_Comment
         Addr blk_addr = blockAlign(pkt->getAddr());
         */

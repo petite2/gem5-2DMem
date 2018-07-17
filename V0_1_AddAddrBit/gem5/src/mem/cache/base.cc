@@ -70,7 +70,7 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
     : MemObject(p),
       cpuSidePort(nullptr), memSidePort(nullptr),
       mshrQueue("MSHRs", p->mshrs, 0, p->demand_mshr_reserve), // see below
-      writeBuffer("write buffer", p->write_buffers, p->MJL_2D_Cache? 8 * p->mshrs : p->mshrs), // see below
+      writeBuffer("write buffer", p->write_buffers, /* MJL_Begin */p->MJL_2D_Cache? 9 * p->mshrs : /* MJL_End */p->mshrs), // see below
       blkSize(blk_size),
       /* MJL_Begin */
       MJL_rowWidth(p->MJL_row_width),

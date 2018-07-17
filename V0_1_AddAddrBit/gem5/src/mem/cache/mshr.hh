@@ -162,19 +162,19 @@ class MSHR : public QueueEntry, public Printable
             return !MJL_isBlockedBy.empty();
         }
         void MJL_clearBlocking() {
-            /* MJL_Test 
+            /* MJL_Test */ 
             std::cout << "MJL_Debug: clearBlocking self " << MJL_self << " isBlocking";
-             */
+            /* */
             while (!MJL_isBlocking.empty()) {
                 MJL_isBlocking.front()->MJL_isBlockedBy.remove(MJL_self);
-                /* MJL_Test 
+                /* MJL_Test */
                 std::cout << " " << &(*MJL_isBlocking.front());
-                 */
+                /* */
                 MJL_isBlocking.pop_front();
             }
-            /* MJL_Test 
+            /* MJL_Test */
             std::cout << std::endl;
-             */
+            /* */
         }
         /* MJL_End */
 
@@ -405,13 +405,13 @@ class MSHR : public QueueEntry, public Printable
      * Returns a reference to the last target that is a write.
      * @return A pointer to the last target that is a write, null if no target is a write.
      */
-    Target *MJL_getLastWriteTarget()
+    Target *MJL_getLastWriteTarget(Addr offset, unsigned blk_size)
     {
         assert(hasTargets());
         Target* lastWrite = nullptr;
         if (!deferredTargets.empty()) {
            for (auto rit = deferredTargets.rbegin(); rit != deferredTargets.rend(); ++rit) {
-               if (rit->pkt->isWrite()) {
+               if (rit->pkt->isWrite() && ((offset/sizeof(uint64_t)) * sizeof(uint64_t) < rit->pkt->getOffset(blk_size) + rit->pkt->getSize() && (offset/sizeof(uint64_t)) * sizeof(uint64_t) + sizeof(uint64_t) > rit->pkt->getOffset(blk_size))) {
                    lastWrite = &(*rit);
                    break;
                }
@@ -419,13 +419,56 @@ class MSHR : public QueueEntry, public Printable
         } 
         if (!lastWrite) {
             for (auto rit = targets.rbegin(); rit != targets.rend(); ++rit) {
-               if (rit->pkt->isWrite()) {
+               if (rit->pkt->isWrite() && ((offset/sizeof(uint64_t)) * sizeof(uint64_t) < rit->pkt->getOffset(blk_size) + rit->pkt->getSize() && (offset/sizeof(uint64_t)) * sizeof(uint64_t) + sizeof(uint64_t) > rit->pkt->getOffset(blk_size))) {
                    lastWrite = &(*rit);
                    break;
                }
            }
         }
         return lastWrite;
+    }
+
+    Target *MJL_getLastUnblockedTargetAfterLastWrite(Addr offset, unsigned blk_size)
+    {
+        assert(hasTargets());
+        Target* lastUnblocked = nullptr;
+        bool lastWriteFound = false;
+        if (!deferredTargets.empty()) {
+           for (auto rit = deferredTargets.rbegin(); rit != deferredTargets.rend(); ++rit) {
+               if (rit->pkt->isWrite() && ((offset/sizeof(uint64_t)) * sizeof(uint64_t) < rit->pkt->getOffset(blk_size) + rit->pkt->getSize() && (offset/sizeof(uint64_t)) * sizeof(uint64_t) + sizeof(uint64_t) > rit->pkt->getOffset(blk_size))) {
+                   lastWriteFound = true;
+                   lastUnblocked = &(*rit);
+               }
+               if (lastWriteFound) {
+                   if (rit->MJL_isBlocked()) {
+                       break;
+                   }
+                   lastUnblocked = &(*rit);
+               }
+           }
+        } 
+        if (!lastWriteFound) {
+            for (auto rit = targets.rbegin(); rit != targets.rend(); ++rit) {
+               if (rit->pkt->isWrite() && ((offset/sizeof(uint64_t)) * sizeof(uint64_t) < rit->pkt->getOffset(blk_size) + rit->pkt->getSize() && (offset/sizeof(uint64_t)) * sizeof(uint64_t) + sizeof(uint64_t) > rit->pkt->getOffset(blk_size))) {
+                   lastWriteFound = true;
+                   lastUnblocked = &(*rit);
+               }
+               if (lastWriteFound) {
+                   if (rit->MJL_isBlocked()) {
+                       break;
+                   }
+                   lastUnblocked = &(*rit);
+               }
+           }
+        }
+        assert(lastWriteFound);
+        return lastUnblocked;
+    }
+
+    bool MJL_targetHasPC() const
+    {
+        assert(hasTargets());
+        return targets.front().pkt->req->hasPC();
     }
     /* MJL_End */
 
