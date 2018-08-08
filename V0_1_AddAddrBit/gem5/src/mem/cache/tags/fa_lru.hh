@@ -240,6 +240,10 @@ public:
     {
         return findBlock(addr, is_secure);
     }
+    bool MJL_hasCrossing(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override
+    {
+        return false;
+    }
     /* MJL_End */
 
     /**

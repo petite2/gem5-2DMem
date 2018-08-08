@@ -113,6 +113,7 @@ class MSHR : public QueueEntry, public Printable
     bool isForward;
     /* MJL_Begin */
     bool MJL_deferredAdded;
+    bool MJL_retry;
     /* MJL_End */
 
     class Target {
@@ -162,19 +163,19 @@ class MSHR : public QueueEntry, public Printable
             return !MJL_isBlockedBy.empty();
         }
         void MJL_clearBlocking() {
-            /* MJL_Test */ 
+            /* MJL_Test  
             std::cout << "MJL_Debug: clearBlocking self " << MJL_self << " isBlocking";
-            /* */
+             */
             while (!MJL_isBlocking.empty()) {
                 MJL_isBlocking.front()->MJL_isBlockedBy.remove(MJL_self);
-                /* MJL_Test */
+                /* MJL_Test 
                 std::cout << " " << &(*MJL_isBlocking.front());
-                /* */
+                 */
                 MJL_isBlocking.pop_front();
             }
-            /* MJL_Test */
+            /* MJL_Test 
             std::cout << std::endl;
-            /* */
+             */
         }
         /* MJL_End */
 
@@ -405,13 +406,13 @@ class MSHR : public QueueEntry, public Printable
      * Returns a reference to the last target that is a write.
      * @return A pointer to the last target that is a write, null if no target is a write.
      */
-    Target *MJL_getLastWriteTarget(Addr offset, unsigned blk_size)
+    Target *MJL_getLastWriteTarget(Addr offset, unsigned blk_size, bool cross_word_check)
     {
         assert(hasTargets());
         Target* lastWrite = nullptr;
         if (!deferredTargets.empty()) {
            for (auto rit = deferredTargets.rbegin(); rit != deferredTargets.rend(); ++rit) {
-               if (rit->pkt->isWrite() && ((offset/sizeof(uint64_t)) * sizeof(uint64_t) < rit->pkt->getOffset(blk_size) + rit->pkt->getSize() && (offset/sizeof(uint64_t)) * sizeof(uint64_t) + sizeof(uint64_t) > rit->pkt->getOffset(blk_size))) {
+               if (rit->pkt->needsWritable() && (!cross_word_check || ((offset/sizeof(uint64_t)) * sizeof(uint64_t) < rit->pkt->getOffset(blk_size) + rit->pkt->getSize() && (offset/sizeof(uint64_t)) * sizeof(uint64_t) + sizeof(uint64_t) > rit->pkt->getOffset(blk_size)))) { // quick solution for bzip2 problem
                    lastWrite = &(*rit);
                    break;
                }
@@ -419,7 +420,7 @@ class MSHR : public QueueEntry, public Printable
         } 
         if (!lastWrite) {
             for (auto rit = targets.rbegin(); rit != targets.rend(); ++rit) {
-               if (rit->pkt->isWrite() && ((offset/sizeof(uint64_t)) * sizeof(uint64_t) < rit->pkt->getOffset(blk_size) + rit->pkt->getSize() && (offset/sizeof(uint64_t)) * sizeof(uint64_t) + sizeof(uint64_t) > rit->pkt->getOffset(blk_size))) {
+               if (rit->pkt->needsWritable() && (!cross_word_check || ((offset/sizeof(uint64_t)) * sizeof(uint64_t) < rit->pkt->getOffset(blk_size) + rit->pkt->getSize() && (offset/sizeof(uint64_t)) * sizeof(uint64_t) + sizeof(uint64_t) > rit->pkt->getOffset(blk_size)))) { // quick solution for bzip2 problem
                    lastWrite = &(*rit);
                    break;
                }

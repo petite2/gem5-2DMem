@@ -108,13 +108,165 @@ class Cache : public BaseCache
 
       public:
         /* MJL_Begin */
+        // Test use methods
+        std::map< Addr, uint8_t[8] > MJL_current_data;
+        std::map< Addr, bool[8] > MJL_current_valid;
+        std::map< PacketPtr, uint8_t[16] > MJL_return_data;
+        bool MJL_value_test;
+        void MJL_regReq(PacketPtr pkt) {
+            if (!MJL_value_test || pkt->cmd.isSWPrefetch()) {
+                return;
+            }
+            // assert(pkt->getSize() <= sizeof(uint64_t));
+            Addr base_addr = pkt->getAddr();
+            unsigned offset = pkt->getAddr() % sizeof(uint64_t);
+            assert(pkt->getSize() <= 2*sizeof(uint64_t));
+            if (pkt->isWrite()) {
+                if (MJL_current_data.find(base_addr/sizeof(uint64_t)) == MJL_current_data.end()) {
+                    std::memset(&MJL_current_data[base_addr/sizeof(uint64_t)], 0, sizeof(uint64_t));
+                    for (int i = 0; i < 8; ++i) {
+                        MJL_current_valid[base_addr/sizeof(uint64_t)][i] = false;
+                    }
+                }
+                std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t)])[offset]), pkt->getConstPtr<uint8_t>(), std::min((Addr)pkt->getSize(), sizeof(uint64_t) - offset));
+                for (int i = 0; i < std::min((Addr)pkt->getSize(), sizeof(uint64_t) - offset); ++i) {
+                    MJL_current_valid[base_addr/sizeof(uint64_t)][i + offset] |= true;
+                }
+                if (offset + pkt->getSize() > sizeof(uint64_t)) {
+                    if (MJL_current_data.find(base_addr/sizeof(uint64_t) + 1) == MJL_current_data.end()) {
+                        std::memset(&MJL_current_data[base_addr/sizeof(uint64_t) + 1], 0, sizeof(uint64_t));
+                        for (int i = 0; i < 8; ++i) {
+                            MJL_current_valid[base_addr/sizeof(uint64_t) + 1][i] = false;
+                        }
+                    }
+                    std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t) + 1])[0]), pkt->getConstPtr<uint8_t>() + sizeof(uint64_t) - offset, std::min((Addr)pkt->getSize() + offset - sizeof(uint64_t), sizeof(uint64_t)));
+                    for (int i = 0; i < std::min((Addr)pkt->getSize() + offset - sizeof(uint64_t), sizeof(uint64_t)); ++i) {
+                        MJL_current_valid[base_addr/sizeof(uint64_t) + 1][i] |= true;
+                    }
+                }
+                if (offset + pkt->getSize() > 2*sizeof(uint64_t)) {
+                    if (MJL_current_data.find(base_addr/sizeof(uint64_t) + 2) == MJL_current_data.end()) {
+                        std::memset(&MJL_current_data[base_addr/sizeof(uint64_t) + 2], 0, sizeof(uint64_t));
+                        for (int i = 0; i < 8; ++i) {
+                            MJL_current_valid[base_addr/sizeof(uint64_t) + 2][i] = false;
+                        }
+                    }
+                    std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t) + 2])[0]), pkt->getConstPtr<uint8_t>() + 2*sizeof(uint64_t) - offset, pkt->getSize() + offset - 2*sizeof(uint64_t));
+                    for (int i = 0; i < pkt->getSize() + offset - sizeof(uint64_t); ++i) {
+                        MJL_current_valid[base_addr/sizeof(uint64_t) + 2][i] |= true;
+                    }
+                }
+            } else if (pkt->isRead()) {
+                if (MJL_current_data.find(base_addr/sizeof(uint64_t)) != MJL_current_data.end()) {
+                    bool valid = true;
+                    for (int i = 0; i < std::min((Addr)pkt->getSize(), sizeof(uint64_t) - offset); ++i) {
+                        valid &= MJL_current_valid[base_addr/sizeof(uint64_t)][i + offset];
+                    }
+                    if (offset + pkt->getSize() > sizeof(uint64_t)) {
+                        if (MJL_current_data.find(base_addr/sizeof(uint64_t) + 1) == MJL_current_data.end()) {
+                            valid = false;
+                        }
+                        for (int i = 0; i < std::min((Addr)pkt->getSize() + offset - sizeof(uint64_t), sizeof(uint64_t)); ++i) {
+                            valid &= MJL_current_valid[base_addr/sizeof(uint64_t) + 1][i];
+                        }
+                    }
+                    if (offset + pkt->getSize() > 2*sizeof(uint64_t)) {
+                        if (MJL_current_data.find(base_addr/sizeof(uint64_t) + 2) == MJL_current_data.end()) {
+                            valid = false;
+                        }
+                        for (int i = 0; i < pkt->getSize() + offset - 2*sizeof(uint64_t); ++i) {
+                            valid &= MJL_current_valid[base_addr/sizeof(uint64_t) + 2][i];
+                        }
+                    }
+                    if (valid) {
+                        std::memset(&MJL_return_data[pkt], 0, 2*sizeof(uint64_t));
+                        std::memcpy(&MJL_return_data[pkt], &((MJL_current_data[base_addr/sizeof(uint64_t)])[offset]), std::min((Addr)pkt->getSize(), sizeof(uint64_t) - offset));
+                        if (offset + pkt->getSize() > sizeof(uint64_t)) {
+                            std::memcpy(&((MJL_return_data[pkt])[sizeof(uint64_t) - offset]), &((MJL_current_data[base_addr/sizeof(uint64_t) + 1])[0]), std::min(pkt->getSize() + offset - sizeof(uint64_t), sizeof(uint64_t)));
+                        }
+                        if (offset + pkt->getSize() > 2*sizeof(uint64_t)) {
+                            std::memcpy(&((MJL_return_data[pkt])[2*sizeof(uint64_t) - offset]), &((MJL_current_data[base_addr/sizeof(uint64_t) + 2])[0]), pkt->getSize() + offset - 2*sizeof(uint64_t));
+                        }
+                    }
+                }
+            }
+        }
+
+        void MJL_checkResp(PacketPtr pkt) {
+            if (!MJL_value_test || pkt->cmd.isSWPrefetch()) {
+                return;
+            }
+            if (MJL_return_data.find(pkt) != MJL_return_data.end()) {
+                // assert(pkt->getSize() <= sizeof(uint64_t));
+                assert(pkt->getSize() <= 2*sizeof(uint64_t));
+                uint64_t MJL_pkt_data0 = 0;
+                uint64_t MJL_pkt_data1 = 0;
+                std::memcpy(&MJL_pkt_data0, pkt->getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)pkt->getSize()));
+                if (pkt->getSize() > sizeof(uint64_t)) {
+                    std::memcpy(&MJL_pkt_data1, pkt->getConstPtr<uint8_t>() + sizeof(uint64_t), pkt->getSize() - sizeof(uint64_t));
+                }
+                uint64_t MJL_reg_data0 = 0;
+                uint64_t MJL_reg_data1 = 0;
+                std::memcpy(&MJL_reg_data0, &(MJL_return_data[pkt]), std::min(sizeof(uint64_t), (Addr)pkt->getSize()));
+                if (pkt->getSize() > sizeof(uint64_t)) {
+                    std::memcpy(&MJL_reg_data1, &((MJL_return_data[pkt])[sizeof(uint64_t)]), pkt->getSize() - sizeof(uint64_t));
+                }
+                if (MJL_pkt_data0 != MJL_reg_data0 || MJL_pkt_data1 != MJL_reg_data1) {
+                    std::cout << this->name() << "::MJL_Debug wrong read response ";
+                    if (pkt->req->hasPC()) {
+                        std::cout << std::hex << pkt->req->getPC() << std::dec;
+                    }
+                    std::cout << ": " << pkt->print() << ", " << std::hex << MJL_pkt_data0 << ":" << MJL_pkt_data1 << std::dec << ", should be " << std::hex << MJL_reg_data0 << ":" << MJL_reg_data1 << std::dec << std::endl;
+                    // Addr base_addr = pkt->getAddr();
+                    // unsigned offset = pkt->getAddr() % sizeof(uint64_t);
+                    // std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t)])[offset]), pkt->getConstPtr<uint8_t>(), std::min((Addr)pkt->getSize(), sizeof(uint64_t) - offset));
+                    // if (offset + pkt->getSize() > sizeof(uint64_t)) {
+                        // std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t) + 1])[0]), pkt->getConstPtr<uint8_t>() + sizeof(uint64_t) - offset, pkt->getSize() + offset - sizeof(uint64_t));
+                    // }
+                }
+                assert(MJL_pkt_data0 == MJL_reg_data0 && MJL_pkt_data1 == MJL_reg_data1);
+                MJL_return_data.erase(pkt);
+            }
+        }
+
+        void MJL_functionalUpdate(PacketPtr pkt) {
+            if (!MJL_value_test || pkt->cmd.isSWPrefetch()) {
+                return;
+            }
+            if (pkt->isWrite()) {
+                Addr base_addr = pkt->getAddr();
+                unsigned offset = pkt->getAddr() % sizeof(uint64_t);
+                if (MJL_current_data.find(base_addr/sizeof(uint64_t)) != MJL_current_data.end()) {
+                    for (int i = offset; i < std::min(sizeof(uint64_t), (Addr)pkt->getSize() - offset); ++i) {
+                        if (MJL_current_valid[base_addr/sizeof(uint64_t)][i]) {
+                            std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t)])[i]), pkt->getConstPtr<uint8_t>() + i, 1);
+                        }
+                    }
+                }
+                for (Addr addr = base_addr + sizeof(uint64_t) - offset; addr < base_addr + pkt->getSize(); addr += sizeof(uint64_t)) {
+                    if (MJL_current_data.find(addr/sizeof(uint64_t)) != MJL_current_data.end()) {
+                        for (int i = 0; i < std::min(sizeof(uint64_t), (Addr)pkt->getSize() + base_addr - addr); ++i) {
+                            if (MJL_current_valid[addr/sizeof(uint64_t)][i]) {
+                                std::memcpy(&((MJL_current_data[addr/sizeof(uint64_t)])[i]), pkt->getConstPtr<uint8_t>() + (addr - base_addr + i), 1);
+                            }
+                        }
+                    }
+                }
+            } else {
+                return;
+            }
+        }
         /**
          * Override the default sendTimingResp() to merge split packets at L1D$ cpu_side port
          */
         virtual bool sendTimingResp(PacketPtr pkt)
         {
             assert(pkt->isResponse());
-            /* MJL_Test */
+
+            if (this->name().find("dcache") != std::string::npos){
+                MJL_checkResp(pkt);
+            } 
+            /* MJL_Test 
             // if (this->name().find("dcache") != std::string::npos && pkt->req->hasPC() && pkt->req->getPC() == 0x43296c && pkt->getAddr() == 0x38c8c0 && pkt->MJL_dataIsColumn()) {
             //     MJL_debugOutFlag = false;
             // } 
@@ -133,7 +285,7 @@ class Cache : public BaseCache
             ) {
                 std::cout << this->name() << "::MJL_Debug: sendTimingResp " << pkt->print() << std::endl; 
             }
-            /* */
+             */
             /* MJL_Test: Packet information output 
             if ((this->name().find("dcache") != std::string::npos 
                   || this->name().find("l2") != std::string::npos
@@ -562,9 +714,9 @@ class Cache : public BaseCache
 
       public:
         MJL_DirPredictor(unsigned _blkSize, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir)
-            : blkSize(_blkSize), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), maxConf(7), 
-              threshConf(4), minConf(0), startConf(4), pcTableAssoc(4), 
-              pcTableSets(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
+            : blkSize(_blkSize), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), maxConf(3), 
+              threshConf(2), minConf(0), startConf(2), pcTableAssoc(4), 
+              pcTableSets(8), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
             {}
         virtual ~MJL_DirPredictor() {}
 
@@ -583,7 +735,7 @@ class Cache : public BaseCache
             return true;
         }
 
-        MemCmd::MJL_DirAttribute MJL_mshrPredict(Addr pkt_addr, StrideEntry* entry) {
+        MemCmd::MJL_DirAttribute MJL_mshrPredict(Addr pkt_addr, StrideEntry* entry, int pkt_rowOff, int pkt_colOff, bool isWrite) {
             unsigned blkHitCount = 0;
             unsigned crossBlkHitCount = 0;
 
@@ -628,6 +780,13 @@ class Cache : public BaseCache
                             entry->crossBlkHits[i] |= true;
                         }
                     }
+                    /*for (int i = entry->lastRowOff - selfStrideStep; i >= 0 && i < (int) (blkSize/sizeof(uint64_t)); i -= selfStrideStep) {
+                        if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                            entry->blkHits[i] |= true;
+                        } else if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                            entry->crossBlkHits[i] |= true;
+                        }
+                    }*/
                 } else if (selfStrideDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
                     for (int i = entry->lastColOff + selfStrideStep; i >= 0 && i < (int) (blkSize/sizeof(uint64_t)); i += selfStrideStep) {
                         if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
@@ -636,6 +795,13 @@ class Cache : public BaseCache
                             entry->crossBlkHits[i] |= true;
                         }
                     }
+                    /*for (int i = entry->lastColOff - selfStrideStep; i >= 0 && i < (int) (blkSize/sizeof(uint64_t)); i -= selfStrideStep) {
+                        if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                            entry->blkHits[i] |= true;
+                        } else if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                            entry->crossBlkHits[i] |= true;
+                        }
+                    }*/
                 }
             }
 
@@ -652,6 +818,8 @@ class Cache : public BaseCache
                     entry->crossBlkHits[i] = tempBlkHits[i];
                 }
             }
+            entry->lastRowOff = pkt_rowOff;
+            entry->lastColOff = pkt_colOff;
             return entry->lastPredDir;
         }
 
@@ -750,6 +918,16 @@ class Cache : public BaseCache
                 /* MJL_Test 
                 std::cout << "MJL_predDebug: MJL_mshrPredictDir create mshr " << pkt->print() << std::endl;
                  */
+                /* for (std::list<PredictMshrEntry>::iterator it = copyPredictMshrQueue.begin(); it != copyPredictMshrQueue.end(); it++) {
+                    Addr pkt_blkAddr = pkt->getBlockAddr(blkSize);
+                    Addr pkt_crossBlkAddr = pkt->MJL_getCrossBlockAddr(blkSize);
+                    bool pkt_isSecure = pkt->isSecure();
+                    if (pkt_crossBlkAddr == it->crossBlkAddr && pkt_isSecure == it->isSecure && pkt->MJL_getCrossCmdDir() == it->crossBlkDir) {
+                        copyPredictMshrQueue.back().crossBlkHits[pkt->MJL_getDirOffset(blkSize, it->crossBlkDir)/sizeof(uint64_t)] |= it->crossBlkHits[pkt->MJL_getDirOffset(blkSize, it->crossBlkDir)/sizeof(uint64_t)];
+                    } else if (pkt_blkAddr == it->crossBlkAddr && pkt_isSecure == it->isSecure && pkt->MJL_getCmdDir() == it->crossBlkDir) {
+                        copyPredictMshrQueue.back().blkHits[pkt->MJL_getDirOffset(blkSize, it->crossBlkDir)/sizeof(uint64_t)] |= it->crossBlkHits[pkt->MJL_getDirOffset(blkSize, it->crossBlkDir)/sizeof(uint64_t)];
+                    }
+                } */
             }
         }
         // Remove entry from both predict queues and get predict direction
@@ -775,10 +953,17 @@ class Cache : public BaseCache
             master_id = useMasterId ? entry_found->masterId : 0;
             if (pcTableHit(entry_found->pc, entry_found->isSecure, master_id, pcTable_entry)) {
                 pcTable_entry->lastAddr = entry_found->accessAddr;
-                pcTable_entry->lastPredDir = entry_found->blkDir;
-                for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
-                    pcTable_entry->blkHits[i] = entry_found->blkHits[i];
-                    pcTable_entry->crossBlkHits[i] = entry_found->crossBlkHits[i];
+                // pcTable_entry->lastPredDir = entry_found->blkDir;
+                if (pcTable_entry->lastPredDir == entry_found->blkDir) {
+                    for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        pcTable_entry->blkHits[i] = entry_found->blkHits[i];
+                        pcTable_entry->crossBlkHits[i] = entry_found->crossBlkHits[i];
+                    }
+                } else {
+                    for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        pcTable_entry->blkHits[i] = entry_found->crossBlkHits[i];
+                        pcTable_entry->crossBlkHits[i] = entry_found->blkHits[i];
+                    }
                 }
                 pcTable_entry->lastRowOff = entry_found->lastRowOff;
                 pcTable_entry->lastColOff = entry_found->lastColOff;
@@ -816,7 +1001,7 @@ class Cache : public BaseCache
                 if (pcTableHit(pc, is_secure, master_id, entry)) {
                     // Hit in table
                     if (MJL_mshrPredictDir) {
-                        predictedDir = MJL_mshrPredict(pkt_addr, entry);
+                        predictedDir = MJL_mshrPredict(pkt_addr, entry, pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsRow)/sizeof(uint64_t), pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsColumn)/sizeof(uint64_t), pkt->isWrite());
                         /* MJL_Test 
                         std::cout << "MJL_predDebug: MJL_mshrPredictDir " << pkt->print() << " predicted " << predictedDir << std::endl;
                          */
@@ -870,7 +1055,7 @@ class Cache : public BaseCache
             if ( it->second.find(MemCmd::MJL_DirAttribute::MJL_IsColumn) == it->second.end() ) {
                 (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] = 0;
             }
-             std::cout << it->first << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] << std::endl;
+             std::cout << std::hex << it->first << std::dec << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] << std::endl;
         }
         std::cout << "==== MJL_perPCAccessCount End ====" << std::endl;
     }
@@ -2026,7 +2211,7 @@ class Cache : public BaseCache
                 if ((MJL_diffDir_blk != nullptr) && MJL_diffDir_blk->isValid()) {
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
                     MJL_conflictWBCount4++;
-                    /* MJL_Test */ 
+                    /* MJL_Test */
                     std::cout << this->name() << "::MJL_writebufferHitDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_diffDir_blk->tag, MJL_diffDir_blk->MJL_blkDir, MJL_diffDir_blk->set) << std::dec << ", " << MJL_diffDir_blk->print() << ", invalidated by pkt_addr " << std::hex << MJL_written_addr << std::dec << std::endl;
                     /* */
                     if (MJL_diffDir_blk->isDirty()) {

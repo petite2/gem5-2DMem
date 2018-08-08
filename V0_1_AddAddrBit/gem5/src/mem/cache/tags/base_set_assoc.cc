@@ -164,6 +164,39 @@ BaseSetAssoc::MJL_findCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheB
     BlkType *blk = sets[set].MJL_findCrossBlk(tag, MJL_cacheBlkDir, is_secure, MJL_offset);
     return blk;
 }
+
+bool 
+BaseSetAssoc::MJL_hasCrossing(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
+{
+    assert(this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos);
+    uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+    int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+    Addr tileMask = ~((Addr)(blkSize-1) | (MJL_wordMask << MJL_colShift));
+    Addr blkaddr = addr;
+    for (unsigned offset = 0; offset < blkSize/sizeof(uint64_t); ++offset) {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            blkaddr = (addr & tileMask) | ((Addr)offset*sizeof(uint64_t)) ;
+            Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+            unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+            BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
+            if (blk) {
+                return true;
+            }
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            blkaddr = (addr & tileMask) | ((Addr)offset << MJL_colShift);
+            Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+            unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+            BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, is_secure);
+            if (blk) {
+                return true;
+            }
+        } else {
+            assert(MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow || MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+        }
+    } 
+    return false;
+}
+
 /* MJL_End */
 
 CacheBlk*

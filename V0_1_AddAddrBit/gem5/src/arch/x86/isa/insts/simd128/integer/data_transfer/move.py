@@ -78,6 +78,8 @@ def macroop MOVDQA_XMM_XMM {
 
 def macroop MOVDQA_XMM_M {
     mjl_ldfpvec (xmml, xmmh), seg, sib, "DISPLACEMENT", dataSize=8
+    # ldfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
+    # ldfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
 };
 
 def macroop MOVDQA_XMM_P {
@@ -88,6 +90,8 @@ def macroop MOVDQA_XMM_P {
 
 def macroop MOVDQA_M_XMM {
     mjl_stfpvec (xmml, xmmh), seg, sib, "DISPLACEMENT", dataSize=8
+    # stfp xmml, seg, sib, "DISPLACEMENT", dataSize=8
+    # stfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
 };
 
 def macroop MOVDQA_P_XMM {

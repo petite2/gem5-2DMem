@@ -613,9 +613,9 @@ void
 SnoopFilter::updateSnoopForward(const Packet* cpkt,
         const SlavePort& rsp_port, const MasterPort& req_port)
 {
-    /* MJL_Test */
+    /* MJL_Test 
     assert(false);
-    /* */
+     */
     DPRINTF(SnoopFilter, "%s: rsp %s req %s packet %s\n",
             __func__, rsp_port.name(), req_port.name(), cpkt->print());
 

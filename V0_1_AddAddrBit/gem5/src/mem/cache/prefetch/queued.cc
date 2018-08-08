@@ -105,7 +105,16 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
         for (AddrPriority& pf_info : addresses) {
 
             // Block align prefetch address
+            /* MJL_Begin */
+            if (MJL_colPf && pkt->MJL_cmdIsColumn()) {
+                pf_info.first &= ~(Addr)(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth));
+            } else {
+                pf_info.first &= ~(Addr)(blkSize - 1);
+            }
+            /* MJL_End */
+            /* MJL_Comment
             pf_info.first &= ~(Addr)(blkSize - 1);
+            */
 
             pfIdentified++;
             DPRINTF(HWPrefetch, "Found a pf candidate addr: %#x, "

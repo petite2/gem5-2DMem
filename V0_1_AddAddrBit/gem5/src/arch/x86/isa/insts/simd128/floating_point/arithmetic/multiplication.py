@@ -94,6 +94,8 @@ def macroop MULPD_XMM_XMM {
 
 def macroop MULPD_XMM_M {
     mjl_ldfpvec (ufp1, ufp2), seg, sib, "DISPLACEMENT", dataSize=8
+    # ldfp ufp1, seg, sib, "DISPLACEMENT", dataSize=8
+    # ldfp ufp2, seg, sib, "DISPLACEMENT + 8", dataSize=8
     mmulf xmml, xmml, ufp1, size=8, ext=0
     mmulf xmmh, xmmh, ufp2, size=8, ext=0
 };
@@ -101,6 +103,8 @@ def macroop MULPD_XMM_M {
 def macroop MULPD_XMM_P {
     rdip t7
     mjl_ldfpvec (ufp1, ufp2), seg, riprel, "DISPLACEMENT", dataSize=8
+    # ldfp ufp1, seg, riprel, "DISPLACEMENT", dataSize=8
+    # ldfp ufp2, seg, riprel, "DISPLACEMENT + 8", dataSize=8
     mmulf xmml, xmml, ufp1, size=8, ext=0
     mmulf xmmh, xmmh, ufp2, size=8, ext=0
 };

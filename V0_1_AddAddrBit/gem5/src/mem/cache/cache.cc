@@ -114,21 +114,21 @@ Cache::Cache(const CacheParams *p)
         std::cout << "MJL_ignoreExtraTagCheckLatency? " << MJL_ignoreExtraTagCheckLatency << std::endl;
     }
     /* MJL_End */
-    /* MJL_Test 
+    /* MJL_Test */ 
     if (this->name().find("l2") != std::string::npos) {
         MJL_perPCAccessCount = new std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > >();
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printAccess>(this));
     }
-     */
+    /* */
 }
 
 Cache::~Cache()
 {
-    /* MJL_Test 
+    /* MJL_Test */
     if (this->name().find("l2") != std::string::npos) {
         delete MJL_perPCAccessCount;
     }
-     */
+    /* */
     delete [] tempBlock->data;
     delete tempBlock;
 
@@ -410,7 +410,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 //   copy of the line
                 if (blk->isDirty()) {
                     // special considerations if we're owner:
-                    if (!deferred_response) {
+                    if (!deferred_response/* MJL_Begin */ && (this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos)/* MJL_End */) {
                         // respond with the line in Modified state
                         // (cacheResponding set, hasSharers not set)
                         pkt->setCacheResponding();
@@ -814,7 +814,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
                 // Taking the additional tag check latency into account
                 for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
-                    if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)]) {
+                    if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] /*&& !MJL_ignoreExtraTagCheckLatency */) {// probably should have event for same set since the invalidation has to create write buffer entries
                         lat += lookupLatency;
                     }
                 }
@@ -1035,9 +1035,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 if (pkt->isWrite() && (MJL_offset + sizeof(uint64_t) > pkt->getOffset(blkSize) && MJL_offset < pkt->getOffset(blkSize) + pkt->getSize())) {
                     MJL_conflictWBCount1++;
                     assert(MJL_crossBlk->isReadable());
-                    /* MJL_Test 
+                    /* MJL_Test */
                     std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_crossBlk->print() << ", evict by " << pkt->print() << std::endl;
-                     */
+                    /* */
                     if (MJL_crossBlk->isDirty() || writebackClean) {
                         writebacks.push_back(writebackBlk(MJL_crossBlk));
                     } else {
@@ -1048,7 +1048,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 } else if (MJL_crossBlk->isDirty() && MJL_crossBlk->MJL_wordDirty[MJL_crossBlkOffset/sizeof(uint64_t)]){
                     MJL_conflictWBCount2++;
                     /* MJL_Test */ 
-                    std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_crossBlk->print() << ", cached written back by " << pkt->print() << std::endl;
+                    std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_crossBlk->tag, MJL_crossBlk->MJL_blkDir, MJL_crossBlk->set) << std::dec << ", " << MJL_crossBlk->print() << ", cached written back by " << pkt->print() << std::endl;
                     /* */
                     // If cross block is not waiting on upgrade, writeback. Otherwise, let mshr blocking mechanism handle it
                     if (MJL_crossBlk->isReadable()) {
@@ -1520,7 +1520,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                                          allocOnFill(pkt->cmd));
                     /* MJL_Begin */
                     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
-                        MJL_markBlockInfo(mshr);
+                        MJL_markBlockInfo(mshr, false);
                     }
                     /* MJL_End */
                     if (mshr->getNumTargets() == numTarget) {
@@ -1645,11 +1645,11 @@ Cache::recvTimingReq(PacketPtr pkt)
                     if (!pkt->needsWritable()) {
                         std::cout << this->name() << "::MJL_Debug: needsWritable 2D: " << pkt->print() << " | " << blk->print()  << std::endl;
                     }/* */ 
-                    /* MJL_Test */  
+                    /* MJL_Test   
                     else {
                         std::cout << this->name() << "::MJL_Debug: recvTimingReq setting unreadable " << pkt->print() << ", " << blk->print() << std::endl;
                     }
-                    /* */
+                     */
                     assert(pkt->needsWritable());
                     assert(!blk->isWritable());
                     blk->status &= ~BlkReadable;
@@ -1747,7 +1747,7 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         // only reason to be here is that blk is read only and we need
         // it to be writable
         /* MJL_Test */
-        if (!needsWritable) {
+        if (!needsWritable || blk->isWritable()) {
             std::cout << this->name() << "::MJL_Debug: createMissPacket pkt " << cpu_pkt->print() << ", blk " << blk->print() << std::endl;
         }
         /* */
@@ -2182,6 +2182,16 @@ Cache::recvTimingResp(PacketPtr pkt)
     // we know we are dealing with an MSHR due to a miss or a prefetch
     MSHR *mshr = dynamic_cast<MSHR*>(pkt->popSenderState());
     assert(mshr);
+    /* MJL_Begin 
+    // Should not have been used ever
+    if (mshr->MJL_retry) {
+        mshr->MJL_retry = false;
+        mshrQueue.markPending(mshr);
+        schedMemSideSendEvent(clockEdge() + pkt->payloadDelay);
+        delete pkt;
+        return;
+    }
+     MJL_End */
 
     if (mshr == noTargetMSHR) {
         // we always clear at least one target
@@ -2258,7 +2268,9 @@ Cache::recvTimingResp(PacketPtr pkt)
     bool MJL_invalidate = false;
     bool MJL_unreadable = false;
     Counter MJL_order = initial_tgt->order;
+    //Counter MJL_init_order = MJL_order;
     bool MJL_targetHasPC = mshr->MJL_targetHasPC();
+    bool MJL_orderSet = false;
     /* MJL_End */
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
     for (auto &target: targets) {
@@ -2368,6 +2380,13 @@ Cache::recvTimingResp(PacketPtr pkt)
                 // snoops as they should snoop the caches above where
                 // they will get the response from.
                 /* MJL_Begin */
+                if (mshr->isForward && pkt->cmd == MemCmd::UpgradeResp && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos)) {
+                    tgt_pkt->MJL_copyWordDirty(pkt->MJL_wordDirty);
+                    // Shouldn't this be true even if this is not a MDACache? Although since the dirty bit will be set upon write being satisfied, hence nothing changes really.
+                    if (pkt->cacheResponding()) {
+                        tgt_pkt->setCacheResponding();
+                    }
+                }
                 if (MJL_2DCache && is_invalidate && blk && (blk->isValid() || blk->MJL_hasCrossValid())) {
                     MJL_invalidateTile(blk);
                 } else /* MJL_End */if (is_invalidate && blk && blk->isValid()) {
@@ -2453,8 +2472,9 @@ Cache::recvTimingResp(PacketPtr pkt)
             MJL_writeback |= target.MJL_postWriteback;
             MJL_invalidate |= target.MJL_postInvalidate;
             assert(!target.MJL_postInvalidate || (&target == &targets.back())); 
-            if (target.MJL_postWriteback) {
+            if (target.MJL_postWriteback && !MJL_orderSet && blk->isDirty()) {
                 MJL_order = target.order;
+                MJL_orderSet = true;
             } else if (!MJL_writeback && target.MJL_postInvalidate) {
                 MJL_order = target.order;
             }
@@ -2474,6 +2494,21 @@ Cache::recvTimingResp(PacketPtr pkt)
         && (blk->isValid() 
             || (MJL_2DCache && blk->MJL_hasCrossValid()))) {
         if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache) {
+            // If the response granted writable, check the mshr for any crossing outstanding misses. If such miss exists, new crossing cache lines will be coming, and any potential writes to the shared element would have a hit, with crossing cache lines returning stale data. Hence, in such case, the blk should lose writable.
+            if (pkt->cmd == MemCmd::UpgradeResp) {
+                if (mshrQueue.MJL_hasCrossing(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) {
+                    MJL_writeback |= true;
+                }
+            }
+            /* Even retry will not get new data if the write back happens before the cross miss returns in the next level of cache// If the response granted writable that was not asked for with dirty data in the block, check the mshr for crossing inservice misses. If such miss exist and arrived after the request with response that has dirty data, and that the overlapping word is dirty, then the inservice crossing miss is going to return stale data. Hence mark that a retry should be forced after it's return.
+            if (MJL_writeback && !pkt->hasSharers() && pkt->cacheResponding() && pkt->cmd != MemCmd::UpgradeResp && pkt->cmd != MemCmd::WriteResp && pkt->cmd != MemCmd::ReadExResp) {
+                int MJL_crossShift = pkt->floorLog2(sizeof(uint64_t));
+                if (pkt->MJL_cmdIsColumn()) {
+                    MJL_crossShift = pkt->floorLog2(pkt->req->MJL_rowWidth) + floorLog2(blkSize);
+                }
+                mshrQueue.MJL_markRetry(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))), MJL_crossShift, pkt->MJL_wordDirty, MJL_init_order);
+            }*/
+            
             PacketPtr MJL_postPkt = nullptr;
             if (MJL_invalidate && (blk->isDirty() || writebackClean)) {
                 MJL_postPkt = writebackBlk(blk);
@@ -2521,15 +2556,17 @@ Cache::recvTimingResp(PacketPtr pkt)
         // avoid later read getting stale data while write miss is
         // outstanding.. see comment in timingAccess()
         if (blk/* MJL_Begin */ && !MJL_2DCache/* MJL_End */) {
-            /* MJL_Test */ 
-            std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingResp setting unreadable " << pkt->print() << " | " << blk->print() << std::endl;
-            /* */
-            /* MJL_Begin */
-            // if (!mshr->getTarget()->MJL_isBlocked()) {
-            //     blk->status &= ~BlkReadable;
+            /* MJL_Test  
+            // if (mshr->needsWritable()) {
+                std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingResp setting unreadable " << pkt->print() << " | " << blk->print() << std::endl;
             // }
+             */
+            /* MJL_Begin 
+            if (mshr->needsWritable()) {
+                 blk->status &= ~BlkReadable;
+            }
             assert(!blk->isWritable());
-            /* MJL_End */
+             MJL_End */
             /* MJL_Comment */
             blk->status &= ~BlkReadable;
             /* */
@@ -3186,9 +3223,9 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
                 assert(repl_mshr->needsWritable());
                 // too hard to replace block with transient state
                 // allocation failed, block not inserted
-                /* MJL_Test */
+                /* MJL_Test 
                 std::cout << this->name() << "::MJL_Debug allocateBlock hard to replace block with transient state " << blk->print() << std::endl;
-                /* */
+                 */
                 return nullptr;
             } else {
                 DPRINTF(Cache, "replacement: replacing %#llx (%s) with %#llx "
@@ -3359,9 +3396,9 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
                 tempBlock->set = tags->extractSet(addr);
                 tempBlock->tag = tags->extractTag(addr);
             }
-            /* MJL_Test */
+            /* MJL_Test 
             std::cout << this->name() << "::MJL_DebugHandleFill Using temp block for " << pkt->print() << ", allocate? " << allocate << std::endl;
-            /* */
+             */
             /* MJL_End */
             /* MJL_Comment 
             tempBlock->set = tags->extractSet(addr);
@@ -3507,7 +3544,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             blk->status |= BlkDirty;
             /* MJL_Begin */
             if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
-                blk->MJL_clearAllDirty();
+                // blk->MJL_clearAllDirty();
                 blk->MJL_setWordDirtyPkt(pkt, blkSize);
             }
             /* MJL_End */
@@ -3530,6 +3567,7 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
         assert(pkt->hasData());
         assert(pkt->getSize() == blkSize);
         /* MJL_Begin */
+        // Got it correct by accident... read that does not pass writable does not pass dirty, and here accidentaly made packet's dirty to be set as the blk's dirty instead of the blk's dirty set by the pkt's dirty, hence not passing dirty. Leaving them as is incase there's other uses.
         if (MJL_2DCache) {
             if (pkt->MJL_dataIsColumn()) {
                 unsigned MJL_offset = pkt->MJL_getColOffset(blkSize);
@@ -4246,13 +4284,13 @@ Cache::getNextQueueEntry()
 
         if (conflict_mshr && conflict_mshr->order < wq_entry->order) {
             // Service misses in order until conflict is cleared.
-            /* MJL_Test */
+            /* MJL_Begin */
             if (conflict_mshr->getTarget()->MJL_isBlocked()) {
-                std::cout << this->name() << "::getNextQueueEntry conflict mshr is blocked " << conflict_mshr->print() << std::endl;
+                // std::cout << this->name() << "::getNextQueueEntry conflict mshr is blocked " << conflict_mshr->print() << std::endl;
                 return nullptr;
             }
             assert(!conflict_mshr->getTarget()->MJL_isBlocked());
-            /* */
+            /* MJL_End */
             return conflict_mshr;
 
             // @todo Note that we ignore the ready time of the conflict here
@@ -4269,6 +4307,29 @@ Cache::getNextQueueEntry()
             conflict_mshr = writeBuffer.MJL_findPending(miss_mshr->blkAddr, miss_mshr->MJL_qEntryDir, 
                                     miss_mshr->isSecure);
 
+            // Check same direction for comparison in case of other direction conflict
+            CacheBlk::MJL_CacheBlkDir MJL_crossBlkDir = miss_mshr->MJL_qEntryDir;
+            if (miss_mshr->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+                MJL_crossBlkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
+            } else if (miss_mshr->MJL_qEntryDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+                MJL_crossBlkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+            }
+            Addr MJL_sameBlkAddr = MJL_blockAlign(miss_mshr->blkAddr, MJL_crossBlkDir);
+            WriteQueueEntry *sameDir_mshr = conflict_mshr;
+            WriteQueueEntry *temp_sameDir_mshr = conflict_mshr;
+            for (Addr MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
+                temp_sameDir_mshr = writeBuffer.MJL_findPending(MJL_addOffsetAddr(MJL_sameBlkAddr, MJL_crossBlkDir, MJL_offset), miss_mshr->MJL_qEntryDir,
+                                    miss_mshr->isSecure);
+                if (sameDir_mshr) {
+                    if (temp_sameDir_mshr && (temp_sameDir_mshr->order < sameDir_mshr->order) && (temp_sameDir_mshr->order < miss_mshr->order)) {
+                        sameDir_mshr = temp_sameDir_mshr;
+                    }
+                } else {
+                    if (temp_sameDir_mshr && (temp_sameDir_mshr->order < miss_mshr->order)) {
+                        sameDir_mshr = temp_sameDir_mshr;
+                    }
+                }
+            }
             // Check other direction conflict
             Addr MJL_crossBlkAddr = miss_mshr->blkAddr;
             WriteQueueEntry *temp_conflict_mshr = conflict_mshr;
@@ -4292,6 +4353,10 @@ Cache::getNextQueueEntry()
                         conflict_mshr = temp_conflict_mshr;
                     }
                 }
+            }
+            // Resolve with order
+            if (conflict_mshr && conflict_mshr->MJL_qEntryDir != miss_mshr->MJL_qEntryDir && sameDir_mshr && sameDir_mshr->order < conflict_mshr->order) {
+                conflict_mshr = sameDir_mshr;
             }
         } else {
             conflict_mshr = writeBuffer.findPending(miss_mshr->blkAddr,
@@ -4343,9 +4408,10 @@ Cache::getNextQueueEntry()
             } else {
                 pf_addr = blockAlign(pkt->getAddr());
             }
-            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
-                !mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) &&
-                !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos) && (!tags->findBlock(pf_addr, pkt->isSecure()) &&
+            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !tags->MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) &&
+                !mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) &&
+                !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))))) 
+               || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos) && (!tags->findBlock(pf_addr, pkt->isSecure()) &&
                 !mshrQueue.findMatch(pf_addr, pkt->isSecure()) &&
                 !writeBuffer.findMatch(pf_addr, pkt->isSecure())))) {
             /* MJL_End */
@@ -4682,13 +4748,13 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test 
+    /* MJL_Test */ 
     if (this->name().find("l2") != std::string::npos) {
         if (pkt->req->hasPC()) {
             cache->MJL_countAccess(pkt->req->getPC(), pkt->MJL_getDataDir());
         }
     }
-     */
+    /* */
 
     /* MJL_Test: Packet information output 
     if ((this->name().find("dcache") != std::string::npos 
@@ -4732,9 +4798,9 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     // if (this->name().find("dcache") != std::string::npos && pkt->isWrite() && pkt->getAddr() == 0x38c8c0) {
     //     MJL_debugOutFlag = true;
     // }
-    if ((this->name().find("dcache") != std::string::npos
-              || this->name().find("l2") != std::string::npos)
-            //  || this->name().find("l3") != std::string::npos
+    if ( (this->name().find("dcache") != std::string::npos
+             || this->name().find("l2") != std::string::npos
+             || this->name().find("l3") != std::string::npos)
             //  && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
             // && ( MJL_debugOutFlag )
             // && (pkt->getAddr() >= 0x38c000 && pkt->getAddr() < 0x390000)
@@ -4849,6 +4915,11 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     // always let express snoop packets through if even if blocked
     if (pkt->isExpressSnoop()) {
         // do not change the current retry state
+        /* MJL_Test */
+        if (this->name().find("dcache") != std::string::npos) {
+            MJL_regReq(pkt);
+        }
+        /* */
         bool M5_VAR_USED bypass_success = cache->recvTimingReq(pkt);
         assert(bypass_success);
         return true;
@@ -4857,11 +4928,12 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         success = false;
     /* MJL_Begin */
     // Sending mechanism on the second half of the split packets
-    } else if (this->name().find("dcache") && cache->MJL_sndPacketWaiting) {
+    } else if (this->name().find("dcache") != std::string::npos && cache->MJL_sndPacketWaiting) {
         // Wait till the second half of the split packets is sent to accept new packets
         if (pkt->req->contextId() == cache->MJL_retrySndPacket->req->contextId()) {
             assert(MJL_split);
             MJL_split = false;
+            MJL_regReq(pkt);
             success = cache->recvTimingReq(cache->MJL_retrySndPacket);
             if (success) {
                 cache->MJL_sndPacketWaiting = false;
@@ -4875,6 +4947,11 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     } else {
         // pass it on to the cache, and let the cache decide if we
         // have to retry or not
+        /* MJL_Test */
+        if (this->name().find("dcache") != std::string::npos) {
+            MJL_regReq(pkt);
+        }
+        /* */
         success = cache->recvTimingReq(pkt);
     }
 
@@ -4884,6 +4961,9 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         cache->MJL_sndPacketWaiting = !success;
         // Try sending the second packet if the first was sent successfully
         if (success) {
+            if (this->name().find("dcache") != std::string::npos) {
+                MJL_regReq(pkt);
+            }
             success = cache->recvTimingReq(MJL_sndPkt);
             // Should pass as well (it seems that the function only returns true...)
             assert(success == true);
@@ -5243,6 +5323,7 @@ Cache::CpuSidePort::recvFunctional(PacketPtr pkt)
     // Set common system information to propagate the information everywhere
     pkt->req->MJL_cachelineSize = cache->blkSize;
     pkt->req->MJL_rowWidth = cache->MJL_rowWidth;
+    MJL_functionalUpdate(pkt);
     /* MJL_End */
     // functional request
     cache->functionalAccess(pkt, true);
@@ -5278,6 +5359,7 @@ CpuSidePort::CpuSidePort(const std::string &_name, Cache *_cache,
     : BaseCache::CacheSlavePort(_name, _cache, _label), cache(_cache)
 {
     MJL_debugOutFlag = false;
+    MJL_value_test = true;
 }
 
 Cache*
@@ -5298,7 +5380,7 @@ Cache::MemSidePort::recvTimingResp(PacketPtr pkt)
 {
     /* MJL_Test */ 
     if ( this->name().find("dcache") != std::string::npos
-         // (this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) 
+         || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos 
        ) {
         std::cout << this->name() << "MJL_predDebug: recvTimingResp " << pkt->print() << std::endl;
     }

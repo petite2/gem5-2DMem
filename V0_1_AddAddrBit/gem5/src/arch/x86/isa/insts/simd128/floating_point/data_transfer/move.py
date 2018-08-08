@@ -40,6 +40,8 @@ microcode = '''
 def macroop MOVAPS_XMM_M {
     # Check low address.
     mjl_ldfpvec (xmml, xmmh), seg, sib, "DISPLACEMENT", dataSize=8
+    # ldfp xmmh, seg, sib, "DISPLACEMENT + 8", dataSize=8
+    # ldfp xmml, seg, sib, disp, dataSize=8
 };
 
 def macroop MOVAPS_XMM_P {

@@ -602,7 +602,7 @@ class BaseCache : public MemObject
      * to maintain memory access ordering on conflict.
      * @param mshr The mshr with the newly added target
      */
-    void MJL_markBlockInfo(MSHR *mshr) {
+    void MJL_markBlockInfo(MSHR *mshr, bool new_mshr = true) {
         // Get the newly added target and packet information
         MSHR::Target* new_target = mshr->MJL_getLastTarget();
         PacketPtr pkt = new_target->pkt;
@@ -648,9 +648,15 @@ class BaseCache : public MemObject
                     crossMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(new_target);
                     // And the crossing mshr's last target should have post invalidate
                     crossMshr->MJL_getLastTarget()->MJL_postInvalidate = true;
-                // Else if the packet is read or the packet is write but the crossing word is not written
+                // Else if the packet is write but the crossing word is not written
+                } else if (pkt->isWrite()) {
+                    // The new target is blocked by the crossing mshr's last target
+                    new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastTarget());
+                    crossMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(new_target);
+                    crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;
+                // Else if the packet is read
                 // And If there is a write target in the crossing mshr
-                } else if (crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize)) {
+                } else if (crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, !new_mshr)) {
                     /* MJL_Test */
                     if (this->name().find("dcache") != std::string::npos) {
                         std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
@@ -660,11 +666,18 @@ class BaseCache : public MemObject
                     }
                     /* */
                     // The new target is blocked by the crossing mshr's latest write target
-                    new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize));
-                    crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize)->MJL_isBlocking.push_back(new_target);
+                    new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, !new_mshr));
+                    crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, !new_mshr)->MJL_isBlocking.push_back(new_target);
                     // And the crossing mshr's last write target should writeback
                     // crossMshr->MJL_getLastUnblockedTargetAfterLastWrite(target_cross_offset, blkSize)->MJL_postWriteback = true;
-                    crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize)->MJL_postWriteback = true;
+                    crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, !new_mshr)->MJL_postWriteback = true;
+                // Else if the packet is write but the crossing word is not written and there is no write target in the crossing mshr
+                /* Make sure that read do not pass dirty or writable if not asked for// Even read responses may pass dirty and writable, and the block was clean and unwritable at the time of the check at access, hence written back or lose writable should be checked at response.
+                } else if (pkt->isWrite()) {
+                    // The new target is blocked by the crossing mshr's last target
+                    new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastTarget());
+                    crossMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(new_target);
+                    crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;*/
                 // Else the crossing mshr's last target should have post lose writable
                 // MJL_TODO: In physically 2D cache, the mshr entry should be blocked if there's an invalidation as well, but assuming that this never happens for now.
                 } else {

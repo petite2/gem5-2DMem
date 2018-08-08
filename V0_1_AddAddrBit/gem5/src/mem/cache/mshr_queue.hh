@@ -172,6 +172,26 @@ class MSHRQueue : public Queue<MSHR>
         }
         return readyList.front();
     } 
+
+    bool MJL_hasBlockingCrossing(Addr blk_addr, MemCmd::MJL_DirAttribute MJL_queue_entry_dir, bool is_secure, unsigned blk_size, Addr tilemask) const
+    {
+    	MemCmd::MJL_DirAttribute MJL_cross_queue_entry_dir = MJL_queue_entry_dir;
+        if (MJL_queue_entry_dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+            MJL_cross_queue_entry_dir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+        } else if (MJL_queue_entry_dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+            MJL_cross_queue_entry_dir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+        } else {
+            assert(MJL_queue_entry_dir == MemCmd::MJL_DirAttribute::MJL_IsRow || MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsColumn);
+        }
+        for (const auto& entry : allocatedList) {
+            if ((entry->blkAddr & tilemask) == (blk_addr & tilemask) && entry->isSecure == is_secure && entry->MJL_qEntryDir == MJL_cross_queue_entry_dir) {
+                if (entry->MJL_getLastWriteTarget(blk_addr, blk_size, false)) {
+                	return true;
+                }
+            }
+        }
+        return false;
+    }
     /* MJL_End */
 };
 

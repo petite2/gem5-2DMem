@@ -1,0 +1,27 @@
+How to add a stat that will be printed at the end of execution in the statistics file:
+
+
+1. In the *.hh file, declare a Stats class variable.
+
+   Note that there are different types of Stats variables, see http://www.gem5.org/Using_the_Statistics_Package.
+   
+   Example for adding TLB miss rate in gem5/src/arch/x86/tlb.hh, add the following line next to the TLB class definition: 
+       Stats::Formula TLB_miss_rate;
+   End of Example.
+    
+2. In the *.cc file, register the added Stats variable in the regStats() function
+
+   Example for registering TLB_miss_rate in gem5/src/arch/x86/tlb.cc, add the following lines in the regStats() function:
+       TLB_miss_rate
+           .name(name() + ".TLB_miss_rate") /* Actually can be anything as long as no two stats has the same */
+           .desc("TLB miss rate") /* Description that is shown in the statistics file, can be anything as well */
+           ;
+    End of Example.
+
+3. Use the added variable.
+   
+   Note that in this specific case of Stats::Formula, a formula is given to the variable and the result will be calculated. However, with some other Stats variables, Stats::Scalar for example, the variable should be inserted in the code where the stats is gathered, and may not be in the same *.cc file. Some operations can be used as well, like ++ for Stats::Scalar, see the existing code for gathering read_hits, write_hits, read_misses, write_misses for example.
+   
+   Example for using TLB_miss_rate in gem5/src/arch/x86/tlb.cc, add the following line after codes added in the step 2 in regStats() function: 
+       TLB_miss_rate = (read_misses + write_misses)/(read_hits + write_hits + read_misses + write_misses)
+   End of Example.

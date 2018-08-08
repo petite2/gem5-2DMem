@@ -65,7 +65,7 @@ using namespace std;
 MSHR::MSHR() : downstreamPending(false),
                pendingModified(false),
                postInvalidate(false), postDowngrade(false),
-               isForward(false)/* MJL_Begin */, MJL_deferredAdded(false)/* MJL_End */
+               isForward(false)/* MJL_Begin */, MJL_deferredAdded(false), MJL_retry(false)/* MJL_End */
 {
 }
 
@@ -110,6 +110,12 @@ MSHR::TargetList::add(PacketPtr pkt, Tick readyTime,
                       Counter order, Target::Source source, bool markPending,
                       bool alloc_on_fill)
 {
+    /* MJL_Begin */
+    if (!this->empty() && pkt->MJL_getCmdDir() != this->front().pkt->MJL_getCmdDir()) {
+        pkt->cmd.MJL_setCmdDir(this->front().pkt->MJL_getCmdDir());
+        pkt->MJL_setDataDir(this->front().pkt->MJL_getCmdDir());
+    }
+    /* MJL_End */
     updateFlags(pkt, source, alloc_on_fill);
     if (markPending) {
         // Iterate over the SenderState stack and see if we find

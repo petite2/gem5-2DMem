@@ -414,6 +414,7 @@ AbstractMemory::access(PacketPtr pkt)
         std::cout << ", Time: " << pkt->req->time() << std::endl;
     }
      */
+    //std::cout << this->name() << "::access " << pkt->print() << std::endl;
     /* MJL_End */
                     
 
