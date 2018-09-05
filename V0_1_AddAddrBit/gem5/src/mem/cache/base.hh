@@ -545,6 +545,10 @@ class BaseCache : public MemObject
         return MJL_2DCache;
     }
 
+    bool MJL_getHas2DLLC() const {
+        return MJL_has2DLLC;
+    }
+
     Addr MJL_blockAlign(Addr addr, MemCmd::MJL_DirAttribute MJL_dir) const {
         if (MJL_dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
             return (addr & ~(Addr(blkSize - 1)));

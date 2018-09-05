@@ -177,10 +177,10 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         }
     } else { // if (!cpkt->needsResponse())
         assert(cpkt->isEviction());
-        /* MJL_Test 
+        /* MJL_Test  
         //std::cout << "MJL_Debug: " << this->name() << ":: slave_port name: " << slave_port.name() << ", slave_port.getMasterPort name: " << slave_port.getMasterPort().name() << ", is port attached to physically 2D cache ? " << slave_port.getMasterPort().MJL_is2DCache() << std::endl;
 
-        std::cout << this->name() << "The Evicted Packet Info: PC(hex) = ";
+        std::cout << this->name() << "::The Evicted Packet Info: PC(hex) = ";
         if (cpkt->req->hasPC()) {
             std::cout << std::hex << cpkt->req->getPC() << std::dec;
         } else {
@@ -366,7 +366,7 @@ SnoopFilter::MJL_finishRequest(bool will_retry, Addr addr, MemCmd::MJL_DirAttrib
 /* MJL_End */
 
 std::pair<SnoopFilter::SnoopList, Cycles>
-SnoopFilter::lookupSnoop(const Packet* cpkt/* MJL_Begin */, bool MJL_is2DCache/* MJL_End */)
+SnoopFilter::lookupSnoop(const Packet* cpkt/* MJL_Begin */, bool MJL_has2DLLC/* MJL_End */)
 {
     DPRINTF(SnoopFilter, "%s: packet %s\n", __func__, cpkt->print());
 
@@ -380,7 +380,7 @@ SnoopFilter::lookupSnoop(const Packet* cpkt/* MJL_Begin */, bool MJL_is2DCache/*
     auto sf_it = MJL_cachedLocations[cpkt->MJL_getCmdDir()].find(line_addr);
     bool is_hit = (sf_it != MJL_cachedLocations[cpkt->MJL_getCmdDir()].end());
     // For physically 2D cache, a check on the cross direction is also needed 
-    if (MJL_is2DCache && !is_hit) {
+    if (MJL_has2DLLC && !is_hit) {
         bool MJL_isHit = false;
         for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
             auto MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
@@ -434,7 +434,7 @@ SnoopFilter::lookupSnoop(const Packet* cpkt/* MJL_Begin */, bool MJL_is2DCache/*
 
     /* MJL_Begin */
     // For physically 2D cache, a check on the cross direction is also needed 
-    if (MJL_is2DCache) {
+    if (MJL_has2DLLC) {
         /* MJL_Test 
         if (cpkt->getAddr() == 1576960) {
             std::cout << this->name() << "::MJL_Debug: point B snoop_filter " << std::endl;

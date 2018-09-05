@@ -418,6 +418,10 @@ class Cache : public BaseCache
         virtual bool MJL_is2DCache() {
             return cache->MJL_is2DCache();
         }
+        
+        virtual bool MJL_getHas2DLLC() {
+            return cache->MJL_getHas2DLLC();
+        }
        
         /* MJL_Test */
         bool MJL_debugOutFlag;
@@ -514,6 +518,9 @@ class Cache : public BaseCache
         }
         virtual bool MJL_is2DCache() {
             return cache->MJL_is2DCache();
+        }
+        virtual bool MJL_getHas2DLLC() {
+            return cache->MJL_getHas2DLLC();
         }
         /* MJL_End */
     };

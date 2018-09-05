@@ -4086,6 +4086,15 @@ Cache::recvTimingSnoopReq(PacketPtr pkt)
             }
         }
     }
+    /* MJL_Test 
+    if ((this->name().find("dcache") != std::string::npos || (MJL_has2DLLC && !MJL_2DCache)) && pkt->mustCheckAbove()) {
+        std::cout << this->name() << "::recvTimingSnoopReq crossBlocksCached ";
+        for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+            std::cout << pkt->MJL_crossBlocksCached[i] << " ";
+        }
+        std::cout << std::endl;
+    }
+     */
 
     /* MJL_End */
     if (mshr && pkt->mustCheckAbove()) {
@@ -4482,6 +4491,13 @@ Cache::isCachedAbove(PacketPtr pkt, bool is_timing) const
             }
              */
             pkt->MJL_copyCrossBlocksCached(snoop_pkt.MJL_crossBlocksCached);
+            /* MJL_Test 
+            std::cout << this->name() << "::isCachedAbove after copyCrossBlocksCached ";
+            for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                std::cout << pkt->MJL_crossBlocksCached[i] << " ";
+            }
+            std::cout << std::endl;
+             */
         }
         /* MJL_End */
         return snoop_pkt.isBlockCached();
@@ -5359,7 +5375,7 @@ CpuSidePort::CpuSidePort(const std::string &_name, Cache *_cache,
     : BaseCache::CacheSlavePort(_name, _cache, _label), cache(_cache)
 {
     MJL_debugOutFlag = false;
-    MJL_value_test = true;
+    MJL_value_test = false;
 }
 
 Cache*

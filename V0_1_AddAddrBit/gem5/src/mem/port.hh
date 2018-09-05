@@ -136,6 +136,9 @@ class BaseMasterPort : public Port
     virtual bool MJL_is2DCache() {
         return false;
     } 
+    virtual bool MJL_getHas2DLLC() {
+        return false;
+    }
     /* MJL_End */
 
 };
@@ -164,6 +167,9 @@ class BaseSlavePort : public Port
      * Just a work around to determine if the port is in a cache is physically 2D
      */
     virtual bool MJL_is2DCache() {
+        return false;
+    }
+    virtual bool MJL_getHas2DLLC() {
         return false;
     } 
     /* MJL_End */
