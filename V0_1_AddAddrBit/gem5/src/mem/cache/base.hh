@@ -654,6 +654,14 @@ class BaseCache : public MemObject
                     crossMshr->MJL_getLastTarget()->MJL_postInvalidate = true;
                 // Else if the packet is write but the crossing word is not written
                 } else if (pkt->isWrite()) {
+                    /* MJL_Test */
+                    if (this->name().find("dcache") != std::string::npos) {
+                        std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
+                        std::cout << mshr->print() << std::endl;
+                        std::cout << ", blocked by " << crossMshr << std::endl;
+                        std::cout << crossMshr->print() << std::endl;
+                    }
+                    /* */
                     // The new target is blocked by the crossing mshr's last target
                     new_target->MJL_isBlockedBy.push_back(crossMshr->MJL_getLastTarget());
                     crossMshr->MJL_getLastTarget()->MJL_isBlocking.push_back(new_target);
@@ -686,6 +694,9 @@ class BaseCache : public MemObject
                 // MJL_TODO: In physically 2D cache, the mshr entry should be blocked if there's an invalidation as well, but assuming that this never happens for now.
                 } else {
                     crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;
+                    if (!pkt->needsWritable()) {
+                        new_target->MJL_postWriteback = true;
+                    }
                 }
 
             }

@@ -650,13 +650,14 @@ Packet::print(ostream &o, const int verbosity, const string &prefix) const
             dataStr << MJL_wordDirty[i/sizeof(uint64_t)];
         }
     }
-    ccprintf(o, "%s%s:%s %x:%s (%s%s):%s [%x:%x] %s%s%s%s", prefix, cmdString(),
+    ccprintf(o, "%s%s:%s %x:%s (%s%s):%s%s [%x:%x] %s%s%s%s", prefix, cmdString(),
              MJL_cmdIsRow() ? "r" : "c",
              req->hasPC() ? req->getPC() : 0,
              req->MJL_reqIsRow() ? "r" : "c",
              hasData() ? dataStr.str() : "noData",
              isUpgrade() && isResponse() ? dataStr.str() : "",
              MJL_dataIsRow() ? "r" : "c",
+             hasSharers() ? " hasSharers" : "",
     /* MJL_End */
              getAddr(), getAddr() + getSize() - 1,
              req->isSecure() ? " (s)" : "",
