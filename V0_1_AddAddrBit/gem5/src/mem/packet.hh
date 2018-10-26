@@ -556,6 +556,8 @@ class Packet : public Printable
     bool MJL_wordDirty[8]; // Used to identify dirty words for cross direction checks
     bool MJL_crossBlocksCached[8]; // Used to identify whether the crossing blocks are cached in above caches in physicaly 2D L2 cache mode
     bool MJL_wordDemanded[8]; // Used to identify words demanded
+    bool MJL_isStale[8]; // Used to identify whether the response data will have stale data due to modification on crossing block on miss
+    bool MJL_hasSharersFlag; // Used to prevent illegal passing of writable
     void MJL_copyWordDemanded( bool in_MJL_wordDemanded[8] ) {
         for (int i = 0; i < 8; ++i) {
             MJL_wordDemanded[i] = in_MJL_wordDemanded[i];
@@ -580,6 +582,36 @@ class Packet : public Printable
         for (int i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
             MJL_wordDirty[i/sizeof(uint64_t)] = true;
         }
+    }
+    bool MJL_hasStale() const {
+        bool MJL_hasStaleWord = false;
+        for (int i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
+            MJL_hasStaleWord |= MJL_isStale[i/sizeof(uint64_t)];
+        }
+        return MJL_hasStaleWord;
+    }
+    void MJL_copyIsStale( bool in_MJL_isStale[8] ) {
+        for (int i = 0; i < 8; ++i) {
+            MJL_isStale[i] = in_MJL_isStale[i];
+        }
+    }
+    void MJL_setIsStaleFromResp( bool in_MJL_isStale[8], MemCmd::MJL_DirAttribute in_pkt_dir, unsigned blkSize ) {
+        for (int i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
+            MJL_isStale[i/sizeof(uint64_t)] |= in_MJL_isStale[(i + MJL_getDirOffset(blkSize, in_pkt_dir))/sizeof(uint64_t)];
+        }
+    }
+    bool MJL_checkIsStaleFromResp( bool in_MJL_isStale[8], MemCmd::MJL_DirAttribute in_pkt_dir, unsigned blkSize ) const {
+        bool MJL_willHaveStale = false;
+        for (int i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
+            MJL_willHaveStale |= in_MJL_isStale[(i + MJL_getDirOffset(blkSize, in_pkt_dir))/sizeof(uint64_t)];
+        }
+        return MJL_willHaveStale;
+    }
+    void MJL_setHasSharers() {
+        MJL_hasSharersFlag = true;
+    }
+    bool MJL_hasSharers() const {
+        return MJL_hasSharersFlag;
     }
     MemCmd::MJL_DirAttribute MJL_getCmdDir() const { return cmd.MJL_getCmdDir(); }
     MemCmd::MJL_DirAttribute MJL_getCrossCmdDir() const {
@@ -977,7 +1009,7 @@ class Packet : public Printable
     Packet(const RequestPtr _req, MemCmd _cmd)
         :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            size(0), headerDelay(0), snoopDelay(0), payloadDelay(0),
-           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{false, false, false, false, false, false, false, false}/* MJL_End */
+           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{false, false, false, false, false, false, false, false}, MJL_isStale{false, false, false, false, false, false, false, false}, MJL_hasSharersFlag(false)/* MJL_End */
     {
         if (req->hasPaddr()) {
             addr = req->getPaddr();
@@ -998,7 +1030,7 @@ class Packet : public Printable
     Packet(const RequestPtr _req, MemCmd _cmd, int _blkSize)
         :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
            headerDelay(0), snoopDelay(0), payloadDelay(0),
-           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{false, false, false, false, false, false, false, false}/* MJL_End */
+           senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{false, false, false, false, false, false, false, false}, MJL_isStale{false, false, false, false, false, false, false, false}, MJL_hasSharersFlag(false)/* MJL_End */
     {
         if (req->hasPaddr()) {
             /* MJL_Begin */
@@ -1039,13 +1071,16 @@ class Packet : public Printable
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
            payloadDelay(pkt->payloadDelay),
-           senderState(pkt->senderState)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{pkt->MJL_wordDemanded[0], pkt->MJL_wordDemanded[1], pkt->MJL_wordDemanded[2], pkt->MJL_wordDemanded[3], pkt->MJL_wordDemanded[4], pkt->MJL_wordDemanded[5], pkt->MJL_wordDemanded[6], pkt->MJL_wordDemanded[7]}/* MJL_End */
+           senderState(pkt->senderState)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{pkt->MJL_wordDirty[0], pkt->MJL_wordDirty[1], pkt->MJL_wordDirty[2], pkt->MJL_wordDirty[3], pkt->MJL_wordDirty[4], pkt->MJL_wordDirty[5], pkt->MJL_wordDirty[6], pkt->MJL_wordDirty[7]}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{pkt->MJL_wordDemanded[0], pkt->MJL_wordDemanded[1], pkt->MJL_wordDemanded[2], pkt->MJL_wordDemanded[3], pkt->MJL_wordDemanded[4], pkt->MJL_wordDemanded[5], pkt->MJL_wordDemanded[6], pkt->MJL_wordDemanded[7]}, MJL_isStale{pkt->MJL_isStale[0], pkt->MJL_isStale[1], pkt->MJL_isStale[2], pkt->MJL_isStale[3], pkt->MJL_isStale[4], pkt->MJL_isStale[5], pkt->MJL_isStale[6], pkt->MJL_isStale[7]}, MJL_hasSharersFlag(false)/* MJL_End */
     {
         if (!clear_flags)
             flags.set(pkt->flags & COPY_FLAGS);
         /* MJL_Begin */
         if (!clear_flags) {
             MJL_copyCrossBlocksCached(pkt->MJL_crossBlocksCached);
+            if (pkt->MJL_hasSharersFlag) {
+            	MJL_setHasSharers();
+            }
         }
         /* MJL_End */
 

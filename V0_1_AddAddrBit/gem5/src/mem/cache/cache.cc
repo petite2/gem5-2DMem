@@ -333,7 +333,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // If the access is row or this is a physically 1D, logically 2D cache
         } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
             pkt->MJL_setDataDir(blk->MJL_blkDir);
-            pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+            if (blk->isDirty()) {// now that wordDirty does not mean block is dirty, this needs to be tested. 
+                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+            }
         }
         /* MJL_Test 
         std::cout << "MJL_setFromBlock: set " << blk->set << std::endl;
@@ -410,7 +412,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 //   copy of the line
                 if (blk->isDirty()) {
                     // special considerations if we're owner:
-                    if (!deferred_response/* MJL_Begin */ && (this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos)/* MJL_End */) {
+                    if (!deferred_response/* MJL_Begin  && (this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos) MJL_End */) {
                         // respond with the line in Modified state
                         // (cacheResponding set, hasSharers not set)
                         pkt->setCacheResponding();
@@ -437,8 +439,9 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                                 tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_updateDirty();
                             }
                         } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
-                            blk->MJL_clearAllDirty();
+                            //blk->MJL_clearAllDirty(); //keep the per word dirty data for wasDirty conflict check
                             blk->status &= ~BlkDirty;
+                            blk->MJL_wasDirty |= true; //to indicate the block has different data then that's in the next levels
                         } else {
                             blk->status &= ~BlkDirty;
                         }
@@ -1023,6 +1026,10 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             MJL_crossFullHit = MJL_crossFullHit & (MJL_crossBlk && MJL_crossBlk->isValid());
             // If the crossing line exists
             if (MJL_crossBlk && MJL_crossBlk->isValid()) {
+                /* MJL_TOADD: To avoid illegal passing of writable on read miss, needs to verify if this breaks anything
+                if (!MJL_2DCache) {
+                    pkt->MJL_setHasSharers(); 
+                }*/
                 if (pkt->MJL_wordDemanded[MJL_offset/sizeof(uint64_t)]) {
                     MJL_crossHit = MJL_crossHit | true;
                     if (pkt->isRead()) {
@@ -1054,6 +1061,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                     if (MJL_crossBlk->isReadable()) {
                         writebacks.push_back(MJL_writebackCachedBlk(MJL_crossBlk));
                     }
+                // in the case of cross block was dirty on crossing word, the packet should mark the corresponding word as stale
+                } else if (MJL_crossBlk->MJL_wasDirty && MJL_crossBlk->MJL_wordDirty[MJL_crossBlkOffset/sizeof(uint64_t)]) {
+                    pkt->MJL_isStale[MJL_offset/sizeof(uint64_t)] |= true;
                 // Otherwise, just revoke writable
                 } else {
                     MJL_crossBlk->status &= ~BlkWritable;
@@ -1311,6 +1321,9 @@ Cache::recvTimingReq(PacketPtr pkt)
     Cycles lat = lookupLatency;
     CacheBlk *blk = nullptr;
     bool satisfied = false;
+    /* MJL_Begin */
+    bool MJL_hasDirtyConflict = false;
+    /* MJL_End */
     {
         PacketList writebacks;
         // Note that lat is passed by reference here. The function
@@ -1322,6 +1335,11 @@ Cache::recvTimingReq(PacketPtr pkt)
             ((!satisfied && !pkt->req->isUncacheable() && pkt->cmd != MemCmd::CleanEvict && !pkt->isWriteback())
             || (satisfied && pkt->cmd == MemCmd::WritebackDirty))) {
             forward_time = clockEdge(Cycles( blkSize/sizeof(uint64_t) * forwardLatency)) + pkt->headerDelay;
+        }
+        for (auto it = writebacks.begin(); it != writebacks.end(); ++it) {
+            if ((*it)->isWriteback()) {
+                MJL_hasDirtyConflict |= true;
+            }
         }
         /* MJL_End */
 
@@ -1418,6 +1436,10 @@ Cache::recvTimingReq(PacketPtr pkt)
                         assert( pkt->MJL_cmdIsRow() || pkt->MJL_cmdIsColumn() );
                     }
                 }
+                /* MJL_TOADD: To avoid illegal passing of writable on read miss, needs to verify if this breaks anything
+                if (!MJL_2DCache && mshrQueue.MJL_hasCrossing(pkt->getAddr(), pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) {
+                    pkt->setHasSharers(); 
+                }*/
             }
         } else {
             blk_addr = blockAlign(pkt->getAddr());
@@ -1516,6 +1538,11 @@ Cache::recvTimingReq(PacketPtr pkt)
                     // buffer and to schedule an event to the queued
                     // port and also takes into account the additional
                     // delay of the xbar.
+                    /* MJL_Begin */
+                    if (MJL_hasDirtyConflict) {
+                        mshr->MJL_getLastTarget()->MJL_postInvalidate = true;
+                    }
+                    /* MJL_End */
                     mshr->allocateTarget(pkt, forward_time, order++,
                                          allocOnFill(pkt->cmd));
                     /* MJL_Begin */
@@ -2271,10 +2298,25 @@ Cache::recvTimingResp(PacketPtr pkt)
     //Counter MJL_init_order = MJL_order;
     bool MJL_targetHasPC = mshr->MJL_targetHasPC();
     bool MJL_orderSet = false;
+    if (pkt->MJL_hasStale()) {
+        MJL_invalidate |= true;
+    }
     /* MJL_End */
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
     for (auto &target: targets) {
         Packet *tgt_pkt = target.pkt;
+        /* MJL_Begin */
+        if (tgt_pkt->hasRespData()) { // Pass the data is stale information to upper level caches
+            tgt_pkt->MJL_setIsStaleFromResp(pkt->MJL_isStale, pkt->MJL_getDataDir(), blkSize);
+        } 
+        if (!tgt_pkt->fromCache() && tgt_pkt->MJL_hasStale()) { 
+            std::cout << this->name() << "::recvTimingResp MJL_StaleDebug: response to cpu " << tgt_pkt->print() << " is getting stale data from " << pkt->print() << std::endl;
+            assert(!tgt_pkt->MJL_hasStale()); 
+        }
+        if (tgt_pkt->fromCache() && tgt_pkt->MJL_hasStale() && !pkt->MJL_hasStale()) {
+            assert(target.MJL_postInvalidate);
+        }
+        /* MJL_End */
         switch (target.source) {
           case MSHR::Target::FromCPU:
             Tick completion_time;
@@ -2561,12 +2603,12 @@ Cache::recvTimingResp(PacketPtr pkt)
                 std::cout << this->name() << "::MJL_Debug: needsWritable 2D: recvTimingResp setting unreadable " << pkt->print() << " | " << blk->print() << std::endl;
             // }
              */
-            /* MJL_Begin 
-            if (mshr->needsWritable()) {
-                 blk->status &= ~BlkReadable;
+            /* MJL_Begin */
+            // Update block info when the target was not served due to stale data in response
+            if (pkt->MJL_hasStale() && !mshr->getTarget()->pkt->fromCache() && mshr->getTarget()->pkt->MJL_checkIsStaleFromResp(pkt->MJL_isStale, pkt->MJL_getDataDir(), blkSize)) {
+                mshr->getTarget()->MJL_updateBlockStatus();
             }
-            assert(!blk->isWritable());
-             MJL_End */
+            /* MJL_End */
             /* MJL_Comment */
             blk->status &= ~BlkReadable;
             /* */
@@ -2726,7 +2768,9 @@ Cache::writebackBlk(CacheBlk *blk)
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         pkt->cmd.MJL_setCmdDir(req->MJL_getReqDir());
         pkt->MJL_setDataDir(req->MJL_getReqDir());
-        pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+        if (blk->isDirty()) { // now that wordDirty does not mean block is dirty, this needs to be tested. 
+            pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+        }
     }
     /* MJL_End */
 
@@ -2746,6 +2790,7 @@ Cache::writebackBlk(CacheBlk *blk)
     /* MJL_Begin */
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         blk->MJL_clearAllDirty();
+        blk->MJL_wasDirty = false; // Reset the wasDirty bit
     }
     /* MJL_End */
     blk->status &= ~BlkDirty;
@@ -2932,6 +2977,8 @@ Cache::cleanEvictBlk(CacheBlk *blk)
     PacketPtr pkt = new Packet(req, MemCmd::CleanEvict);
     /* MJL_Begin */
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
+        blk->MJL_wasDirty = false; // Reset the wasDirty bit
+        blk->MJL_clearAllDirty(); // and clear the word dirty bits
         pkt->cmd.MJL_setCmdDir(blk->MJL_blkDir);
         pkt->MJL_setDataDir(blk->MJL_blkDir);
     }
@@ -2996,6 +3043,7 @@ Cache::writebackVisitor(CacheBlk &blk)
         memSidePort->sendFunctional(&packet);
 
         /* MJL_Begin */
+        blk.MJL_wasDirty = false; // Reset the wasDirty bit
         blk.MJL_clearAllDirty();
         /* MJL_End */
         blk.status &= ~BlkDirty;
@@ -3593,7 +3641,9 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
             }
             /* */
             assert(pkt->MJL_getDataDir() == blk->MJL_blkDir);
-            pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+            if (blk->isDirty()) {// now that wordDirty does not mean block is dirty, this needs to be tested. 
+                pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty, blkSize);
+            }
             std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
         } else {
             std::memcpy(blk->data, pkt->getConstPtr<uint8_t>(), blkSize);
@@ -3951,7 +4001,9 @@ Cache::handleSnoop(PacketPtr pkt, CacheBlk *blk, bool is_timing,
                     pkt->MJL_setWordDirtyFromBlk(MJL_tempWordDirty,blkSize);
                 } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                     pkt->setDataFromBlock(blk->data, blkSize);
-                    pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty,blkSize);
+                    if (blk->isDirty()) { // now that wordDirty does not mean block is dirty, this needs to be tested. 
+                        pkt->MJL_setWordDirtyFromBlk(blk->MJL_wordDirty,blkSize);
+                    }
                 } else {
                     pkt->setDataFromBlock(blk->data, blkSize);
                 }
@@ -5375,7 +5427,7 @@ CpuSidePort::CpuSidePort(const std::string &_name, Cache *_cache,
     : BaseCache::CacheSlavePort(_name, _cache, _label), cache(_cache)
 {
     MJL_debugOutFlag = false;
-    MJL_value_test = false;
+    MJL_value_test = true;
 }
 
 Cache*

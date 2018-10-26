@@ -119,6 +119,7 @@ class CacheBlk
     MJL_CacheBlkDir MJL_blkDir;
     bool MJL_wordDirty[8];
     bool MJL_crossValid[8];
+    bool MJL_wasDirty; // to mark the blocks that are clean but has data that's different from the next levels (dirty passed back to the upper level caches)
     /* MJL_End */
 
     /** Which curTick() will this block be accessable */
@@ -274,6 +275,7 @@ class CacheBlk
           MJL_blkDir(MJL_CacheBlkDir::MJL_IsRow),
           MJL_wordDirty{false, false, false, false, false, false, false, false},
           MJL_crossValid{false, false, false, false, false, false, false, false},
+          MJL_wasDirty(false),
           /* MJL_End */
            whenReady(0),
           set(-1), way(-1), isTouched(false), refCount(0),
@@ -323,6 +325,10 @@ class CacheBlk
         status = 0;
         isTouched = false;
         lockList.clear();
+        /* MJL_Begin */
+        MJL_wasDirty = false; // Reset the wasDirty bit
+        MJL_clearAllDirty(); // Reset word dirty bits
+        /* MJL_End */
     }
 
     /**

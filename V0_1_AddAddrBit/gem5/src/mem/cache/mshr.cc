@@ -277,6 +277,10 @@ MSHR::allocate(Addr blk_addr, unsigned blk_size, PacketPtr target,
     // snoop (mem-side request), so set source according to request here
     Target::Source source = (target->cmd == MemCmd::HardPFReq) ?
         Target::FromPrefetcher : Target::FromCPU;
+    /* MJL_Test */
+    std::cout << "MJL_mshrDebug: allocate adding " << target->print() << " to the mshr" << std::endl;
+    std::cout << this->print() << std::endl;
+    /* */
     targets.add(target, when_ready, _order, source, true, alloc_on_fill);
     assert(deferredTargets.isReset());
 }
@@ -359,6 +363,10 @@ MSHR::allocateTarget(PacketPtr pkt, Tick whenReady, Counter _order,
     // have targets addded if originally allocated uncacheable
     assert(!_isUncacheable);
 
+    /* MJL_Test */
+    std::cout << "MJL_mshrDebug: allocateTarget adding " << pkt->print() << " to the mshr" << std::endl;
+    std::cout << this->print() << std::endl;
+    /* */
     // if there's a request already in service for this MSHR, we will
     // have to defer the new target until after the response if any of
     // the following are true:
@@ -376,11 +384,15 @@ MSHR::allocateTarget(PacketPtr pkt, Tick whenReady, Counter _order,
         // need to put on deferred list
         if (hasPostInvalidate())
             replaceUpgrade(pkt);
-        deferredTargets.add(pkt, whenReady, _order, Target::FromCPU, true,
-                            alloc_on_fill);
         /* MJL_Begin */
+        if (deferredTargets.empty() && pkt->MJL_getCmdDir() != MJL_qEntryDir) {
+            pkt->cmd.MJL_setCmdDir(MJL_qEntryDir);
+            pkt->MJL_setDataDir(MJL_qEntryDir);
+        }
         MJL_deferredAdded = true;
         /* MJL_End */
+        deferredTargets.add(pkt, whenReady, _order, Target::FromCPU, true,
+                            alloc_on_fill);
     } else {
         // No request outstanding, or still OK to append to
         // outstanding request: append to regular target list.  Only
@@ -483,6 +495,10 @@ MSHR::handleSnoop(PacketPtr pkt, Counter _order)
             // to set the responderHadWritable flag, but since the
             // recipient does not care there is no harm in doing so
         }
+        /* MJL_Test */
+        std::cout << "MJL_mshrDebug: handleSnoop adding " << cp_pkt->print() << " to the mshr" << std::endl;
+        std::cout << this->print() << std::endl;
+        /* */
         targets.add(cp_pkt, curTick(), _order, Target::FromSnoop,
                     downstreamPending && targets.needsWritable, false);
 
@@ -557,7 +573,12 @@ MSHR::extractServiceableTargets(PacketPtr pkt)
         }
         /* */
         assert(!target_it->MJL_isBlocked());
+        assert(target_it->pkt->fromCache() || (!target_it->pkt->MJL_checkIsStaleFromResp(pkt->MJL_isStale, pkt->MJL_getDataDir(), blkSize) && !target_it->pkt->MJL_hasStale()));
         while ((target_it != targets.end()) && (!target_it->MJL_isBlocked())) {
+            if (pkt->MJL_hasStale() && !target_it->pkt->fromCache() && target_it->pkt->MJL_checkIsStaleFromResp(pkt->MJL_isStale, pkt->MJL_getDataDir(), blkSize)) { // Never extract targets that are asking for stale data
+                assert(!target_it->pkt->MJL_hasStale());
+                break;
+            }
             ready_targets.push_back(*target_it);
             if (target_it->MJL_postInvalidate) {
                 targets.erase(target_it);

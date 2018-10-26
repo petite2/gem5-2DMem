@@ -630,6 +630,11 @@ class BaseCache : public MemObject
         
         Addr target_cross_offset = pkt->MJL_getDirOffset(blkSize, crossBlkDir);
 
+        // packets that are fetching blocks with stale data should have post invalidate, physically 2D cache should not have this problem since any stale data can be updated in cache
+        if (pkt->MJL_hasStale()) {
+            assert(!MJL_2DCache);
+            new_target->MJL_postInvalidate = true;
+        }
         // Search for crossing mshr entries
         for (Addr offset = 0; offset < blkSize; offset = offset + sizeof(uint64_t)) {
             Addr crossBlkAddr = MJL_blockAlign(MJL_addOffsetAddr(baseAddr, mshr->MJL_qEntryDir, offset), crossBlkDir); 
@@ -683,6 +688,22 @@ class BaseCache : public MemObject
                     // And the crossing mshr's last write target should writeback
                     // crossMshr->MJL_getLastUnblockedTargetAfterLastWrite(target_cross_offset, blkSize)->MJL_postWriteback = true;
                     crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, !new_mshr)->MJL_postWriteback = true;
+                // mark potential block information for when a target becomes the first of an mshr due to stale previous response and not being served
+                } else if (crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, false)) {
+                    /* MJL_Test */
+                    if (this->name().find("dcache") != std::string::npos) {
+                        std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
+                        std::cout << mshr->print() << std::endl;
+                        std::cout << ", may be blocked by " << crossMshr << std::endl;
+                        std::cout << crossMshr->print() << std::endl;
+                    }
+                    /* */
+                    // The new target is blocked by the crossing mshr's latest write target
+                    new_target->MJL_mayBeBlockedBy.push_back(crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, false));
+                    crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, false)->MJL_mayBeBlocking.push_back(new_target);
+                    // And the crossing mshr's last write target should writeback
+                    // crossMshr->MJL_getLastUnblockedTargetAfterLastWrite(target_cross_offset, blkSize)->MJL_postWriteback = true;
+                    crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, false)->MJL_postWriteback = true;
                 // Else if the packet is write but the crossing word is not written and there is no write target in the crossing mshr
                 /* Make sure that read do not pass dirty or writable if not asked for// Even read responses may pass dirty and writable, and the block was clean and unwritable at the time of the check at access, hence written back or lose writable should be checked at response.
                 } else if (pkt->isWrite()) {

@@ -156,6 +156,17 @@ class MSHR : public QueueEntry, public Printable
         /* MJL_Begin */
         std::list<Target *> MJL_isBlockedBy;
         std::list<Target *> MJL_isBlocking;
+        // To use when a target is not served due to response with stale data and becomes the 1st target of the mshr
+        std::list<Target *> MJL_mayBeBlockedBy;
+        std::list<Target *> MJL_mayBeBlocking;
+        void MJL_updateBlockStatus() {
+            while (!MJL_mayBeBlockedBy.empty()) {
+                MJL_mayBeBlockedBy.front()->MJL_mayBeBlocking.remove(MJL_self);
+                MJL_mayBeBlockedBy.front()->MJL_isBlocking.push_back(MJL_self);
+                MJL_isBlockedBy.push_back(MJL_mayBeBlockedBy.front());
+                MJL_mayBeBlockedBy.pop_front();
+            }
+        }
         bool MJL_postInvalidate;
         bool MJL_postWriteback;
         Target * MJL_self;
@@ -172,6 +183,22 @@ class MSHR : public QueueEntry, public Printable
                 std::cout << " " << &(*MJL_isBlocking.front());
                  */
                 MJL_isBlocking.pop_front();
+            }
+
+            while (!MJL_mayBeBlocking.empty()) {
+                MJL_mayBeBlocking.front()->MJL_mayBeBlockedBy.remove(MJL_self);
+                /* MJL_Test 
+                std::cout << " " << &(*MJL_isBlocking.front());
+                 */
+                MJL_mayBeBlocking.pop_front();
+            }
+            
+            while (!MJL_mayBeBlockedBy.empty()) {
+                MJL_mayBeBlockedBy.front()->MJL_mayBeBlocking.remove(MJL_self);
+                /* MJL_Test 
+                std::cout << " " << &(*MJL_isBlocking.front());
+                 */
+                MJL_mayBeBlockedBy.pop_front();
             }
             /* MJL_Test 
             std::cout << std::endl;

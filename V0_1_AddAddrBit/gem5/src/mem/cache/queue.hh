@@ -261,29 +261,6 @@ class Queue : public Drainable
         }
         return false;
     }
-    
-    bool MJL_hasCrossMatch(Addr blk_addr, QueueEntry::MJL_QEntryDir MJL_queue_entry_dir, bool is_secure, Addr tilemask, int cross_shift) const
-    {
-        bool MJL_crossMatch = false;
-        QueueEntry::MJL_QEntryDir MJL_cross_queue_entry_dir = MJL_queue_entry_dir;
-        if (MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsRow) {
-            MJL_cross_queue_entry_dir = QueueEntry::MJL_QEntryDir::MJL_IsColumn;
-        } else if (MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsColumn) {
-            MJL_cross_queue_entry_dir = QueueEntry::MJL_QEntryDir::MJL_IsRow;
-        } else {
-            assert(MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsRow || MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsColumn);
-        }
-        for (const auto& entry : allocatedList) {
-            if ((entry->blkAddr & tilemask) == (blk_addr & tilemask) && entry->isSecure == is_secure && entry->MJL_qEntryDir == MJL_cross_queue_entry_dir) {
-                //if (word_dirty[(entry->blkAddr >> cross_shift) % entry->blkSize/sizeof(uint64_t)]) {
-                    MJL_crossMatch |= true;
-                    break;
-                    //std::cout << "MJL_Debug mark retry entry " << entry << ", " << entry->print() << std::endl;
-                //}
-            }
-        }
-        return MJL_crossMatch;
-    }
     /* MJL_End */
 
     /**

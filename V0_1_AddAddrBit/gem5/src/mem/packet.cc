@@ -639,6 +639,10 @@ Packet::print(ostream &o, const int verbosity, const string &prefix) const
             dataStr << " | [" << i/sizeof(uint64_t) << "]" <<  MJL_data;
         }
         dataStr << std::dec;
+        dataStr << ", isStale ";
+        for (unsigned i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
+            dataStr << MJL_isStale[i/sizeof(uint64_t)];
+        }
         dataStr << ", dirty ";
         for (unsigned i = 0; i < getSize(); i = i + sizeof(uint64_t)) {
             dataStr << MJL_wordDirty[i/sizeof(uint64_t)];
