@@ -129,6 +129,8 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
                 // } else {
                     pf_pkt = MJL_insert(pf_info, MJL_cmdDir, is_secure);
                 // }
+            } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
+                pf_pkt = MJL_insert(pf_info, MemCmd::MJL_DirAttribute::MJL_IsRow, is_secure);
             } else {
                 pf_pkt = insert(pf_info, is_secure);
             }
