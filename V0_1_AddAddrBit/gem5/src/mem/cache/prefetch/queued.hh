@@ -117,7 +117,7 @@ class QueuedPrefetcher : public BasePrefetcher
     QueuedPrefetcher(const QueuedPrefetcherParams *p);
     virtual ~QueuedPrefetcher();
 
-    Tick notify(const PacketPtr &pkt);
+    Tick notify(/* MJL_Comment const */ PacketPtr &pkt);
     PacketPtr insert(AddrPriority& info, bool is_secure);
     /* MJL_Begin */
     PacketPtr MJL_insert(AddrPriority &pf_info, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure);

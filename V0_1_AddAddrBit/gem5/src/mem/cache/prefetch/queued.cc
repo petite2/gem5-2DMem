@@ -59,7 +59,7 @@ QueuedPrefetcher::~QueuedPrefetcher()
 }
 
 Tick
-QueuedPrefetcher::notify(const PacketPtr &pkt)
+QueuedPrefetcher::notify(/* MJL_Comment const */ PacketPtr &pkt)
 {
     // Verify this access type is observed by prefetcher
     if (observeAccess(pkt)) {
@@ -89,17 +89,20 @@ QueuedPrefetcher::notify(const PacketPtr &pkt)
 
         // Calculate prefetches given this access
         std::vector<AddrPriority> addresses;
-        /* MJL_Comment */
+        /* MJL_Comment 
         calculatePrefetch(pkt, addresses);
-        /* */
-        /* MJL_Begin 
-        MemCmd::MJL_DirAttribute MJL_predCmdDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
-        if (MJL_predictDir) {
+         */
+        /* MJL_Begin */
+        MemCmd::MJL_DirAttribute MJL_predCmdDir = MemCmd::MJL_DirAttribute::MJL_IsInvalid;
+        if (MJL_pfBasedPredictDir) {
+            // Get prefetch based predicted direction
             MJL_calculatePrefetch(pkt, addresses, MJL_predCmdDir);
+            // Set prefetch based predicted direction to the packet
+            pkt->MJL_setPfPredDir(MJL_predCmdDir);
         } else {
             calculatePrefetch(pkt, addresses);
         }
-         MJL_End */
+        /* MJL_End */
 
         // Queue up generated prefetches
         for (AddrPriority& pf_info : addresses) {

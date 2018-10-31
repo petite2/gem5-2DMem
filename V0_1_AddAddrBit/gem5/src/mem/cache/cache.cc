@@ -69,6 +69,7 @@ Cache::Cache(const CacheParams *p)
       prefetcher(p->prefetcher),/* MJL_Begin */
       MJL_predictDir(p->MJL_predictDir), 
       MJL_mshrPredictDir(p->MJL_mshrPredictDir), 
+      MJL_pfBasedPredictDir(p->MJL_pfBasedPredictDir),
       MJL_ignoreExtraTagCheckLatency(p->MJL_ignoreExtraTagCheckLatency), /* MJL_End */
       doFastWrites(true),
       prefetchOnAccess(p->prefetch_on_access),
@@ -108,7 +109,7 @@ Cache::Cache(const CacheParams *p)
     
     std::cout << "MJL_2DCache? " << MJL_2DCache << std::endl;
     if (MJL_predictDir) {
-        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth, MJL_mshrPredictDir);
+        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir);
     }
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         std::cout << "MJL_ignoreExtraTagCheckLatency? " << MJL_ignoreExtraTagCheckLatency << std::endl;
@@ -2300,6 +2301,14 @@ Cache::recvTimingResp(PacketPtr pkt)
     bool MJL_orderSet = false;
     if (pkt->MJL_hasStale()) {
         MJL_invalidate |= true;
+    }
+    // If the prefetch directed prediction mode is active, then the predicted direction should be passed to the initial target to be passed up the cache hierarchy. But since the caches other than L1 dcache has no idea about this, just passing the direction anyway as long as it's not invalid
+    if (pkt->MJL_getPfPredDir() != MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+        initial_tgt->pkt->MJL_setPfPredDir(pkt->MJL_getPfPredDir());
+        // If this is the L1 dcache, then the predicted direction should be added to the prediction hardware
+        if (this->name().find("dcache") != std::string::npos && MJL_predictDir && MJL_pfBasedPredictDir) {
+            MJL_dirPredictor->MJL_updatePfPredictEntry(pkt, pkt->MJL_getPfPredDir());
+        }
     }
     /* MJL_End */
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);

@@ -227,46 +227,42 @@ StridePrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         for (int d = 1; d <= degree; d++) {
             // Round strides up to atleast 1 cacheline
             int prefetch_stride = new_stride;
-            /* MJL_Begin */
+            /* MJL_Begin 
             Addr new_addr;
-            // if (MJL_predictDir) {
-            //     if (new_stride % (MJL_getRowWidth() * blkSize) == 0) {
-            //         MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-            //         if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize) {
-            //             prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize;
-            //         }
-            //     } else if (abs(new_stride) < blkSize) {
-            //         prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
-            //     }
-            // } else {
+            if (MJL_predictDir) {
+                if (new_stride % (MJL_getRowWidth() * blkSize) == 0) {
+                    MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+                    if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize) {
+                        prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize;
+                    }
+                } else if (abs(new_stride) < blkSize) {
+                    prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
+                }
+            } else {
                 if (abs(new_stride) < blkSize) {
                     prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
                 }
-            // }
-            /* MJL_End */
-            /* MJL_Comment
+            }
+             MJL_End */
+            /* MJL_Comment */
             if (abs(new_stride) < blkSize) {
                 prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
             }
 
             Addr new_addr = pkt_addr + d * prefetch_stride;
-            */
+            /* */
 
-            if (MJL_cmdDir != entry->MJL_lastDir) {
-                new_addr = pkt_addr + (d - 1) * prefetch_stride;
-            } else {
-                new_addr = pkt_addr + d * prefetch_stride;
-            }
             /* MJL_Begin */
-            entry->MJL_lastDir = MJL_cmdDir;
+            MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+            if (new_stride % (MJL_getRowWidth() * blkSize) == 0 && (new_stride < (MJL_getRowWidth() * blkSize * blkSize/sizeof(uint64_t)) || pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn)) {
+                MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+            }
             /* MJL_End */
 
-            if (samePage(pkt_addr, new_addr) || (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colSamePage(pkt_addr, new_addr))) {
+            if (/* MJL_Comment samePage(pkt_addr, new_addr)*/ MJL_colSamePage(pkt_addr, new_addr) // Trying for fair comparison with 2MB page in both row and column prefetching
+                /* MJL_Begin */|| (MJL_colPf && pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colSamePage(pkt_addr, new_addr))/* MJL_End */) {
                 DPRINTF(HWPrefetch, "Queuing prefetch to %#x.\n", new_addr);
                 addresses.push_back(AddrPriority(new_addr, 0));
-                /* MJL_Test 
-                std::cout << "MJL_Debug: prefetch address " << std::hex << new_addr << std::dec << " calculated from pkt " << pkt->print() << std::endl; 
-                 */
             } else {
                 // Record the number of page crossing prefetches generated
                 pfSpanPage += degree - d + 1;

@@ -361,6 +361,7 @@ class Packet : public Printable
     Addr addr;
     /* MJL_Begin */
     MemCmd::MJL_DirAttribute MJL_dataDir;
+    MemCmd::MJL_DirAttribute MJL_pfPredDir;
     /* MJL_End */
 
     /// True if the request targets the secure memory space.
@@ -630,6 +631,8 @@ class Packet : public Printable
     bool MJL_dataIsColumn() const       { return MJL_dataDir == MemCmd::MJL_DirAttribute::MJL_IsColumn; }
     bool MJL_sameCmdDataDir() const     { return MJL_dataDir == cmd.MJL_getCmdDir(); }
     void MJL_setDataDir( MemCmd::MJL_DirAttribute in_MJL_dataDir ) { MJL_dataDir = in_MJL_dataDir; }
+    MemCmd::MJL_DirAttribute MJL_getPfPredDir() const { return MJL_pfPredDir; }
+    void MJL_setPfPredDir( MemCmd::MJL_DirAttribute in_MJL_pfPredDir ) { MJL_pfPredDir = in_MJL_pfPredDir; }
     bool MJL_hasDirty(int MJL_byte) {
         if (MJL_bytesDirty.empty())
             MJL_bytesDirty.resize(getSize(), false);
@@ -1007,7 +1010,7 @@ class Packet : public Printable
      * not be valid. The command must be supplied.
      */
     Packet(const RequestPtr _req, MemCmd _cmd)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()), MJL_pfPredDir(MemCmd::MJL_DirAttribute::MJL_IsInvalid),/* MJL_End*/ _isSecure(false),
            size(0), headerDelay(0), snoopDelay(0), payloadDelay(0),
            senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{false, false, false, false, false, false, false, false}, MJL_isStale{false, false, false, false, false, false, false, false}, MJL_hasSharersFlag(false)/* MJL_End */
     {
@@ -1028,7 +1031,7 @@ class Packet : public Printable
      * req.  this allows for overriding the size/addr of the req.
      */
     Packet(const RequestPtr _req, MemCmd _cmd, int _blkSize)
-        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()),/* MJL_End*/ _isSecure(false),
+        :  cmd(_cmd), req(_req), data(nullptr), addr(0),/* MJL_Begin */ MJL_dataDir(_cmd.MJL_getCmdDir()), MJL_pfPredDir(MemCmd::MJL_DirAttribute::MJL_IsInvalid),/* MJL_End*/ _isSecure(false),
            headerDelay(0), snoopDelay(0), payloadDelay(0),
            senderState(NULL)/* MJL_Begin */, MJL_hasOrder(false), MJL_order(0), MJL_wordDirty{false, false, false, false, false, false, false, false}, MJL_crossBlocksCached{false, false, false, false, false, false, false, false}, MJL_wordDemanded{false, false, false, false, false, false, false, false}, MJL_isStale{false, false, false, false, false, false, false, false}, MJL_hasSharersFlag(false)/* MJL_End */
     {
@@ -1064,7 +1067,7 @@ class Packet : public Printable
     Packet(const PacketPtr pkt, bool clear_flags, bool alloc_data)
         :  cmd(pkt->cmd), req(pkt->req),
            data(nullptr),
-           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir())/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
+           addr(pkt->addr)/* MJL_Begin */, MJL_dataDir(pkt->MJL_getDataDir()), MJL_pfPredDir(pkt->MJL_getPfPredDir())/* MJL_End*/, _isSecure(pkt->_isSecure), size(pkt->size),
            bytesValid(pkt->bytesValid),/* MJL_Begin */
            MJL_bytesValid(pkt->MJL_bytesValid),
            /* MJL_End */

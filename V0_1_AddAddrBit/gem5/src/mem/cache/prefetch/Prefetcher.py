@@ -57,6 +57,7 @@ class BasePrefetcher(ClockedObject):
     # MJL_Begin
     MJL_colPageSize = Param.Int(2097152, "The size of a page in column case in bytes") 
     MJL_colPf = Param.Bool(False, "Let prefetcher issue prefetches in column")
+    MJL_pfBasedPredictDir = Param.Bool(False, "Use prefetcher based prediction scheme")
     # MJL_End
 
 class QueuedPrefetcher(BasePrefetcher):

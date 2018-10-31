@@ -121,7 +121,7 @@ def config_cache(options, system):
         if options.MJL_2DL2Cache and options.MJL_L2sameSetMapping:
             fatal("Physically 2D caches option does not coexist with same set mapping option")
         if options.MJL_Prefetcher:
-            system.l2.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf) 
+            system.l2.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = options.MJL_pfBasedPredictDir) 
         # MJL_End
     # MJL_Begin
     if options.l3cache:
@@ -185,7 +185,7 @@ def config_cache(options, system):
         if options.MJL_2DL2Cache and options.MJL_L3sameSetMapping:
             fatal("Physically 2D caches option does not coexist with same set mapping option")
         if options.MJL_Prefetcher:
-            system.l3.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf) 
+            system.l3.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = options.MJL_pfBasedPredictDir) 
     # MJL_End
 
     if options.memchecker:
@@ -214,13 +214,20 @@ def config_cache(options, system):
                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
                                   , MJL_predictDir=options.MJL_predictDir\
                                   , MJL_mshrPredictDir=options.MJL_mshrPredictDir\
+                                  , MJL_pfBasedPredictDir=options.MJL_pfBasedPredictDir\
                                   , MJL_sameSetMapping=options.MJL_L1sameSetMapping\
                                   , MJL_ignoreExtraTagCheckLatency=MJL_ignore_extra_tag_check_latecy\
                                   # MJL_End
                                   )
             # MJL_Begin
-            if options.MJL_predictDir and not options.MJL_mshrPredictDir:
+            if options.MJL_mshrPredictDir and not options.MJL_predictDir:
                 fatal("Cannot use mshr scheme for prediction when prediction is not enabled")
+            if options.MJL_pfBasedPredictDir and not options.MJL_predictDir:
+                fatal("Cannot use prefetch scheme for prediction when prediction is not enabled")
+            if options.MJL_pfBasedPredictDir and not options.MJL_Prefetcher:
+                fatal("Cannot use prefetch scheme for prediction when prefetcher is not enabled")
+            if options.MJL_mshrPredictDir and options.MJL_pfBasedPredictDir:
+                fatal("Cannot use prefetch and mshr scheme for prediction at the same time")
             # MJL_End
 
             # If we have a walker cache specified, instantiate two

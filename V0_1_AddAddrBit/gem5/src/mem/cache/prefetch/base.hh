@@ -91,6 +91,7 @@ class BasePrefetcher : public ClockedObject
     /* MJL_Begin */
     bool MJL_colPf;
     const Addr MJL_colPageSize;
+    bool MJL_pfBasedPredictDir;
     /* MJL_End */
 
     /** Request id for prefetches */

@@ -539,6 +539,7 @@ class Cache : public BaseCache
 
         const unsigned MJL_rowWidth;
         const bool MJL_mshrPredictDir;
+        const bool MJL_pfBasedPredictDir;
 
         const int maxConf;
         const int threshConf;
@@ -719,14 +720,6 @@ class Cache : public BaseCache
             return &pcTable[master_id][set][way];
         }
 
-      public:
-        MJL_DirPredictor(unsigned _blkSize, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir)
-            : blkSize(_blkSize), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), maxConf(3), 
-              threshConf(2), minConf(0), startConf(2), pcTableAssoc(4), 
-              pcTableSets(8), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
-            {}
-        virtual ~MJL_DirPredictor() {}
-
         bool observeAccess(const PacketPtr &pkt) const {
             bool fetch = pkt->req->isInstFetch();
             bool read = pkt->isRead();
@@ -871,6 +864,14 @@ class Cache : public BaseCache
             return predictedDir;
         }
 
+      public:
+        MJL_DirPredictor(unsigned _blkSize, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir)
+            : blkSize(_blkSize), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), maxConf(3), 
+              threshConf(2), minConf(0), startConf(2), pcTableAssoc(4), 
+              pcTableSets(8), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
+            {}
+        virtual ~MJL_DirPredictor() {}
+
         // Update counters on access
         void MJL_updatePredictMshrQueue(const PacketPtr pkt) {
             Addr pkt_blkAddr = pkt->getBlockAddr(blkSize);
@@ -992,6 +993,29 @@ class Cache : public BaseCache
 
             copyPredictMshrQueue.erase(entry_found);
         }
+        // Update prediction for prefetch based scheme
+        void MJL_updatePfPredictEntry(const PacketPtr pkt, MemCmd::MJL_DirAttribute predictedDir) {
+            assert(MJL_pfBasedPredictDir);
+            // Get required packet info
+            Addr pc = pkt->req->getPC();
+            bool is_secure = pkt->isSecure();
+            MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
+
+            // Lookup pc-based information
+            StrideEntry *entry;
+
+            if (pcTableHit(pc, is_secure, master_id, entry)) {
+                entry->lastPredDir = predictedDir;
+            } else {
+                StrideEntry* entry = pcTableVictim(pc, master_id);
+                entry->instAddr = pc;
+                entry->lastAddr = pkt->getAddr();
+                entry->isSecure= is_secure;
+                entry->stride = 0;
+                entry->confidence = startConf;
+                entry->lastPredDir = predictedDir;
+            }
+        }
 
         MemCmd::MJL_DirAttribute MJL_predictDir(const PacketPtr &pkt) {
             MemCmd::MJL_DirAttribute predictedDir = pkt->MJL_getCmdDir();
@@ -1012,6 +1036,8 @@ class Cache : public BaseCache
                         /* MJL_Test 
                         std::cout << "MJL_predDebug: MJL_mshrPredictDir " << pkt->print() << " predicted " << predictedDir << std::endl;
                          */
+                    } else if (MJL_pfBasedPredictDir) {
+                        predictedDir = entry->lastPredDir;
                     } else {
                         predictedDir = MJL_stridePredict(pkt_addr, entry, pkt->MJL_getCmdDir());
                     }
@@ -1022,7 +1048,7 @@ class Cache : public BaseCache
                             is_secure ? "s" : "ns");
                      */
 
-                    if (!MJL_mshrPredictDir) {
+                    if (!MJL_mshrPredictDir && !MJL_pfBasedPredictDir) {
                         StrideEntry* entry = pcTableVictim(pc, master_id);
                         entry->instAddr = pc;
                         entry->lastAddr = pkt_addr;
@@ -1040,6 +1066,7 @@ class Cache : public BaseCache
     MJL_DirPredictor * MJL_dirPredictor;
     bool MJL_predictDir;
     bool MJL_mshrPredictDir;
+    bool MJL_pfBasedPredictDir;
 
     bool MJL_ignoreExtraTagCheckLatency;
 

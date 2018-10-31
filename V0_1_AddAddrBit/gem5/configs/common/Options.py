@@ -130,6 +130,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_L2sameSetMapping", action="store_true", help="Use same set mapping for L2 caches")
     parser.add_option("--MJL_L3sameSetMapping", action="store_true", help="Use same set mapping for L3 caches")
     parser.add_option("--MJL_noLatOverhead", action="store_true", help="Test use")
+    parser.add_option("--MJL_pfBasedPredictDir", action="store_true", help="Use the prefetch scheme for direction predictor (in L1Dcache)")
     # MJL_End
 
     # Enable Ruby
