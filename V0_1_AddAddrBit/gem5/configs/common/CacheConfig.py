@@ -109,6 +109,8 @@ def config_cache(options, system):
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
                                    , MJL_ignoreExtraTagCheckLatency=MJL_ignore_extra_tag_check_latecy\
+                                   , MJL_bloomFilterSize=options.MJL_bloomFilterSize\
+                                   , MJL_bloomFilterHashFuncId=options.MJL_bloomFilterHashFuncId\
                                    # MJL_End
                                    )
 
@@ -144,6 +146,8 @@ def config_cache(options, system):
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
                                    , MJL_ignoreExtraTagCheckLatency=MJL_l2_ignore_extra_tag_check_latecy\
+                                   , MJL_bloomFilterSize=options.MJL_bloomFilterSize\
+                                   , MJL_bloomFilterHashFuncId=options.MJL_bloomFilterHashFuncId\
                                    # MJL_End
                                    )
 
@@ -170,6 +174,8 @@ def config_cache(options, system):
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L3sameSetMapping\
                                    , MJL_ignoreExtraTagCheckLatency=MJL_l3_ignore_extra_tag_check_latecy\
+                                   , MJL_bloomFilterSize=options.MJL_bloomFilterSize\
+                                   , MJL_bloomFilterHashFuncId=options.MJL_bloomFilterHashFuncId\
                                    # MJL_End
                                    )
 
@@ -217,6 +223,8 @@ def config_cache(options, system):
                                   , MJL_pfBasedPredictDir=options.MJL_pfBasedPredictDir\
                                   , MJL_sameSetMapping=options.MJL_L1sameSetMapping\
                                   , MJL_ignoreExtraTagCheckLatency=MJL_ignore_extra_tag_check_latecy\
+                                  , MJL_bloomFilterSize=options.MJL_bloomFilterSize\
+                                  , MJL_bloomFilterHashFuncId=options.MJL_bloomFilterHashFuncId\
                                   # MJL_End
                                   )
             # MJL_Begin

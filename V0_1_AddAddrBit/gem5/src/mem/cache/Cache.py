@@ -128,4 +128,6 @@ class Cache(BaseCache):
     MJL_mshrPredictDir = Param.Bool(False, "Use the mshr scheme for direction predictor")
     MJL_pfBasedPredictDir = Param.Bool(False, "Use the prefetch scheme for direction predictor")
     MJL_ignoreExtraTagCheckLatency = Param.Bool(False, "Used for debug")
+    MJL_bloomFilterSize = Param.Unsigned(0, "Size of the bloom filter, 0 when there isn't one")
+    MJL_bloomFilterHashFuncId = Param.Unsigned(0, "Indicates which hash function to use for the bloom filter")
     # MJL_End

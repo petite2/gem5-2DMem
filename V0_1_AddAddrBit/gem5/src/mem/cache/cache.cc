@@ -65,7 +65,9 @@
 
 Cache::Cache(const CacheParams *p)
     : BaseCache(p, p->system->cacheLineSize()),
-      tags(p->tags),
+      tags(p->tags),/* MJL_Begin */
+      MJL_bloomFilterSize(p->MJL_bloomFilterSize),
+      MJL_bloomFilterHashFuncId(p->MJL_bloomFilterHashFuncId),/* MJL_End */
       prefetcher(p->prefetcher),/* MJL_Begin */
       MJL_predictDir(p->MJL_predictDir), 
       MJL_mshrPredictDir(p->MJL_mshrPredictDir), 
@@ -111,6 +113,9 @@ Cache::Cache(const CacheParams *p)
     if (MJL_predictDir) {
         MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir);
     }
+    if (MJL_bloomFilterSize > 0) {
+        MJL_rowColBloomFilter = new MJL_RowColBloomFilter(MJL_bloomFilterSize, tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, MJL_bloomFilterHashFuncId);
+    }
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         std::cout << "MJL_ignoreExtraTagCheckLatency? " << MJL_ignoreExtraTagCheckLatency << std::endl;
     }
@@ -141,6 +146,9 @@ Cache::~Cache()
     }
     if (MJL_predictDir) {
         delete MJL_dirPredictor;
+    }
+    if (MJL_bloomFilterSize > 0) {
+        delete MJL_rowColBloomFilter;
     }
     /* MJL_End */
 }
@@ -1011,6 +1019,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         }
         bool MJL_crossFullHit = true;
         bool MJL_crossHit = false;
+        bool MJL_hasCrossBlk = false;
+
         for (unsigned MJL_offset = 0; MJL_offset < blkSize; MJL_offset = MJL_offset + sizeof(uint64_t)) {
             // Get the address of each word in the cache line
             MJL_crossBlkAddr = MJL_addOffsetAddr(MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir(), MJL_offset);
@@ -1027,6 +1037,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             MJL_crossFullHit = MJL_crossFullHit & (MJL_crossBlk && MJL_crossBlk->isValid());
             // If the crossing line exists
             if (MJL_crossBlk && MJL_crossBlk->isValid()) {
+                MJL_hasCrossBlk |= true;
                 /* MJL_TOADD: To avoid illegal passing of writable on read miss, needs to verify if this breaks anything
                 if (!MJL_2DCache) {
                     pkt->MJL_setHasSharers(); 
