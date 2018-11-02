@@ -152,7 +152,7 @@ class BasePrefetcher : public ClockedObject
      * misses, depending on cache parameters.)
      * @retval Time of next prefetch availability, or MaxTick if none.
      */
-    virtual Tick notify(const PacketPtr &pkt) = 0;
+    virtual Tick notify(/* MJL_Comment const */ PacketPtr &pkt) = 0;
 
     virtual PacketPtr getPacket() = 0;
 
