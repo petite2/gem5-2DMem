@@ -135,7 +135,7 @@ Cache::Cache(const CacheParams *p)
     for (unsigned i = 1; i <= tags->getNumSets() * tags->getNumWays(); i = 2*i) {
         sizes.emplace_back(i);
     }
-    MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes);
+    MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(this->name(), tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes);
     /* */
 }
 

@@ -627,17 +627,15 @@ class Cache : public BaseCache
             /** Obtain hash of the tile address */
             Addr tileAddrHash(Addr tileAddr) const {
                 Addr hash = tileAddr;
+                Addr hash_row = tileAddr >> (floorLog2(MJL_rowWidth) + 2);
+                Addr hash_col = (tileAddr & ((1 << floorLog2(MJL_rowWidth)) - 1)) >> 2;
                 switch(hash_func_id) {
                     case 0: hash = tileAddr % size;
                         break;
-                    case 1: Addr hash_row = tileAddr >> (floorLog2(MJL_rowWidth) + 2);
-                            Addr hash_col = (tileAddr & ((1 << floorLog2(MJL_rowWidth)) - 1)) >> 2;
-                            hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
+                    case 1: hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
                             assert(hash < size);
                         break;
-                    case 2: Addr hash_row = tileAddr >> (floorLog2(MJL_rowWidth) + 2);
-                            Addr hash_col = (tileAddr & ((1 << floorLog2(MJL_rowWidth)) - 1)) >> 2;
-                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - floorLog2(size)/2));
+                    case 2: hash_row = hash_row ^ (hash_row >> (floorLog2(size) - floorLog2(size)/2));
                             hash_col = hash_col ^ (hash_col >> floorLog2(size)/2);
                             hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
                             assert(hash < size);
@@ -696,6 +694,7 @@ class Cache : public BaseCache
             /** Test use */
             std::string print() const {
                 std::ostringstream str;
+                str << name << ": " << std::endl;
                 for (unsigned i = 0; i < size; ++i) {
                     if (rol_col_BloomFilter[i].hasCross(MemCmd::MJL_DirAttribute::MJL_IsRow) || rol_col_BloomFilter[i].hasCross(MemCmd::MJL_DirAttribute::MJL_IsColumn)) {
                         str << i << ": " << rol_col_BloomFilter[i].print() << std::endl;
@@ -718,10 +717,10 @@ class Cache : public BaseCache
             std::vector< unsigned > hash_func_ids;
             std::vector< unsigned > sizes;
         public:
-            MJL_Test_RowColBloomFilters(unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, std::vector< unsigned > &in_hash_func_ids, std::vector< unsigned > &in_sizes):cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_ids(in_hash_func_ids), sizes(in_sizes) {
+            MJL_Test_RowColBloomFilters(std::string in_name, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, std::vector< unsigned > &in_hash_func_ids, std::vector< unsigned > &in_sizes):cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_ids(in_hash_func_ids), sizes(in_sizes) {
                 for (auto hash_func_id : hash_func_ids) {
                     for (auto size : sizes) {
-                        test_row_col_BloomFilters[hash_func_id][size] = new MJL_RowColBloomFilter(this->name() + ".MJL_Test_bloomfilter_" + std::to_string(hash_func_id) + "_" + std::to_string(size), size, cache_num_of_cachelines, MJL_rowWidth, blkSize, hash_func_id)
+                        test_row_col_BloomFilters[hash_func_id][size] = new MJL_RowColBloomFilter(in_name + ".MJL_Test_bloomfilter_" + std::to_string(hash_func_id) + "_" + std::to_string(size), size, cache_num_of_cachelines, MJL_rowWidth, blkSize, hash_func_id);
                     }
                 }
                 std::cout << "MJL_TestBloomFilters_Configs:" << std::endl;
@@ -753,7 +752,7 @@ class Cache : public BaseCache
             void test_hasCrossStatCountBloomFilters(Addr addr, MemCmd::MJL_DirAttribute blkDir, bool hasCross) {
                 for (auto hash_func_id : hash_func_ids) {
                     for (auto size : sizes) {
-                        bool bloomFilterHasCross = test_row_col_BloomFilters[hash_func_id][size]->hasCross(blkDir);
+                        bool bloomFilterHasCross = test_row_col_BloomFilters[hash_func_id][size]->hasCross(addr, blkDir);
                         if (!bloomFilterHasCross) {
                             assert(!hasCross);
                             test_row_col_BloomFilters[hash_func_id][size]->MJL_bloomFilterTrueNegatives++;
@@ -765,6 +764,16 @@ class Cache : public BaseCache
                         }
                     }
                 }
+            }
+            /** For test use */
+            std::string print() {
+                std::ostringstream str;
+                for (auto hash_func_id : hash_func_ids) {
+                    for (auto size : sizes) {
+                        str << test_row_col_BloomFilters[hash_func_id][size]->print();
+                    }
+                }
+                return str.str();
             }
     };
     MJL_Test_RowColBloomFilters * MJL_Test_rowColBloomFilters;
@@ -1344,9 +1353,9 @@ class Cache : public BaseCache
              std::cout << std::hex << it->first << std::dec << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] << std::endl;
         }
         std::cout << "==== MJL_perPCAccessCount End ====" << std::endl;
-        std::cout << std::endl << "==== MJL_perPCAccessTrace Begin ====" << std::endl;
+        std::cout << "==== MJL_perPCAccessTrace Begin ====" << std::endl;
         std::cout << "PC Trace(0 for row, 1 for column)" << std::endl;
-        for (auto it = MJL_perPCAccessCount->begin(); it != MJL_perPCAccessCount->end(); ++it) {
+        for (auto it = MJL_perPCAccessTrace->begin(); it != MJL_perPCAccessTrace->end(); ++it) {
             uint64_t temp_rowAccesses = 0;
             uint64_t temp_colAccesses = 0;
             if ((*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsRow] + (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsColumn] < 50) { continue; }
