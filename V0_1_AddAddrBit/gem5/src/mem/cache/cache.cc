@@ -114,7 +114,7 @@ Cache::Cache(const CacheParams *p)
         MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir);
     }
     if (MJL_bloomFilterSize > 0) {
-        MJL_rowColBloomFilter = new MJL_RowColBloomFilter(MJL_bloomFilterSize, tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, MJL_bloomFilterHashFuncId);
+        MJL_rowColBloomFilter = new MJL_RowColBloomFilter(this->name() + ".MJL_bloomfilter", MJL_bloomFilterSize, tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, MJL_bloomFilterHashFuncId);
     }
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         std::cout << "MJL_ignoreExtraTagCheckLatency? " << MJL_ignoreExtraTagCheckLatency << std::endl;
@@ -123,8 +123,19 @@ Cache::Cache(const CacheParams *p)
     /* MJL_Test */ 
     if (this->name().find("l2") != std::string::npos) {
         MJL_perPCAccessCount = new std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > >();
+        MJL_perPCAccessTrace = new std::map < Addr, std::vector < MemCmd::MJL_DirAttribute > >();
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printAccess>(this));
     }
+
+    std::vector< unsigned > hash_func_ids;
+    std::vector< unsigned > sizes;
+    for (unsigned i = 0; i < 3; ++i) {
+        hash_func_ids.emplace_back(i);
+    }
+    for (unsigned i = 1; i <= tags->getNumSets() * tags->getNumWays(); i = 2*i) {
+        sizes.emplace_back(i);
+    }
+    MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes);
     /* */
 }
 
@@ -133,6 +144,7 @@ Cache::~Cache()
     /* MJL_Test */
     if (this->name().find("l2") != std::string::npos) {
         delete MJL_perPCAccessCount;
+        delete MJL_perPCAccessTrace;
     }
     /* */
     delete [] tempBlock->data;

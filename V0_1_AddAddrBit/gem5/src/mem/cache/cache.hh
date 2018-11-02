@@ -590,6 +590,7 @@ class Cache : public BaseCache
                         return str.str();
                     }
             };
+            std::string name;
             const unsigned size;
             const unsigned cache_num_of_cachelines;
             const unsigned MJL_rowWidth;
@@ -629,6 +630,18 @@ class Cache : public BaseCache
                 switch(hash_func_id) {
                     case 0: hash = tileAddr % size;
                         break;
+                    case 1: Addr hash_row = tileAddr >> (floorLog2(MJL_rowWidth) + 2);
+                            Addr hash_col = (tileAddr & ((1 << floorLog2(MJL_rowWidth)) - 1)) >> 2;
+                            hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
+                            assert(hash < size);
+                        break;
+                    case 2: Addr hash_row = tileAddr >> (floorLog2(MJL_rowWidth) + 2);
+                            Addr hash_col = (tileAddr & ((1 << floorLog2(MJL_rowWidth)) - 1)) >> 2;
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - floorLog2(size)/2));
+                            hash_col = hash_col ^ (hash_col >> floorLog2(size)/2);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
+                            assert(hash < size);
+                        break;
                     default: hash = tileAddr % size;
                         break;
                 }
@@ -639,7 +652,7 @@ class Cache : public BaseCache
                 return tileAddrHash(getTileAddr(addr));
             }
         public:
-            MJL_RowColBloomFilter(unsigned in_size, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, unsigned in_hash_func_id):size(in_size), cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_id(in_hash_func_id) {
+            MJL_RowColBloomFilter(std::string in_name, unsigned in_size, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, unsigned in_hash_func_id):name(in_name), size(in_size), cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_id(in_hash_func_id) {
                 for (unsigned i = 0; i < size; ++i) {
                     rol_col_BloomFilter.emplace_back(cache_num_of_cachelines);
                 }
@@ -657,6 +670,29 @@ class Cache : public BaseCache
             bool hasCross(Addr addr, MemCmd::MJL_DirAttribute blkDir) const {
                 return rol_col_BloomFilter[addrHash(addr)].hasCross(blkDir);
             }
+            Stats::Scalar MJL_bloomFilterFalsePositives;
+            Stats::Scalar MJL_bloomFilterTruePositives;
+            Stats::Scalar MJL_bloomFilterTrueNegatives;
+            void regStats() {
+                MemObject::regStats();
+
+                using namespace Stats;
+                MJL_bloomFilterFalsePositives
+                    .name(name + ".MJL_bloomFilterFalsePositives")
+                    .desc("number of false positives in the bloom filter")
+                    .flags(nonan)
+                    ;
+                MJL_bloomFilterTruePositives
+                    .name(name + ".MJL_bloomFilterTruePositives")
+                    .desc("number of true positives in the bloom filter")
+                    .flags(nonan)
+                    ;
+                MJL_bloomFilterTrueNegatives
+                    .name(name + ".MJL_bloomFilterTrueNegatives")
+                    .desc("number of true negatives in the bloom filter")
+                    .flags(nonan)
+                    ;
+            }
             /** Test use */
             std::string print() const {
                 std::ostringstream str;
@@ -670,6 +706,69 @@ class Cache : public BaseCache
     };
     /** Pointer to the Bloom Filter */
     MJL_RowColBloomFilter * MJL_rowColBloomFilter;
+
+    /** For test use, explore the efficiency of multiple hash functions */
+    class MJL_Test_RowColBloomFilters {
+        private:
+            const unsigned cache_num_of_cachelines;
+            const unsigned MJL_rowWidth;
+            /** The block size of the parent cache. */
+            const unsigned blkSize;
+            std::map< unsigned, std::map<unsigned, MJL_RowColBloomFilter*> > test_row_col_BloomFilters;
+            std::vector< unsigned > hash_func_ids;
+            std::vector< unsigned > sizes;
+        public:
+            MJL_Test_RowColBloomFilters(unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, std::vector< unsigned > &in_hash_func_ids, std::vector< unsigned > &in_sizes):cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_ids(in_hash_func_ids), sizes(in_sizes) {
+                for (auto hash_func_id : hash_func_ids) {
+                    for (auto size : sizes) {
+                        test_row_col_BloomFilters[hash_func_id][size] = new MJL_RowColBloomFilter(this->name() + ".MJL_Test_bloomfilter_" + std::to_string(hash_func_id) + "_" + std::to_string(size), size, cache_num_of_cachelines, MJL_rowWidth, blkSize, hash_func_id)
+                    }
+                }
+                std::cout << "MJL_TestBloomFilters_Configs:" << std::endl;
+                std::cout << "hash_func_ids: ";
+                for (auto hash_func_id : hash_func_ids) {
+                    std::cout << hash_func_id << " ";
+                }
+                std::cout << std::endl;
+                std::cout << "sizes: ";
+                for (auto size : sizes) {
+                    std::cout << size << " ";
+                }
+                std::cout << std::endl;
+            }
+            void test_add(Addr addr, MemCmd::MJL_DirAttribute blkDir) {
+                for (auto hash_func_id : hash_func_ids) {
+                    for (auto size : sizes) {
+                        test_row_col_BloomFilters[hash_func_id][size]->add(addr, blkDir);
+                    }
+                }
+            }
+            void test_remove(Addr addr, MemCmd::MJL_DirAttribute blkDir) {
+                for (auto hash_func_id : hash_func_ids) {
+                    for (auto size : sizes) {
+                        test_row_col_BloomFilters[hash_func_id][size]->remove(addr, blkDir);
+                    }
+                }
+            }
+            void test_hasCrossStatCountBloomFilters(Addr addr, MemCmd::MJL_DirAttribute blkDir, bool hasCross) {
+                for (auto hash_func_id : hash_func_ids) {
+                    for (auto size : sizes) {
+                        bool bloomFilterHasCross = test_row_col_BloomFilters[hash_func_id][size]->hasCross(blkDir);
+                        if (!bloomFilterHasCross) {
+                            assert(!hasCross);
+                            test_row_col_BloomFilters[hash_func_id][size]->MJL_bloomFilterTrueNegatives++;
+                        }
+                        if (!hasCross && bloomFilterHasCross) {
+                            test_row_col_BloomFilters[hash_func_id][size]->MJL_bloomFilterFalsePositives++;
+                        } else if (hasCross && bloomFilterHasCross) {
+                            test_row_col_BloomFilters[hash_func_id][size]->MJL_bloomFilterTruePositives++;
+                        }
+                    }
+                }
+            }
+    };
+    MJL_Test_RowColBloomFilters * MJL_Test_rowColBloomFilters;
+    
     /** The size of the bloom filter, 0 when there's no bloom filter */
     unsigned MJL_bloomFilterSize;
     /** 
@@ -1222,12 +1321,14 @@ class Cache : public BaseCache
     bool MJL_ignoreExtraTagCheckLatency;
 
     std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > > * MJL_perPCAccessCount;
+    std::map < Addr, std::vector < MemCmd::MJL_DirAttribute > > * MJL_perPCAccessTrace;
 
     void MJL_countAccess(Addr pc, MemCmd::MJL_DirAttribute dir) {
         if ( MJL_perPCAccessCount->find(pc) == MJL_perPCAccessCount->end() || (*MJL_perPCAccessCount)[pc].find(dir) == (*MJL_perPCAccessCount)[pc].end() ) {
             (*MJL_perPCAccessCount)[pc][dir] = 0;
         }
         (*MJL_perPCAccessCount)[pc][dir]++;
+        (*MJL_perPCAccessTrace)[pc].push_back(dir);
     }
 
     void MJL_printAccess() {
@@ -1243,6 +1344,26 @@ class Cache : public BaseCache
              std::cout << std::hex << it->first << std::dec << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] << std::endl;
         }
         std::cout << "==== MJL_perPCAccessCount End ====" << std::endl;
+        std::cout << std::endl << "==== MJL_perPCAccessTrace Begin ====" << std::endl;
+        std::cout << "PC Trace(0 for row, 1 for column)" << std::endl;
+        for (auto it = MJL_perPCAccessCount->begin(); it != MJL_perPCAccessCount->end(); ++it) {
+            uint64_t temp_rowAccesses = 0;
+            uint64_t temp_colAccesses = 0;
+            if ((*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsRow] + (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsColumn] < 50) { continue; }
+            std::cout << std::hex << it->first << std::dec << " ";
+            for (auto dir : (it->second)) {
+                if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    std::cout << 0 << " ";
+                    temp_rowAccesses++;
+                } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    std::cout << 1 << " ";
+                    temp_colAccesses++;
+                }
+            }
+            std::cout << std::endl;
+            assert(temp_rowAccesses == (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsRow] && temp_colAccesses == (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsColumn]);
+        }
+        std::cout << "==== MJL_perPCAccessTrace End ====" << std::endl;
     }
     /* MJL_End */
 
