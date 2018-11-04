@@ -68,7 +68,9 @@ BaseCache::CacheSlavePort::CacheSlavePort(const std::string &_name,
 
 BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
     : MemObject(p),
-      cpuSidePort(nullptr), memSidePort(nullptr),
+      cpuSidePort(nullptr), memSidePort(nullptr),/* MJL_Begin */
+      MJL_rowColBloomFilter(nullptr), MJL_Test_rowColBloomFilters(nullptr), 
+      MJL_bloomFilterSize(p->MJL_bloomFilterSize), MJL_bloomFilterHashFuncId(p->MJL_bloomFilterHashFuncId), /* MJL_End */
       mshrQueue("MSHRs", p->mshrs, 0, p->demand_mshr_reserve), // see below
       writeBuffer("write buffer", p->write_buffers, /* MJL_Begin */p->MJL_2D_Cache? 9 * p->mshrs : /* MJL_End */p->mshrs), // see below
       blkSize(blk_size),
@@ -1033,6 +1035,24 @@ BaseCache::regStats()
         .flags(nozero | nonan)
         ;
     MJL_crossFullHits = MJL_crossFullReadHits + MJL_crossFullWriteHits;
+
+    MJL_bloomFilterFalsePositives
+        .name(name() + ".MJL_bloomFilterFalsePositives")
+        .desc("number of false positives in the bloom filter")
+        .flags(nonan)
+        ;
+
+    MJL_bloomFilterTruePositives
+        .name(name() + ".MJL_bloomFilterTruePositives")
+        .desc("number of true positives in the bloom filter")
+        .flags(nonan)
+        ;
+
+    MJL_bloomFilterTrueNegatives
+        .name(name() + ".MJL_bloomFilterTrueNegatives")
+        .desc("number of true negatives in the bloom filter")
+        .flags(nonan)
+        ;
     /* MJL_End */
 
 }

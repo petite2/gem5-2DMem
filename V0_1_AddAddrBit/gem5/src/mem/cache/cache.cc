@@ -65,9 +65,7 @@
 
 Cache::Cache(const CacheParams *p)
     : BaseCache(p, p->system->cacheLineSize()),
-      tags(p->tags),/* MJL_Begin */
-      MJL_bloomFilterSize(p->MJL_bloomFilterSize),
-      MJL_bloomFilterHashFuncId(p->MJL_bloomFilterHashFuncId),/* MJL_End */
+      tags(p->tags),
       prefetcher(p->prefetcher),/* MJL_Begin */
       MJL_predictDir(p->MJL_predictDir), 
       MJL_mshrPredictDir(p->MJL_mshrPredictDir), 
@@ -163,7 +161,7 @@ Cache::~Cache()
     if (MJL_predictDir) {
         delete MJL_dirPredictor;
     }
-    if (MJL_bloomFilterSize > 0) {
+    if (MJL_rowColBloomFilter) {
         delete MJL_rowColBloomFilter;
     }
     /* MJL_End */
@@ -1116,20 +1114,20 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         /* MJL_Test */
         if (MJL_Test_rowColBloomFilters) {
             MJL_Test_rowColBloomFilters->test_hasCrossStatCountBloomFilters(pkt->getAddr(), pkt->MJL_getCmdDir(), MJL_hasCrossBlk);
-            MJL_Test_rowColBloomFilters->test_total(MJL_tagsInUse);
+            MJL_Test_rowColBloomFilters->test_total(tags->MJL_tagsInUse);
         }
         /* */
         if (MJL_rowColBloomFilter) {
             bool MJL_bloomFilterHasCross = MJL_rowColBloomFilter->hasCross(pkt->getAddr(), pkt->MJL_getCmdDir());
             if (MJL_bloomFilterHasCross && MJL_hasCrossBlk) {
-                MJL_rowColBloomFilter->MJL_bloomFilterTruePositives++;
+                MJL_bloomFilterTruePositives++;
             } else if (MJL_bloomFilterHasCross && !MJL_hasCrossBlk) {
-                MJL_rowColBloomFilter->MJL_bloomFilterFalsePositives++;
+                MJL_bloomFilterFalsePositives++;
             } else if (!MJL_bloomFilterHasCross) {
                 assert(!MJL_hasCrossBlk);
-                MJL_rowColBloomFilter->MJL_bloomFilterTrueNegatives++;
+                MJL_bloomFilterTrueNegatives++;
             }
-            assert(MJL_tagsInUse == MJL_rowColBloomFilter->total());
+            assert(tags->MJL_tagsInUse == MJL_rowColBloomFilter->total());
         }
         if (MJL_crossFullHit) {
             if (pkt->isRead()) {
