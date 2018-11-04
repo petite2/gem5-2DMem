@@ -547,6 +547,12 @@ class Cache : public BaseCache
                     MJL_RowColBloomFilterEntry(int in_cache_num_of_cachelines) : 
                         row_exist(false), col_exist(false), row_count(0), col_count(0), cache_num_of_cachelines(in_cache_num_of_cachelines) {}
                     ~MJL_RowColBloomFilterEntry() {}
+                    /** Return the total number of cache lines counted */
+                    unsigned total() const {
+                        assert(row_count + col_count >= 0);
+                        return (unsigned) (row_count + col_count);
+                    }
+                    /** Check if there exists crossing cache lines */
                     bool hasCross(MemCmd::MJL_DirAttribute blkDir) const {
                         bool cross_exist = false;
                         if (blkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
@@ -656,6 +662,14 @@ class Cache : public BaseCache
                 }
             }
             ~MJL_RowColBloomFilter() {}
+            /** Return the total number of cache lines counted */
+            unsigned total() const {
+                unsigned total = 0;
+                for (auto bloomFilterEntry : rol_col_BloomFilter) {
+                    total += bloomFilterEntry.total();
+                }
+                return total;
+            }
             /** Add the cacheline to the bloom filter */
             void add(Addr addr, MemCmd::MJL_DirAttribute blkDir) {
                 rol_col_BloomFilter[addrHash(addr)].countBlkAlloc(blkDir);
@@ -762,6 +776,13 @@ class Cache : public BaseCache
                         } else if (hasCross && bloomFilterHasCross) {
                             test_row_col_BloomFilters[hash_func_id][size]->MJL_bloomFilterTruePositives++;
                         }
+                    }
+                }
+            }
+            void test_total(unsigned in_total) {
+                for (auto hash_func_id : hash_func_ids) {
+                    for (auto size : sizes) {
+                        assert(in_total == test_row_col_BloomFilters[hash_func_id][size]->total());
                     }
                 }
             }
@@ -2519,6 +2540,32 @@ class Cache : public BaseCache
             assert(MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow || MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
             MJL_diffDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
         }
+        // Check for bloom filter stats
+        bool MJL_hasCrossBlk = false;
+        for (unsigned offset = 0; offset < blkSize; offset = offset + sizeof(uint64_t)) {
+            Addr MJL_writtenBlkAddr = MJL_blockAlign(MJL_written_addr, MJL_cacheBlkDir);
+            CacheBlk * MJL_crossBlk = tags->MJL_findBlock(MJL_addOffsetAddr(MJL_writtenBlkAddr, MJL_cacheBlkDir, offset), MJL_diffDir, is_secure);
+            MJL_hasCrossBlk |= ((MJL_crossBlk != nullptr) && MJL_crossBlk->isValid());
+        }
+        /* MJL_Test */
+        if (MJL_Test_rowColBloomFilters) {
+            MJL_Test_rowColBloomFilters->test_hasCrossStatCountBloomFilters(MJL_written_addr, MJL_cacheBlkDir, MJL_hasCrossBlk);
+            MJL_Test_rowColBloomFilters->test_total(MJL_tagsInUse);
+        }
+        /* */
+        if (MJL_rowColBloomFilter) {
+            bool MJL_bloomFilterHasCross = MJL_rowColBloomFilter->hasCross(MJL_written_addr, MJL_cacheBlkDir);
+            if (MJL_bloomFilterHasCross && MJL_hasCrossBlk) {
+                MJL_rowColBloomFilter->MJL_bloomFilterTruePositives++;
+            } else if (MJL_bloomFilterHasCross && !MJL_hasCrossBlk) {
+                MJL_rowColBloomFilter->MJL_bloomFilterFalsePositives++;
+            } else if (!MJL_bloomFilterHasCross) {
+                assert(!MJL_hasCrossBlk);
+                MJL_rowColBloomFilter->MJL_bloomFilterTrueNegatives++;
+            }
+            assert(MJL_tagsInUse == MJL_rowColBloomFilter->total());
+        }
+        // Actual invalidation
         for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {
             if (MJL_wordDirty[offset/sizeof(uint64_t)]) {
                 MJL_writtenWord_addr = MJL_addOffsetAddr(MJL_written_addr, MJL_cacheBlkDir, offset);

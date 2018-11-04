@@ -109,6 +109,7 @@ class BaseTags : public ClockedObject
     /** Per cycle average of the number of tags that hold valid data. */
     Stats::Average tagsInUse;
     /* MJL_Begin */
+    unsigned MJL_tagsInUse;
     Stats::Scalar MJL_rowInUse;
     Stats::Scalar MJL_colInUse;
     Stats::Formula MJL_rowUtilization;

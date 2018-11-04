@@ -63,7 +63,7 @@ BaseTags::BaseTags(const Params *p)
                     p->tag_latency + p->data_latency :
                     std::max(p->tag_latency, p->data_latency)),
       cache(nullptr), warmupBound(0),
-      warmedUp(false), numBlocks(0)/* MJL_Begin */, MJL_printUtilizationEvent(this)/* MJL_End */
+      warmedUp(false), numBlocks(0)/* MJL_Begin */, MJL_tagsInUse(0), MJL_printUtilizationEvent(this)/* MJL_End */
 {
     /* MJL_Begin */
     /* MJL_Test */ // Test to see if the parameter of MJL_rowWidth has been passed in correctly

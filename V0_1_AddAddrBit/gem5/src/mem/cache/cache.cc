@@ -126,7 +126,8 @@ Cache::Cache(const CacheParams *p)
         MJL_perPCAccessTrace = new std::map < Addr, std::vector < MemCmd::MJL_DirAttribute > >();
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printAccess>(this));
     }
-
+    /* */
+    /* MJL_Test */
     std::vector< unsigned > hash_func_ids;
     std::vector< unsigned > sizes;
     for (unsigned i = 0; i < 3; ++i) {
@@ -145,6 +146,9 @@ Cache::~Cache()
     if (this->name().find("l2") != std::string::npos) {
         delete MJL_perPCAccessCount;
         delete MJL_perPCAccessTrace;
+    }
+    if (MJL_Test_rowColBloomFilters) {
+        delete MJL_Test_rowColBloomFilters;
     }
     /* */
     delete [] tempBlock->data;
@@ -836,9 +840,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 }
             } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
                 assert (pkt->MJL_getCmdDir() == blk->MJL_blkDir);
+                // Bloom filter check
+                bool MJL_bloomFilterHasCross = true;
+                if (MJL_rowColBloomFilter) {
+                    MJL_bloomFilterHasCross = MJL_rowColBloomFilter->hasCross(pkt->getAddr(), pkt->MJL_getCmdDir());
+                }
                 // Taking the additional tag check latency into account
                 for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
-                    if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] /*&& !MJL_ignoreExtraTagCheckLatency */) {// probably should have event for same set since the invalidation has to create write buffer entries
+                    if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] && MJL_bloomFilterHasCross /*&& !MJL_ignoreExtraTagCheckLatency */) {// probably should have event for same set since the invalidation has to create write buffer entries
                         lat += lookupLatency;
                     }
                 }
@@ -960,9 +969,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // }
 
         if (pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
+            // Bloom filter check
+            bool MJL_bloomFilterHasCross = true;
+            if (MJL_rowColBloomFilter) {
+                MJL_bloomFilterHasCross = MJL_rowColBloomFilter->hasCross(pkt->getAddr(), pkt->MJL_getCmdDir());
+            }
             // Taking the additional tag check into account
             for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
-                if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] && !MJL_ignoreExtraTagCheckLatency) {
+                if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] && MJL_bloomFilterHasCross && !MJL_ignoreExtraTagCheckLatency) {
                     lat += lookupLatency;
                 }
             }
@@ -1009,9 +1023,14 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     /* MJL_Begin */
     // Write upgrade miss
     if (blk && pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
+        // Bloom filter check
+        bool MJL_bloomFilterHasCross = true;
+        if (MJL_rowColBloomFilter) {
+            MJL_bloomFilterHasCross = MJL_rowColBloomFilter->hasCross(pkt->getAddr(), pkt->MJL_getCmdDir());
+        }
         // Taking the additional tag check into account
         for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
-            if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] && !MJL_ignoreExtraTagCheckLatency) {
+            if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] && MJL_bloomFilterHasCross && !MJL_ignoreExtraTagCheckLatency) {
                 lat += lookupLatency;
             }
         }
@@ -1093,6 +1112,24 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                     MJL_crossBlk->status &= ~BlkWritable;
                 }
             }
+        }
+        /* MJL_Test */
+        if (MJL_Test_rowColBloomFilters) {
+            MJL_Test_rowColBloomFilters->test_hasCrossStatCountBloomFilters(pkt->getAddr(), pkt->MJL_getCmdDir(), MJL_hasCrossBlk);
+            MJL_Test_rowColBloomFilters->test_total(MJL_tagsInUse);
+        }
+        /* */
+        if (MJL_rowColBloomFilter) {
+            bool MJL_bloomFilterHasCross = MJL_rowColBloomFilter->hasCross(pkt->getAddr(), pkt->MJL_getCmdDir());
+            if (MJL_bloomFilterHasCross && MJL_hasCrossBlk) {
+                MJL_rowColBloomFilter->MJL_bloomFilterTruePositives++;
+            } else if (MJL_bloomFilterHasCross && !MJL_hasCrossBlk) {
+                MJL_rowColBloomFilter->MJL_bloomFilterFalsePositives++;
+            } else if (!MJL_bloomFilterHasCross) {
+                assert(!MJL_hasCrossBlk);
+                MJL_rowColBloomFilter->MJL_bloomFilterTrueNegatives++;
+            }
+            assert(MJL_tagsInUse == MJL_rowColBloomFilter->total());
         }
         if (MJL_crossFullHit) {
             if (pkt->isRead()) {
@@ -1355,7 +1392,11 @@ Cache::recvTimingReq(PacketPtr pkt)
         satisfied = access(pkt, blk, lat, writebacks);
         /* MJL_Begin */
         // Add the additional tag check latency for misses
-        if (!MJL_2DCache && !MJL_ignoreExtraTagCheckLatency && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && 
+        bool MJL_bloomFilterHasCross = true;
+        if (MJL_rowColBloomFilter) {
+            MJL_bloomFilterHasCross = MJL_rowColBloomFilter->hasCross(pkt->getAddr(), pkt->MJL_getCmdDir());
+        }
+        if (!MJL_2DCache && !MJL_ignoreExtraTagCheckLatency && MJL_bloomFilterHasCross && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && 
             ((!satisfied && !pkt->req->isUncacheable() && pkt->cmd != MemCmd::CleanEvict && !pkt->isWriteback())
             || (satisfied && pkt->cmd == MemCmd::WritebackDirty))) {
             forward_time = clockEdge(Cycles( blkSize/sizeof(uint64_t) * forwardLatency)) + pkt->headerDelay;

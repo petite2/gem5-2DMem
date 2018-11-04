@@ -226,11 +226,21 @@ public:
         // MJL_Note: Guess I'll just assume that every thing is 1/8 of the presented value in physically 2D cache
         tagsInUse--;
         /* MJL_Begin */
+        MJL_tagsInUse--;
         if (blk->MJL_isRow()) {
             MJL_rowInUse--;
         } else if (blk->MJL_isColumn()) {
             MJL_colInUse--;
             //std::cout << "MJL_Test: colInUse--(" << MJL_colInUse.value() << ")" << std::endl;
+        }
+        // Add to bloom filter 
+        /* MJL_Test */
+        if (MJL_Test_rowColBloomFilters) {
+            cache->MJL_Test_rowColBloomFilters->test_remove(addr, pkt->MJL_getDataDir());
+        }
+        /* */
+        if (MJL_rowColBloomFilter) {
+            cache->MJL_rowColBloomFilter->remove(addr, pkt->MJL_getDataDir());
         }
         if (!cache->MJL_is2DCache()) {
             CacheBlk * MJL_dupBlk = nullptr;
@@ -614,6 +624,7 @@ public:
                  // Get stats about tagsInUse, assume 8 sets in a tile.
                  for (int i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                     tagsInUse++;
+                    MJL_tagsInUse++;
                     MJL_findBlockByTile(blk, i)->isTouched = true;
                  }
                  if (!warmedUp && tagsInUse.value() >= warmupBound) {
@@ -670,6 +681,7 @@ public:
          /* MJL_End */
          if (!blk->isTouched) {
              tagsInUse++;
+             MJL_tagsInUse++;
              blk->isTouched = true;
              if (!warmedUp && tagsInUse.value() >= warmupBound) {
                  warmedUp = true;
@@ -688,6 +700,15 @@ public:
              } else if (blk->MJL_isColumn()) {
                  MJL_colInUse--;
                  //std::cout << "MJL_Test: colInUse--(" << MJL_colInUse.value() << ")" << std::endl;
+             }
+             // Remove from bloom filter 
+             /* MJL_Test */
+             if (MJL_Test_rowColBloomFilters) {
+                 cache->MJL_Test_rowColBloomFilters->test_remove(addr, pkt->MJL_getDataDir());
+             }
+             /* */
+             if (MJL_rowColBloomFilter) {
+                 cache->MJL_rowColBloomFilter->remove(addr, pkt->MJL_getDataDir());
              }
              if (!cache->MJL_is2DCache()) {
                  CacheBlk * MJL_dupBlk = nullptr;
@@ -727,6 +748,15 @@ public:
          /* MJL_Begin */
          if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
              blk->tag = MJL_extractTag(addr, pkt->MJL_getDataDir());
+             // Add to bloom filter 
+             /* MJL_Test */
+             if (MJL_Test_rowColBloomFilters) {
+                 cache->MJL_Test_rowColBloomFilters->test_add(addr, pkt->MJL_getDataDir());
+             }
+             /* */
+             if (MJL_rowColBloomFilter) {
+                 cache->MJL_rowColBloomFilter->add(addr, pkt->MJL_getDataDir());
+             }
          } else {
              blk->tag = extractTag(addr);
          }
