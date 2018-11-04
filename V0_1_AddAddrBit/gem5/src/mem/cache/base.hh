@@ -319,7 +319,7 @@ class BaseCache : public MemObject
                 return tileAddrHash(getTileAddr(addr));
             }
         public:
-            MJL_RowColBloomFilter(std::string in_name, unsigned in_size, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, unsigned in_hash_func_id):name(in_name), size(in_size), cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_id(in_hash_func_id) {
+            MJL_RowColBloomFilter(std::string in_name, unsigned in_size, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, unsigned in_hash_func_id):name(in_name), size(in_size), cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_id(in_hash_func_id), MJL_bloomFilterFalsePositives(0), MJL_bloomFilterTruePositives(0), MJL_bloomFilterTrueNegatives(0) {
                 for (unsigned i = 0; i < size; ++i) {
                     rol_col_BloomFilter.emplace_back(cache_num_of_cachelines);
                 }
@@ -347,7 +347,7 @@ class BaseCache : public MemObject
             }
             /** Count for the stats */
             void countStats(Addr addr, MemCmd::MJL_DirAttribute blkDir, bool hasCross) {
-                bool bloomFilterHasCross = hasCross(addr, blkDir);
+                bool bloomFilterHasCross = rol_col_BloomFilter[addrHash(addr)].hasCross(blkDir);
                 if (!bloomFilterHasCross) {
                     assert(!hasCross);
                     MJL_bloomFilterTrueNegatives++;
@@ -1012,6 +1012,8 @@ class BaseCache : public MemObject
 
     unsigned MJL_getRowWidth() const { return MJL_rowWidth; }
     virtual void MJL_markBlocked2D(PacketPtr pkt, MSHR * mshr) = 0;
+    MJL_RowColBloomFilter * MJL_get_rowColBloomFilter() const { return MJL_rowColBloomFilter; }
+    MJL_Test_RowColBloomFilters * MJL_get_Test_rowColBloomFilters() const { return MJL_Test_rowColBloomFilters; }
     /* MJL_End */
 
     const AddrRangeList &getAddrRanges() const { return addrRanges; }

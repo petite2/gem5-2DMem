@@ -267,6 +267,9 @@ class BaseTags : public ClockedObject
     virtual unsigned getNumSets() const = 0;
 
     virtual unsigned getNumWays() const = 0;
+    /* MJL_Begin */
+    unsigned MJL_get_tagsInUse () const {return MJL_tagsInUse;}
+    /* MJL_End */
 
     virtual void invalidate(CacheBlk *blk) = 0;
 

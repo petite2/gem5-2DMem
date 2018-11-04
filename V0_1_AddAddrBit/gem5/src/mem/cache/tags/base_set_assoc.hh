@@ -235,12 +235,12 @@ public:
         }
         // Add to bloom filter 
         /* MJL_Test */
-        if (cache->MJL_Test_rowColBloomFilters) {
-            cache->MJL_Test_rowColBloomFilters->test_remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
+        if (cache->MJL_get_Test_rowColBloomFilters()) {
+            cache->MJL_get_Test_rowColBloomFilters()->test_remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
         }
         /* */
-        if (cache->MJL_rowColBloomFilter) {
-            cache->MJL_rowColBloomFilter->remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
+        if (cache->MJL_get_rowColBloomFilter()) {
+            cache->MJL_get_rowColBloomFilter()->remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
         }
         if (!cache->MJL_is2DCache()) {
             CacheBlk * MJL_dupBlk = nullptr;
@@ -703,12 +703,12 @@ public:
              }
              // Remove from bloom filter 
              /* MJL_Test */
-             if (cache->MJL_Test_rowColBloomFilters) {
-                 cache->MJL_Test_rowColBloomFilters->test_remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
+             if (cache->MJL_get_Test_rowColBloomFilters()) {
+                 cache->MJL_get_Test_rowColBloomFilters()->test_remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
              }
              /* */
-             if (cache->MJL_rowColBloomFilter) {
-                 cache->MJL_rowColBloomFilter->remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
+             if (cache->MJL_get_rowColBloomFilter()) {
+                 cache->MJL_get_rowColBloomFilter()->remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
              }
              if (!cache->MJL_is2DCache()) {
                  CacheBlk * MJL_dupBlk = nullptr;
@@ -750,12 +750,12 @@ public:
              blk->tag = MJL_extractTag(addr, pkt->MJL_getDataDir());
              // Add to bloom filter 
              /* MJL_Test */
-             if (cache->MJL_Test_rowColBloomFilters) {
-                 cache->MJL_Test_rowColBloomFilters->test_add(addr, pkt->MJL_getDataDir());
+             if (cache->MJL_get_Test_rowColBloomFilters()) {
+                 cache->MJL_get_Test_rowColBloomFilters()->test_add(addr, pkt->MJL_getDataDir());
              }
              /* */
-             if (cache->MJL_rowColBloomFilter) {
-                 cache->MJL_rowColBloomFilter->add(addr, pkt->MJL_getDataDir());
+             if (cache->MJL_get_rowColBloomFilter()) {
+                 cache->MJL_get_rowColBloomFilter()->add(addr, pkt->MJL_getDataDir());
              }
          } else {
              blk->tag = extractTag(addr);

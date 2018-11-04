@@ -1114,11 +1114,13 @@ class Cache : public BaseCache
             assert(temp_rowAccesses == (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsRow] && temp_colAccesses == (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsColumn]);
         }
         std::cout << "==== MJL_perPCAccessTrace End ====" << std::endl;
+    }
+    void MJL_printTestBloomFiltersStats () {    
         if (MJL_Test_rowColBloomFilters) {
-            std::cout << "==== MJL_Test_rowColBloomFilters Stats Begin ====" << std::endl;
+            std::cout << "==== MJL_Test_rowColBloomFilters Stats Begin ====" << this->name() << std::endl;
             std::cout << "Name True_Neg False_Pos True_Pos" << std::endl;
-            MJL_Test_rowColBloomFilters->printStats();
-            std::cout << "==== MJL_Test_rowColBloomFilters Stats End ====" << std::endl;
+            std::cout << MJL_Test_rowColBloomFilters->printStats();
+            std::cout << "==== MJL_Test_rowColBloomFilters Stats End ====" << this->name() << std::endl;
         }
     }
     /* MJL_End */
@@ -2276,7 +2278,7 @@ class Cache : public BaseCache
         /* MJL_Test */
         if (MJL_Test_rowColBloomFilters) {
             MJL_Test_rowColBloomFilters->test_hasCrossStatCountBloomFilters(MJL_written_addr, MJL_cacheBlkDir, MJL_hasCrossBlk);
-            MJL_Test_rowColBloomFilters->test_total(tags->MJL_tagsInUse);
+            MJL_Test_rowColBloomFilters->test_total(tags->MJL_get_tagsInUse());
         }
         /* */
         if (MJL_rowColBloomFilter) {
@@ -2289,7 +2291,7 @@ class Cache : public BaseCache
                 assert(!MJL_hasCrossBlk);
                 MJL_bloomFilterTrueNegatives++;
             }
-            assert(tags->MJL_tagsInUse == MJL_rowColBloomFilter->total());
+            assert(tags->MJL_get_tagsInUse() == MJL_rowColBloomFilter->total());
         }
         // Actual invalidation
         for (unsigned offset = 0; offset < size; offset = offset + sizeof(uint64_t)) {

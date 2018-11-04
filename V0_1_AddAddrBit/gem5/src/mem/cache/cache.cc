@@ -134,7 +134,10 @@ Cache::Cache(const CacheParams *p)
     for (unsigned i = 1; i <= tags->getNumSets() * tags->getNumWays(); i = 2*i) {
         sizes.emplace_back(i);
     }
-    MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(this->name(), tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes);
+    if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache) {
+        MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(this->name(), tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes);
+        registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printTestBloomFiltersStats>(this));
+    }
     /* */
 }
 
@@ -1114,7 +1117,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         /* MJL_Test */
         if (MJL_Test_rowColBloomFilters) {
             MJL_Test_rowColBloomFilters->test_hasCrossStatCountBloomFilters(pkt->getAddr(), pkt->MJL_getCmdDir(), MJL_hasCrossBlk);
-            MJL_Test_rowColBloomFilters->test_total(tags->MJL_tagsInUse);
+            MJL_Test_rowColBloomFilters->test_total(tags->MJL_get_tagsInUse());
         }
         /* */
         if (MJL_rowColBloomFilter) {
@@ -1127,7 +1130,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 assert(!MJL_hasCrossBlk);
                 MJL_bloomFilterTrueNegatives++;
             }
-            assert(tags->MJL_tagsInUse == MJL_rowColBloomFilter->total());
+            assert(tags->MJL_get_tagsInUse() == MJL_rowColBloomFilter->total());
         }
         if (MJL_crossFullHit) {
             if (pkt->isRead()) {
