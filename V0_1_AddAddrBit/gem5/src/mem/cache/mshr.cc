@@ -279,8 +279,8 @@ MSHR::allocate(Addr blk_addr, unsigned blk_size, PacketPtr target,
         Target::FromPrefetcher : Target::FromCPU;
     /* MJL_Test */
     if (MJL_Debug_Out) {
-        std::cout << "MJL_mshrDebug: allocate adding " << target->print() << " to the mshr" << std::endl;
-        std::cout << this->print() << std::endl;
+        std::clog << "MJL_mshrDebug: allocate adding " << target->print() << " to the mshr" << std::endl;
+        std::clog << this->print() << std::endl;
     }
     /* */
     targets.add(target, when_ready, _order, source, true, alloc_on_fill);
@@ -367,8 +367,8 @@ MSHR::allocateTarget(PacketPtr pkt, Tick whenReady, Counter _order,
 
     /* MJL_Test */
     if (MJL_Debug_Out) {
-        std::cout << "MJL_mshrDebug: allocateTarget adding " << pkt->print() << " to the mshr" << std::endl;
-        std::cout << this->print() << std::endl;
+        std::clog << "MJL_mshrDebug: allocateTarget adding " << pkt->print() << " to the mshr" << std::endl;
+        std::clog << this->print() << std::endl;
     }
     /* */
     // if there's a request already in service for this MSHR, we will
@@ -501,8 +501,8 @@ MSHR::handleSnoop(PacketPtr pkt, Counter _order)
         }
         /* MJL_Test */
         if (MJL_Debug_Out) {
-            std::cout << "MJL_mshrDebug: handleSnoop adding " << cp_pkt->print() << " to the mshr" << std::endl;
-            std::cout << this->print() << std::endl;
+            std::clog << "MJL_mshrDebug: handleSnoop adding " << cp_pkt->print() << " to the mshr" << std::endl;
+            std::clog << this->print() << std::endl;
         }
         /* */
         targets.add(cp_pkt, curTick(), _order, Target::FromSnoop,

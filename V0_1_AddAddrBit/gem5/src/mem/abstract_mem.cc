@@ -415,7 +415,7 @@ AbstractMemory::access(PacketPtr pkt)
     }
      */
     if (MJL_Debug_Out) {
-        std::cout << this->name() << "::access " << pkt->print() << std::endl;
+        std::clog << this->name() << "::access " << pkt->print() << std::endl;
     }
     /* MJL_End */
                     

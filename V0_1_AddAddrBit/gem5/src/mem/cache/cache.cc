@@ -1088,7 +1088,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                     assert(MJL_crossBlk->isReadable());
                     /* MJL_Test */
                     if (MJL_Debug_Out) {
-                        std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_crossBlk->print() << ", evict by " << pkt->print() << std::endl;
+                        std::clog << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_crossBlk->print() << ", evict by " << pkt->print() << std::endl;
                     }
                     /* */
                     if (MJL_crossBlk->isDirty() || writebackClean) {
@@ -1102,7 +1102,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                     MJL_conflictWBCount2++;
                     /* MJL_Test */ 
                     if (MJL_Debug_Out) {
-                        std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_crossBlk->tag, MJL_crossBlk->MJL_blkDir, MJL_crossBlk->set) << std::dec << ", " << MJL_crossBlk->print() << ", cached written back by " << pkt->print() << std::endl;
+                        std::clog << this->name() << "::MJL_snoopDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_crossBlk->tag, MJL_crossBlk->MJL_blkDir, MJL_crossBlk->set) << std::dec << ", " << MJL_crossBlk->print() << ", cached written back by " << pkt->print() << std::endl;
                     }
                     /* */
                     // If cross block is not waiting on upgrade, writeback. Otherwise, let mshr blocking mechanism handle it
@@ -4956,7 +4956,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             // && (pkt->getAddr() >= 0x16d4000 && pkt->getAddr() < 0x16d8000 )
             // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x44eb30 && pkt->req->getPC() <=0x44f00b )
         ) {
-        std::cout << this->name() << "::MJL_Debug: recvTimingReq " << pkt->print() << std::endl;
+        std::clog << this->name() << "::MJL_Debug: recvTimingReq " << pkt->print() << std::endl;
     }
     /* */    
 

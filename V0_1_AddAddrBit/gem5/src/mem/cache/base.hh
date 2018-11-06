@@ -933,10 +933,10 @@ class BaseCache : public MemObject
                 if (pkt->isWrite() && (offset < target_offset + size && offset + sizeof(uint64_t) > target_offset)) {
                     /* MJL_Test */
                     if (MJL_Debug_Out && this->name().find("dcache") != std::string::npos) {
-                        std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
-                        std::cout << mshr->print() << std::endl;
-                        std::cout << ", blocked by " << crossMshr << std::endl;
-                        std::cout << crossMshr->print() << std::endl;
+                        std::clog << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
+                        std::clog << mshr->print() << std::endl;
+                        std::clog << ", blocked by " << crossMshr << std::endl;
+                        std::clog << crossMshr->print() << std::endl;
                     }
                     /* */
                     // The new target is blocked by the crossing mshr's last target
@@ -948,10 +948,10 @@ class BaseCache : public MemObject
                 } else if (pkt->isWrite()) {
                     /* MJL_Test */
                     if (MJL_Debug_Out && this->name().find("dcache") != std::string::npos) {
-                        std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
-                        std::cout << mshr->print() << std::endl;
-                        std::cout << ", blocked by " << crossMshr << std::endl;
-                        std::cout << crossMshr->print() << std::endl;
+                        std::clog << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
+                        std::clog << mshr->print() << std::endl;
+                        std::clog << ", blocked by " << crossMshr << std::endl;
+                        std::clog << crossMshr->print() << std::endl;
                     }
                     /* */
                     // The new target is blocked by the crossing mshr's last target
@@ -963,10 +963,10 @@ class BaseCache : public MemObject
                 } else if (crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, !new_mshr)) {
                     /* MJL_Test */
                     if (MJL_Debug_Out && this->name().find("dcache") != std::string::npos) {
-                        std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
-                        std::cout << mshr->print() << std::endl;
-                        std::cout << ", blocked by " << crossMshr << std::endl;
-                        std::cout << crossMshr->print() << std::endl;
+                        std::clog << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
+                        std::clog << mshr->print() << std::endl;
+                        std::clog << ", blocked by " << crossMshr << std::endl;
+                        std::clog << crossMshr->print() << std::endl;
                     }
                     /* */
                     // The new target is blocked by the crossing mshr's latest write target
@@ -979,10 +979,10 @@ class BaseCache : public MemObject
                 } else if (crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, false)) {
                     /* MJL_Test */
                     if (MJL_Debug_Out && this->name().find("dcache") != std::string::npos) {
-                        std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
-                        std::cout << mshr->print() << std::endl;
-                        std::cout << ", may be blocked by " << crossMshr << std::endl;
-                        std::cout << crossMshr->print() << std::endl;
+                        std::clog << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
+                        std::clog << mshr->print() << std::endl;
+                        std::clog << ", may be blocked by " << crossMshr << std::endl;
+                        std::clog << crossMshr->print() << std::endl;
                     }
                     /* */
                     // The new target is blocked by the crossing mshr's latest write target
