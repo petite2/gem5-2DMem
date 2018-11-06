@@ -181,6 +181,7 @@ class AbstractMemory : public MemObject
     Stats::Scalar MJL_bytesReadColumn;
     Stats::Formula MJL_bytesTotalRow;
     Stats::Formula MJL_bytesTotalColumn;
+    bool MJL_Debug_Out;
     /* MJL_End */
 
     /** Pointor to the System object.

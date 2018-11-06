@@ -792,6 +792,7 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_bloomFilterFalsePositives;
     Stats::Scalar MJL_bloomFilterTruePositives;
     Stats::Scalar MJL_bloomFilterTrueNegatives;
+    bool MJL_Debug_Out;
     /* MJL_End */
 
     /**
@@ -931,7 +932,7 @@ class BaseCache : public MemObject
                 // If the packet is a write and the crossing word is written
                 if (pkt->isWrite() && (offset < target_offset + size && offset + sizeof(uint64_t) > target_offset)) {
                     /* MJL_Test */
-                    if (this->name().find("dcache") != std::string::npos) {
+                    if (MJL_Debug_Out && this->name().find("dcache") != std::string::npos) {
                         std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
                         std::cout << mshr->print() << std::endl;
                         std::cout << ", blocked by " << crossMshr << std::endl;
@@ -946,7 +947,7 @@ class BaseCache : public MemObject
                 // Else if the packet is write but the crossing word is not written
                 } else if (pkt->isWrite()) {
                     /* MJL_Test */
-                    if (this->name().find("dcache") != std::string::npos) {
+                    if (MJL_Debug_Out && this->name().find("dcache") != std::string::npos) {
                         std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
                         std::cout << mshr->print() << std::endl;
                         std::cout << ", blocked by " << crossMshr << std::endl;
@@ -961,7 +962,7 @@ class BaseCache : public MemObject
                 // And If there is a write target in the crossing mshr
                 } else if (crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, !new_mshr)) {
                     /* MJL_Test */
-                    if (this->name().find("dcache") != std::string::npos) {
+                    if (MJL_Debug_Out && this->name().find("dcache") != std::string::npos) {
                         std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
                         std::cout << mshr->print() << std::endl;
                         std::cout << ", blocked by " << crossMshr << std::endl;
@@ -977,7 +978,7 @@ class BaseCache : public MemObject
                 // mark potential block information for when a target becomes the first of an mshr due to stale previous response and not being served
                 } else if (crossMshr->MJL_getLastWriteTarget(target_cross_offset, blkSize, false)) {
                     /* MJL_Test */
-                    if (this->name().find("dcache") != std::string::npos) {
+                    if (MJL_Debug_Out && this->name().find("dcache") != std::string::npos) {
                         std::cout << "MJL_Debug: markblock " << mshr << "->" << new_target << std::endl;
                         std::cout << mshr->print() << std::endl;
                         std::cout << ", may be blocked by " << crossMshr << std::endl;

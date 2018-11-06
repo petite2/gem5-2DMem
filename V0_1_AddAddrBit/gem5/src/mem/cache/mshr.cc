@@ -65,7 +65,7 @@ using namespace std;
 MSHR::MSHR() : downstreamPending(false),
                pendingModified(false),
                postInvalidate(false), postDowngrade(false),
-               isForward(false)/* MJL_Begin */, MJL_deferredAdded(false), MJL_retry(false)/* MJL_End */
+               isForward(false)/* MJL_Begin */, MJL_deferredAdded(false), MJL_retry(false), MJL_Debug_Out(false)/* MJL_End */
 {
 }
 
@@ -278,8 +278,10 @@ MSHR::allocate(Addr blk_addr, unsigned blk_size, PacketPtr target,
     Target::Source source = (target->cmd == MemCmd::HardPFReq) ?
         Target::FromPrefetcher : Target::FromCPU;
     /* MJL_Test */
-    std::cout << "MJL_mshrDebug: allocate adding " << target->print() << " to the mshr" << std::endl;
-    std::cout << this->print() << std::endl;
+    if (MJL_Debug_Out) {
+        std::cout << "MJL_mshrDebug: allocate adding " << target->print() << " to the mshr" << std::endl;
+        std::cout << this->print() << std::endl;
+    }
     /* */
     targets.add(target, when_ready, _order, source, true, alloc_on_fill);
     assert(deferredTargets.isReset());
@@ -364,8 +366,10 @@ MSHR::allocateTarget(PacketPtr pkt, Tick whenReady, Counter _order,
     assert(!_isUncacheable);
 
     /* MJL_Test */
-    std::cout << "MJL_mshrDebug: allocateTarget adding " << pkt->print() << " to the mshr" << std::endl;
-    std::cout << this->print() << std::endl;
+    if (MJL_Debug_Out) {
+        std::cout << "MJL_mshrDebug: allocateTarget adding " << pkt->print() << " to the mshr" << std::endl;
+        std::cout << this->print() << std::endl;
+    }
     /* */
     // if there's a request already in service for this MSHR, we will
     // have to defer the new target until after the response if any of
@@ -496,8 +500,10 @@ MSHR::handleSnoop(PacketPtr pkt, Counter _order)
             // recipient does not care there is no harm in doing so
         }
         /* MJL_Test */
-        std::cout << "MJL_mshrDebug: handleSnoop adding " << cp_pkt->print() << " to the mshr" << std::endl;
-        std::cout << this->print() << std::endl;
+        if (MJL_Debug_Out) {
+            std::cout << "MJL_mshrDebug: handleSnoop adding " << cp_pkt->print() << " to the mshr" << std::endl;
+            std::cout << this->print() << std::endl;
+        }
         /* */
         targets.add(cp_pkt, curTick(), _order, Target::FromSnoop,
                     downstreamPending && targets.needsWritable, false);

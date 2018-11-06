@@ -114,6 +114,7 @@ class MSHR : public QueueEntry, public Printable
     /* MJL_Begin */
     bool MJL_deferredAdded;
     bool MJL_retry;
+    bool MJL_Debug_Out;
     /* MJL_End */
 
     class Target {

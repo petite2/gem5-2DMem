@@ -95,7 +95,7 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
       noTargetMSHR(nullptr),
       missCount(p->max_miss_count),
       addrRanges(p->addr_ranges.begin(), p->addr_ranges.end()),
-      system(p->system)
+      system(p->system)/* MJL_Begin */, MJL_Debug_Out(false)/* MJL_End */
 {
     // the MSHR queue has no reserve entries as we check the MSHR
     // queue on every single allocation, whereas the write queue has

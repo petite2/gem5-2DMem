@@ -1087,7 +1087,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                     MJL_conflictWBCount1++;
                     assert(MJL_crossBlk->isReadable());
                     /* MJL_Test */
-                    std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_crossBlk->print() << ", evict by " << pkt->print() << std::endl;
+                    if (MJL_Debug_Out) {
+                        std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << MJL_crossBlk->print() << ", evict by " << pkt->print() << std::endl;
+                    }
                     /* */
                     if (MJL_crossBlk->isDirty() || writebackClean) {
                         writebacks.push_back(writebackBlk(MJL_crossBlk));
@@ -1099,7 +1101,9 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
                 } else if (MJL_crossBlk->isDirty() && MJL_crossBlk->MJL_wordDirty[MJL_crossBlkOffset/sizeof(uint64_t)]){
                     MJL_conflictWBCount2++;
                     /* MJL_Test */ 
-                    std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_crossBlk->tag, MJL_crossBlk->MJL_blkDir, MJL_crossBlk->set) << std::dec << ", " << MJL_crossBlk->print() << ", cached written back by " << pkt->print() << std::endl;
+                    if (MJL_Debug_Out) {
+                        std::cout << this->name() << "::MJL_snoopDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_crossBlk->tag, MJL_crossBlk->MJL_blkDir, MJL_crossBlk->set) << std::dec << ", " << MJL_crossBlk->print() << ", cached written back by " << pkt->print() << std::endl;
+                    }
                     /* */
                     // If cross block is not waiting on upgrade, writeback. Otherwise, let mshr blocking mechanism handle it
                     if (MJL_crossBlk->isReadable()) {
@@ -4940,7 +4944,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     // if (this->name().find("dcache") != std::string::npos && pkt->isWrite() && pkt->getAddr() == 0x38c8c0) {
     //     MJL_debugOutFlag = true;
     // }
-    if ( (this->name().find("dcache") != std::string::npos
+    if ( MJL_Debug_Out && (this->name().find("dcache") != std::string::npos
              || this->name().find("l2") != std::string::npos
              || this->name().find("l3") != std::string::npos)
             //  && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )

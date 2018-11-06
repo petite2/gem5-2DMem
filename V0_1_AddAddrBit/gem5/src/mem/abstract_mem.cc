@@ -57,7 +57,7 @@ using namespace std;
 AbstractMemory::AbstractMemory(const Params *p) :
     MemObject(p), range(params()->range), pmemAddr(NULL),
     confTableReported(p->conf_table_reported), inAddrMap(p->in_addr_map),
-    kvmMap(p->kvm_map), _system(NULL)
+    kvmMap(p->kvm_map)/* MJL_Begin */, MJL_Debug_Out(false)/* MJL_End */, _system(NULL)
 {
 }
 
@@ -414,7 +414,9 @@ AbstractMemory::access(PacketPtr pkt)
         std::cout << ", Time: " << pkt->req->time() << std::endl;
     }
      */
-    std::cout << this->name() << "::access " << pkt->print() << std::endl;
+    if (MJL_Debug_Out) {
+        std::cout << this->name() << "::access " << pkt->print() << std::endl;
+    }
     /* MJL_End */
                     
 
