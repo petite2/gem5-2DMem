@@ -296,12 +296,14 @@ class BaseCache : public MemObject
             /** Obtain hash of the tile address */
             Addr tileAddrHash(Addr tileAddr) const {
                 Addr hash = tileAddr;
-                Addr hash_row = tileAddr >> (floorLog2(MJL_rowWidth) + 2);
-                Addr hash_col = (tileAddr & ((1 << floorLog2(MJL_rowWidth)) - 1)) >> 2;
+                Addr hash_row = tileAddr >> floorLog2(MJL_rowWidth);
+                Addr hash_col = tileAddr & ((1 << floorLog2(MJL_rowWidth)) - 1);
                 switch(hash_func_id) {
                     case 0: hash = tileAddr % size;
                         break;
-                    case 1: hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
+                    case 1: hash_row = hash_row >> 1;
+                            hash_col = hash_col >> 1;
+                            hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
                             assert(hash < size);
                         break;
                     case 2: hash_row = hash_row ^ (hash_row >> (floorLog2(size) - floorLog2(size)/2));
