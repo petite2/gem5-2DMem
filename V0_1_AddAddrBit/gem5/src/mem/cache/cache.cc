@@ -4944,7 +4944,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     // if (this->name().find("dcache") != std::string::npos && pkt->isWrite() && pkt->getAddr() == 0x38c8c0) {
     //     MJL_debugOutFlag = true;
     // }
-    if ( MJL_Debug_Out && (this->name().find("dcache") != std::string::npos
+    if ( cache->MJL_Debug_Out && (this->name().find("dcache") != std::string::npos
              || this->name().find("l2") != std::string::npos
              || this->name().find("l3") != std::string::npos)
             //  && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
@@ -5525,10 +5525,10 @@ bool
 Cache::MemSidePort::recvTimingResp(PacketPtr pkt)
 {
     /* MJL_Test */ 
-    if ( this->name().find("dcache") != std::string::npos
+    if ( cache->MJL_Debug_Out && ( this->name().find("dcache") != std::string::npos
          || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos 
-       ) {
-        std::cout << this->name() << "MJL_predDebug: recvTimingResp " << pkt->print() << std::endl;
+       )) {
+        std::clog << this->name() << "MJL_predDebug: recvTimingResp " << pkt->print() << std::endl;
     }
     /* */
     cache->recvTimingResp(pkt);

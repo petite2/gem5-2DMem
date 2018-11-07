@@ -2302,7 +2302,9 @@ class Cache : public BaseCache
                     // MJL_TODO: should check if there's an upgrade miss waiting on this I guess?
                     MJL_conflictWBCount4++;
                     /* MJL_Test */
-                    std::cout << this->name() << "::MJL_writebufferHitDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_diffDir_blk->tag, MJL_diffDir_blk->MJL_blkDir, MJL_diffDir_blk->set) << std::dec << ", " << MJL_diffDir_blk->print() << ", invalidated by pkt_addr " << std::hex << MJL_written_addr << std::dec << std::endl;
+                    if (MJL_Debug_Out) {
+                        std::cout << this->name() << "::MJL_writebufferHitDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_diffDir_blk->tag, MJL_diffDir_blk->MJL_blkDir, MJL_diffDir_blk->set) << std::dec << ", " << MJL_diffDir_blk->print() << ", invalidated by pkt_addr " << std::hex << MJL_written_addr << std::dec << std::endl;
+                    }
                     /* */
                     if (MJL_diffDir_blk->isDirty()) {
                         writebacks.push_back(writebackBlk(MJL_diffDir_blk));
