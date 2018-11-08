@@ -1091,7 +1091,7 @@ class Cache : public BaseCache
             if ( it->second.find(MemCmd::MJL_DirAttribute::MJL_IsColumn) == it->second.end() ) {
                 (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] = 0;
             }
-             std::cout << std::hex << it->first << std::dec << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] << std::endl;
+            std::cout << std::hex << it->first << std::dec << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] << std::endl;
         }
         std::cout << "==== MJL_perPCAccessCount End ====" << std::endl;
         std::cout << "==== MJL_perPCAccessTrace Begin ====" << std::endl;
@@ -1099,18 +1099,38 @@ class Cache : public BaseCache
         for (auto it = MJL_perPCAccessTrace->begin(); it != MJL_perPCAccessTrace->end(); ++it) {
             uint64_t temp_rowAccesses = 0;
             uint64_t temp_colAccesses = 0;
-            if ((*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsRow] + (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsColumn] < 50) { continue; }
+            uint64_t current_accesses = 0;
+            if ((*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsRow] == 0 || (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsColumn] == 0) { continue; }
             std::cout << std::hex << it->first << std::dec << " ";
+            MemCmd::MJL_DirAttribute last_dir = MemCmd::MJL_DirAttribute::MJL_IsInvalid;
             for (auto dir : (it->second)) {
+                if (dir == last_dir) {
+                    current_accesses++;
+                } else if (last_dir == MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+                    if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                        std::cout << 0 << "*";
+                    } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                        std::cout << 1 << "*";
+                    };
+                    current_accesses++;
+                } else {
+                    std::cout << current_accesses << " ";
+                    current_accesses = 0;
+                    if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                        std::cout << 0 << "*";
+                    } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                        std::cout << 1 << "*";
+                    }
+                    current_accesses++;
+                }
+                last_dir = dir;
                 if (dir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
-                    std::cout << 0 << " ";
                     temp_rowAccesses++;
                 } else if (dir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-                    std::cout << 1 << " ";
                     temp_colAccesses++;
                 }
             }
-            std::cout << std::endl;
+            std::cout << current_accesses << std::endl;
             assert(temp_rowAccesses == (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsRow] && temp_colAccesses == (*MJL_perPCAccessCount)[it->first][MemCmd::MJL_DirAttribute::MJL_IsColumn]);
         }
         std::cout << "==== MJL_perPCAccessTrace End ====" << std::endl;
