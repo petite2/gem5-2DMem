@@ -125,10 +125,10 @@ Cache::Cache(const CacheParams *p)
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printAccess>(this));
     }
     /* */
-    /* MJL_Test */
+    /* MJL_Test 
     std::vector< unsigned > hash_func_ids;
     std::vector< unsigned > sizes;
-    for (unsigned i = 0; i < 3; ++i) {
+    for (unsigned i = 0; i < 8; ++i) {
         hash_func_ids.emplace_back(i);
     }
     for (unsigned i = 1; i <= tags->getNumSets() * tags->getNumWays(); i = 2*i) {
@@ -138,7 +138,7 @@ Cache::Cache(const CacheParams *p)
         MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(this->name(), tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes);
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printTestBloomFiltersStats>(this));
     }
-    /* */
+     */
 }
 
 Cache::~Cache()
