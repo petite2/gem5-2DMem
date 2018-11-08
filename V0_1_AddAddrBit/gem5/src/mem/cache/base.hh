@@ -296,19 +296,76 @@ class BaseCache : public MemObject
             /** Obtain hash of the tile address */
             Addr tileAddrHash(Addr tileAddr) const {
                 Addr hash = tileAddr;
-                Addr hash_row = tileAddr >> floorLog2(MJL_rowWidth);
-                Addr hash_col = tileAddr & ((1 << floorLog2(MJL_rowWidth)) - 1);
+                int col_shift = floorLog2(MJL_rowWidth);
+                Addr hash_row = tileAddr >> col_shift;
+                Addr hash_col = tileAddr & ((1 << col_shift) - 1);
                 switch(hash_func_id) {
                     case 0: hash = tileAddr % size;
                         break;
-                    case 1: hash_row = hash_row >> 1;
-                            hash_col = hash_col >> 1;
-                            hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
+                    case 1: col_shift = std::min(col_shift, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
                             assert(hash < size);
                         break;
-                    case 2: hash_row = hash_row ^ (hash_row >> (floorLog2(size) - floorLog2(size)/2));
-                            hash_col = hash_col ^ (hash_col >> floorLog2(size)/2);
-                            hash = ((hash_row & ((1 << (floorLog2(size) - floorLog2(size)/2)) - 1)) << floorLog2(size)/2) | (hash_col & ((1 << (floorLog2(size)/2)) - 1));
+                    case 2: hash_row = hash_row >> 1;
+                            hash_col = hash_col >> 1;
+                            if (col_shift < 1) {
+                            	col_shift = 1;
+                            }
+                            col_shift = std::min(col_shift - 1, floorLog2(size)/2);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 3: hash_row = hash_row >> 1;
+                            hash_col = hash_col >> 1;
+                            if (col_shift < 1) {
+                            	col_shift = 1;
+                            }
+                            col_shift = std::min(col_shift - 1, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 4: hash_row = hash_row >> 2;
+                            hash_col = hash_col >> 2;
+                            if (col_shift < 2) {
+                            	col_shift = 2;
+                            }
+                            col_shift = std::min(col_shift - 2, floorLog2(size)/2);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 5: hash_row = hash_row >> 2;
+                            hash_col = hash_col >> 2;
+                            if (col_shift < 2) {
+                            	col_shift = 2;
+                            }
+                            col_shift = std::min(col_shift - 2, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 6: hash_row = hash_row >> 3;
+                            hash_col = hash_col >> 3;
+                            if (col_shift < 3) {
+                            	col_shift = 3;
+                            }
+                            col_shift = std::min(col_shift - 3, floorLog2(size)/2);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 7: hash_row = hash_row >> 3;
+                            hash_col = hash_col >> 3;
+                            if (col_shift < 3) {
+                            	col_shift = 3;
+                            }
+                            col_shift = std::min(col_shift - 3, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
                             assert(hash < size);
                         break;
                     default: hash = tileAddr % size;
