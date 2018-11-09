@@ -72,7 +72,7 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
       MJL_rowColBloomFilter(nullptr), MJL_Test_rowColBloomFilters(nullptr), 
       MJL_bloomFilterSize(p->MJL_bloomFilterSize), MJL_bloomFilterHashFuncId(p->MJL_bloomFilterHashFuncId), /* MJL_End */
       mshrQueue("MSHRs", p->mshrs, 0, p->demand_mshr_reserve), // see below
-      writeBuffer("write buffer", p->write_buffers, /* MJL_Begin */p->MJL_2D_Cache? 9 * p->mshrs : /* MJL_End */p->mshrs), // see below
+      writeBuffer("write buffer", p->write_buffers, /* MJL_Begin */p->MJL_2D_Cache? 9 * p->mshrs : 8+/* MJL_End */p->mshrs), // see below
       blkSize(blk_size),
       /* MJL_Begin */
       MJL_rowWidth(p->MJL_row_width),

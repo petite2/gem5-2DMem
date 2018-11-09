@@ -1063,6 +1063,7 @@ class BaseCache : public MemObject
                     crossMshr->MJL_getLastTarget()->MJL_postWriteback = true;
                     if (!pkt->needsWritable()) {
                         new_target->MJL_postWriteback = true;
+                        pkt->setHasSharers();
                     }
                 }
 
