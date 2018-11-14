@@ -1156,12 +1156,16 @@ class BaseCache : public MemObject
         } else {
             MJL_order = order++;
         }
+        Tick MJL_time = time;
+        if (wq_entry && wq_entry->getTarget()->readyTime > MJL_time) {
+            MJL_time = wq_entry->getTarget()->readyTime;
+        }
         /* MJL_End */
         if (wq_entry && !wq_entry->inService) {
             DPRINTF(Cache, "Potential to merge writeback %s", pkt->print());
         }
 
-        writeBuffer.allocate(blk_addr, blkSize, pkt, time, /* MJL_Begin */MJL_order/* MJL_End *//* MJL_Comment order++ */);
+        writeBuffer.allocate(blk_addr, blkSize, pkt, /* MJL_Begin */MJL_time, MJL_order/* MJL_End *//* MJL_Comment time, order++ */);
 
         if (writeBuffer.isFull()) {
             setBlocked((BlockedCause)MSHRQueue_WriteBuffer);
