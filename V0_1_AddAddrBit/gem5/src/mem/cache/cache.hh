@@ -2323,7 +2323,7 @@ class Cache : public BaseCache
                     MJL_conflictWBCount4++;
                     /* MJL_Test */
                     if (MJL_Debug_Out) {
-                        std::cout << this->name() << "::MJL_writebufferHitDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_diffDir_blk->tag, MJL_diffDir_blk->MJL_blkDir, MJL_diffDir_blk->set) << std::dec << ", " << MJL_diffDir_blk->print() << ", invalidated by pkt_addr " << std::hex << MJL_written_addr << std::dec << std::endl;
+                        std::clog << this->name() << "::MJL_writebufferHitDebug: conflict blk " << std::hex << tags->MJL_regenerateBlkAddr(MJL_diffDir_blk->tag, MJL_diffDir_blk->MJL_blkDir, MJL_diffDir_blk->set) << std::dec << ", " << MJL_diffDir_blk->print() << ", invalidated by pkt_addr " << std::hex << MJL_written_addr << std::dec << std::endl;
                     }
                     /* */
                     if (MJL_diffDir_blk->isDirty()) {

@@ -94,7 +94,7 @@ class SnoopFilter : public SimObject {
     SnoopFilter (const SnoopFilterParams *p) :
         SimObject(p), reqLookupResult(/* MJL_Begin */MJL_cachedLocations[MemCmd::MJL_DirAttribute::MJL_IsRow]/* MJL_End *//* MJL_Comment cachedLocations*/.end()), retryItem{0, 0},/* MJL_Begin */ MJL_retryItems{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}}, MJL_retrySet{false, false, false, false, false, false, false, false},/* MJL_End */
         linesize(p->system->cacheLineSize()), /* MJL_Begin */
-        MJL_rowWidth(p->MJL_row_width),
+        MJL_rowWidth(p->MJL_row_width), MJL_Debug_Out(false), 
         /* MJL_End */lookupLatency(p->lookup_latency),
         maxEntryCount(p->max_capacity / p->system->cacheLineSize())
     {
@@ -318,6 +318,7 @@ class SnoopFilter : public SimObject {
     const unsigned linesize;
     /* MJL_Begin */
     const unsigned MJL_rowWidth;
+    bool MJL_Debug_Out;
     /* MJL_End */
     /** Latency for doing a lookup in the filter */
     const Cycles lookupLatency;

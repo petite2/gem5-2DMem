@@ -76,9 +76,11 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
 {
     DPRINTF(SnoopFilter, "%s: src %s packet %s\n", __func__,
             slave_port.name(), cpkt->print());
-    /* MJL_Test 
-    std::cout << this->name() << "::MJL_Debug: At lookupRequest: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) { 
+        std::clog << this->name() << "::MJL_Debug: At lookupRequest: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
+    }
+    /* */
 
     // check if the packet came from a cache
     bool allocate = !cpkt->req->isUncacheable() && slave_port.isSnooping() &&
@@ -134,9 +136,11 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         }
     } 
     /* MJL_End */
-    /* MJL_Test 
-    std::cout << ", old holder = " << sf_item.holder;
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) {
+        std::clog << ", old holder = " << sf_item.holder;
+    }
+    /* */
 
     totRequests++;
     if (is_hit) {
@@ -177,24 +181,25 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         }
     } else { // if (!cpkt->needsResponse())
         assert(cpkt->isEviction());
-        /* MJL_Test  
+        /* MJL_Test */ 
+        if (MJL_Debug_Out) {
         //std::cout << "MJL_Debug: " << this->name() << ":: slave_port name: " << slave_port.name() << ", slave_port.getMasterPort name: " << slave_port.getMasterPort().name() << ", is port attached to physically 2D cache ? " << slave_port.getMasterPort().MJL_is2DCache() << std::endl;
 
-        std::cout << this->name() << "::The Evicted Packet Info: PC(hex) = ";
+        std::clog << this->name() << "::The Evicted Packet Info: PC(hex) = ";
         if (cpkt->req->hasPC()) {
-            std::cout << std::hex << cpkt->req->getPC() << std::dec;
+            std::clog << std::hex << cpkt->req->getPC() << std::dec;
         } else {
-            std::cout << "noPC";
+            std::clog << "noPC";
         }
-        std::cout << ", MemCmd = " << cpkt->cmd.toString();
-        std::cout << ", CmdDir = " << cpkt->MJL_getCmdDir();
-        std::cout << ", Addr(oct) = " << std::oct << cpkt->getAddr() << std::dec;
-        std::cout << ", Size = " << cpkt->getSize();
-        std::cout << ", MJL_crossBlocksCached = blk[0] " << cpkt->MJL_crossBlocksCached[0];
+        std::clog << ", MemCmd = " << cpkt->cmd.toString();
+        std::clog << ", CmdDir = " << cpkt->MJL_getCmdDir();
+        std::clog << ", Addr(oct) = " << std::oct << cpkt->getAddr() << std::dec;
+        std::clog << ", Size = " << cpkt->getSize();
+        std::clog << ", MJL_crossBlocksCached = blk[0] " << cpkt->MJL_crossBlocksCached[0];
         for (int i = 1; i < 8; ++i) {
-            std::cout << " | blk[" << i << "] " << cpkt->MJL_crossBlocksCached[i];
+            std::clog << " | blk[" << i << "] " << cpkt->MJL_crossBlocksCached[i];
         }
-        std::cout << std::endl;
+        std::clog << std::endl;
         // std::cout << ", Data(hex) = ";
         // if (cpkt->hasData()) {
         //     uint64_t MJL_data = 0;
@@ -210,8 +215,9 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         // }
         // std::cout << std::dec;
         //std::cout << ", Time = " << pkt->req->time() ;
-        std::cout << std::endl;
-         */
+        //std::cout << std::endl;
+        }
+        /* */
         
         // make sure that the sender actually had the line
         panic_if(!(sf_item.holder & req_port), "requester %x is not a " \
@@ -249,12 +255,16 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
                     */
                     if (!cpkt->MJL_crossBlocksCached[i] && MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
                         SnoopItem& MJL_temp_item = MJL_temp_it->second;
-                        /* MJL_Test 
-                        std::cout << ", old holder" << i << " = " << MJL_temp_item.holder;
+                        /* MJL_Test  
+                        if (MJL_Debug_Out) {
+                            std::clog << ", old holder" << i << " = " << MJL_temp_item.holder;
+                        }
                          */
                         MJL_temp_item.holder &= ~req_port;
                         /* MJL_Test 
-                        std::cout << ", new holder" << i << " = " << MJL_temp_item.holder;
+                        if (MJL_Debug_Out) {
+                            std::clog << ", new holder" << i << " = " << MJL_temp_item.holder;
+                        }
                          */
                         /* MJL_Test 
                         if (cpkt->getAddr() == 1576960) {
@@ -272,9 +282,11 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
                     __func__,  sf_item.requested, sf_item.holder);
         }
     }
-    /* MJL_Test 
-    std::cout << ", new holder = " << sf_item.holder << std::endl;
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) {
+        std::clog << ", new holder = " << sf_item.holder << std::endl;
+    }
+    /* */
 
     return snoopSelected(maskToPortList(interested & ~req_port), lookupLatency);
 }
@@ -510,10 +522,12 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
 
     assert(cpkt->isResponse());
     assert(cpkt->cacheResponding());
-    /* MJL_Test 
-    std::cout << this->name() << ":: At updateSnoopResponse: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
-    assert(this->name().find("membus") == std::string::npos);
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) {
+        std::clog << this->name() << ":: At updateSnoopResponse: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
+        assert(this->name().find("membus") == std::string::npos);
+    }
+    /* */
 
     // if this snoop response is due to an uncacheable request, or is
     // being turned into a normal response, there is nothing more to
@@ -549,9 +563,11 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
     // If the snoop response has no sharers the line is passed in
     // Modified state, and we know that there are no other copies, or
     // they will all be invalidated imminently
-    /* MJL_Test 
-    std::cout << ", old holder = " << sf_item.holder;
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) {
+        std::clog << ", old holder = " << sf_item.holder;
+    }
+    /* */
     if (!cpkt->hasSharers()) {
         DPRINTF(SnoopFilter,
                 "%s: dropping %x because non-shared snoop "
@@ -566,9 +582,11 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
     assert(sf_item.requested | sf_item.holder);
     DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
             __func__, sf_item.requested, sf_item.holder);
-    /* MJL_Test 
-    std::cout << ", new holder = " << sf_item.holder;
-     */
+    /* MJL_Test */ 
+    if (MJL_Debug_Out) {
+        std::clog << ", new holder = " << sf_item.holder;
+    }
+    /* */
     /* MJL_Begin 
     if (req_port.getMasterPort().MJL_is2DCache()) {
         bool MJL_wholeTilePresent = true;
@@ -604,9 +622,11 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
         }
     }
      MJL_End */
-    /* MJL_Test 
-    std::cout << std::endl;
-     */ 
+    /* MJL_Test */
+    if (MJL_Debug_Out) {
+        std::cout << std::endl;
+    }
+    /* */ 
 }
 
 void
@@ -667,9 +687,11 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     DPRINTF(SnoopFilter, "%s: src %s packet %s\n",
             __func__, slave_port.name(), cpkt->print());
 
-    /* MJL_Test 
-    std::cout << this->name() << ":: At updateResponse: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) {
+        std::clog << this->name() << ":: At updateResponse: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
+    }
+    /* */
     assert(cpkt->isResponse());
 
     // we only allocate if the packet actually came from a cache, but
@@ -701,9 +723,11 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     // Make sure we have seen the actual request, too
     panic_if(!(sf_item.requested & slave_mask), "SF value %x.%x missing "\
              "request bit\n", sf_item.requested, sf_item.holder);
-    /* MJL_Test 
-    std::cout << ", old holder = " << sf_item.holder;
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) {
+        std::clog << ", old holder = " << sf_item.holder;
+    }
+    /* */
 
     // Update the residency of the cache line.
     sf_item.holder |=  slave_mask;
@@ -711,9 +735,11 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
     assert(sf_item.holder | sf_item.requested);
     DPRINTF(SnoopFilter, "%s:   new SF value %x.%x\n",
             __func__, sf_item.requested, sf_item.holder);
-    /* MJL_Test 
-    std::cout << ", new holder = " << sf_item.holder;
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) {
+        std::clog << ", new holder = " << sf_item.holder;
+    }
+    /* */
 
     /* MJL_Begin */
     // For physically 2D cache, if the cache is a holder for all rows, it is also a holder for all columns, and vice versa
@@ -760,9 +786,11 @@ SnoopFilter::updateResponse(const Packet* cpkt, const SlavePort& slave_port)
             }
         }
     }
-    /* MJL_Test 
-    std::cout << std::endl;
-     */
+    /* MJL_Test */
+    if (MJL_Debug_Out) { 
+        std::clog << std::endl;
+    }
+    /* */
     /* MJL_End */
 }
 
