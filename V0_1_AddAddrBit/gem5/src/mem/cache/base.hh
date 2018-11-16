@@ -1124,17 +1124,17 @@ class BaseCache : public MemObject
         // should only see writes or clean evicts here
         assert(pkt->isWrite() || pkt->cmd == MemCmd::CleanEvict);
 
-        /* MJL_Test 
-        if ((this->name().find("dcache") != std::string::npos
-                || this->name().find("l2") != std::string::npos)
-                // || this->name().find("l3") != std::string::npos
+        /* MJL_Test */
+        if (MJL_Debug_Out && (this->name().find("dcache") != std::string::npos
+                || this->name().find("l2") != std::string::npos
+                || this->name().find("l3") != std::string::npos)
                 // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
                 // && ( MJL_debugOutFlag )
-                && (pkt->getAddr() >= 0x38c000 && pkt->getAddr() < 0x390000)
+                // && (pkt->getAddr() >= 0x38c000 && pkt->getAddr() < 0x390000)
             ) {
-            std::cout << this->name() << "::MJL_Debug: allocateWriteBuffer " << pkt->print() << std::endl;
+            std::clog << this->name() << "::MJL_Debug: allocateWriteBuffer " << pkt->print() << std::endl;
         }
-         */
+        /* */
         /* MJL_Comment
         Addr blk_addr = blockAlign(pkt->getAddr());
         */

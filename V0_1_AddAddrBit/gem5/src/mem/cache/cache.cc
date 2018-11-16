@@ -1174,6 +1174,11 @@ Cache::doWritebacks(PacketList& writebacks, Tick forward_time)
 {
     while (!writebacks.empty()) {
         PacketPtr wbPkt = writebacks.front();
+        /* MJL_Test */
+        if (MJL_Debug_Out) {
+            std::clog << this->name() << "::doWritebacks " << wbPkt.print() << std::endl;
+        }
+        /* */
         // We use forwardLatency here because we are copying writebacks to
         // write buffer.  Call isCachedAbove for both Writebacks and
         // CleanEvicts. If isCachedAbove returns true we set BLOCK_CACHED flag
@@ -1817,6 +1822,11 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         cpu_pkt->cmd == MemCmd::InvalidateReq) {
         // uncacheable requests and upgrades from upper-level caches
         // that missed completely just go through as is
+        /* MJL_Test */
+        if (MJL_Debug_Out && (!blkValid && cpu_pkt->isUpgrade())) {
+            std::clog << this->name() << "::MJL_Debug: createMissPacket upgrade went through " << cpu_pkt->print() << std::endl;
+        }
+        /* */
         return nullptr;
     }
 
@@ -2592,7 +2602,7 @@ Cache::recvTimingResp(PacketPtr pkt)
             MJL_writeback |= target.MJL_postWriteback;
             MJL_invalidate |= target.MJL_postInvalidate;
             assert(!target.MJL_postInvalidate || (&target == &targets.back())); 
-            if (target.MJL_postWriteback && !MJL_orderSet && blk->isDirty()) {
+            if (target.MJL_postWriteback && !MJL_orderSet && blk && blk->isDirty()) {
                 MJL_order = target.order;
                 MJL_orderSet = true;
             } else if (!MJL_writeback && target.MJL_postInvalidate) {
@@ -2785,6 +2795,11 @@ endl;
         // Writebacks/CleanEvicts to write buffer. It specifies the latency to
         // allocate an internal buffer and to schedule an event to the
         // queued port.
+        /* MJL_Test */
+        if (MJL_Debug_Out) {
+            std::clog << this->name() << ":: recvTimingResp " << pkt->print() << " used tempBlock" << std::endl;
+        }
+        /* */
         if (blk->isDirty() || writebackClean) {
             PacketPtr wbPkt = writebackBlk(blk);
             allocateWriteBuffer(wbPkt, forward_time);
