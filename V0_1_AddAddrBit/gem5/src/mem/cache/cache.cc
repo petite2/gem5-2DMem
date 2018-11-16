@@ -1176,7 +1176,7 @@ Cache::doWritebacks(PacketList& writebacks, Tick forward_time)
         PacketPtr wbPkt = writebacks.front();
         /* MJL_Test */
         if (MJL_Debug_Out) {
-            std::clog << this->name() << "::doWritebacks " << wbPkt.print() << std::endl;
+            std::clog << this->name() << "::doWritebacks " << wbPkt->print() << std::endl;
         }
         /* */
         // We use forwardLatency here because we are copying writebacks to
