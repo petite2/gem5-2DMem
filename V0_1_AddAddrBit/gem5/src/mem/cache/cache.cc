@@ -63,6 +63,12 @@
 #include "mem/cache/prefetch/base.hh"
 #include "sim/sim_exit.hh"
 
+/* MJL_Begin */
+std::map< Addr, uint8_t[8] > MJL_current_data;
+std::map< Addr, bool[8] > MJL_current_valid;
+std::map< PacketPtr, uint8_t[16] > MJL_return_data;
+/* MJL_End */
+
 Cache::Cache(const CacheParams *p)
     : BaseCache(p, p->system->cacheLineSize()),
       tags(p->tags),
@@ -5229,15 +5235,15 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
 
         assert(pktOrigDir == MemCmd::MJL_DirAttribute::MJL_IsRow);
 
-        std::cout << "MJL_Split: splitting one packet into 2, ";
+        std::clog << "MJL_Split: splitting one packet into 2, ";
         RequestPtr MJL_sndReq = new Request(*pkt->req);
-        std::cout << "New Request created, ";
+        std::clog << "New Request created, ";
         MJL_sndReq->MJL_setSize(MJL_byteOffset + pkt->getSize() - sizeof(uint64_t));
-        std::cout << "New Request size set, ";
+        std::clog << "New Request size set, ";
         MJL_sndReq->setPaddr(pkt->getAddr() + sizeof(uint64_t) - MJL_byteOffset);
-        std::cout << "New Request address set, ";
+        std::clog << "New Request address set, ";
         MJL_sndPkt = new Packet(MJL_sndReq, pkt->cmd);
-        std::cout << "New Packet created." << std::endl;
+        std::clog << "New Packet created." << std::endl;
         MJL_sndPkt->MJL_testSeq = MJL_testSeq;
         MJL_sndPkt->allocate();
                 
@@ -5349,7 +5355,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         // Handle split packet's response, see sendTimingResp() in cache.hh for detail
         bool MJL_isUnaligned = MJL_split;
         if (MJL_isUnaligned) {
-            std::cout << "MJL_Merge: Received a packet that was split\n";
+            std::clog << "MJL_Merge: Received a packet that was split\n";
 
             if (pkt == std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) {
                 cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
@@ -5396,7 +5402,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
             std::cout << std::endl;
             */
 
-            std::cout << "MJL_Merge: Received a packet that was split\n";
+            std::clog << "MJL_Merge: Received a packet that was split\n";
             if (pkt == std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) {
                 cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] = true;
             } else if (pkt == std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq])) {
@@ -5406,21 +5412,21 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
             }
 
             if (cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][0] && cache->MJL_unalignedPacketCount[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq][1]) {
-                std::cout << "MJL_Merge: Both packet from split received, ";
+                std::clog << "MJL_Merge: Both packet from split received, ";
                 PacketPtr MJL_origPacket = std::get<0>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
                 PacketPtr MJL_sndPacket = std::get<1>(cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()][pkt->MJL_testSeq]);
 
                 if (pkt->isRead()) {
                     unsigned MJL_byteOffset = MJL_origPacket->getAddr() & (Addr)(sizeof(uint64_t) - 1);
                     std::memcpy(MJL_origPacket->getPtr<uint8_t>() + sizeof(uint64_t) - MJL_byteOffset, MJL_sndPacket->getConstPtr<uint8_t>(), MJL_sndPacket->getSize());
-                    std::cout << "Merged read results, data = ";
+                    std::clog << "Merged read results, data = ";
                     uint64_t MJL_Data = 0;
                     std::memcpy(&MJL_Data, MJL_origPacket->getConstPtr<uint8_t>(), MJL_origPacket->getSize());
                     std::cout << std::hex << MJL_Data << std::dec << ", ";
                 } else if (pkt->isWrite()) {
                     MJL_origPacket->MJL_setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
                     MJL_origPacket->req->MJL_setSize(MJL_origPacket->getSize());
-                    std::cout << "Recovering write size for original packet, ";
+                    std::clog << "Recovering write size for original packet, ";
                 }
 
                 if (pkt != MJL_origPacket) {
@@ -5428,11 +5434,11 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
                     MJL_origPacket->snoopDelay = pkt->snoopDelay;
                     MJL_origPacket->payloadDelay = pkt->payloadDelay;
                     pkt = MJL_origPacket;
-                    std::cout << "Setting original packet variables, ";
+                    std::clog << "Setting original packet variables, ";
                 }
                 
                 delete MJL_sndPacket;
-                std::cout << "Deleted created packet\n";
+                std::clog << "Deleted created packet\n";
                 cache->MJL_unalignedPacketList[pkt->req->getPC()][pkt->req->time()].erase(pkt->MJL_testSeq);
             }
         }
@@ -5519,8 +5525,14 @@ CpuSidePort::CpuSidePort(const std::string &_name, Cache *_cache,
                          const std::string &_label)
     : BaseCache::CacheSlavePort(_name, _cache, _label), cache(_cache)
 {
+    /* MJL_Begin */
     MJL_debugOutFlag = false;
-    MJL_value_test = true;
+    if (this->name().find("dcache") != std::string::npos) {
+        MJL_value_test = true;
+    } else {
+        MJL_value_test = false;
+    }
+    /* MJL_End */
 }
 
 Cache*
@@ -5554,6 +5566,13 @@ Cache::MemSidePort::recvTimingResp(PacketPtr pkt)
 void
 Cache::MemSidePort::recvTimingSnoopReq(PacketPtr pkt)
 {
+    /* MJL_Test */
+    if ( cache->MJL_Debug_Out && ( this->name().find("dcache") != std::string::npos
+         || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos
+       )) {
+        std::clog << this->name() << "MJL_multiThreadDebug: recvTimingSnoopReq " << pkt->print() << std::endl;
+    }
+    /* */
     // handle snooping requests
     cache->recvTimingSnoopReq(pkt);
 }

@@ -78,7 +78,7 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
             slave_port.name(), cpkt->print());
     /* MJL_Test */
     if (MJL_Debug_Out) { 
-        std::clog << this->name() << "::MJL_Debug: At lookupRequest: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
+        std::clog << this->name() << "::MJL_Debug: At lookupRequest: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir() << std::endl;
     }
     /* */
 
@@ -525,7 +525,7 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
     /* MJL_Test */
     if (MJL_Debug_Out) {
         std::clog << this->name() << ":: At updateSnoopResponse: " << cpkt->print() << ", dir = " << cpkt->MJL_getCmdDir();
-        assert(this->name().find("membus") == std::string::npos);
+        //assert(this->name().find("membus") == std::string::npos);
     }
     /* */
 
@@ -624,7 +624,7 @@ SnoopFilter::updateSnoopResponse(const Packet* cpkt,
      MJL_End */
     /* MJL_Test */
     if (MJL_Debug_Out) {
-        std::cout << std::endl;
+        std::clog << std::endl;
     }
     /* */ 
 }

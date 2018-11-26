@@ -64,6 +64,10 @@
 #include "base/random.hh"
 #include <fstream>
 #include <sstream>
+
+extern std::map< Addr, uint8_t[8] > MJL_current_data;
+extern std::map< Addr, bool[8] > MJL_current_valid;
+extern std::map< PacketPtr, uint8_t[16] > MJL_return_data;
 /* MJL_End */
 
 //Forward decleration
@@ -109,9 +113,9 @@ class Cache : public BaseCache
       public:
         /* MJL_Begin */
         // Test use methods
-        std::map< Addr, uint8_t[8] > MJL_current_data;
-        std::map< Addr, bool[8] > MJL_current_valid;
-        std::map< PacketPtr, uint8_t[16] > MJL_return_data;
+        // std::map< Addr, uint8_t[8] > MJL_current_data;
+        // std::map< Addr, bool[8] > MJL_current_valid;
+        // std::map< PacketPtr, uint8_t[16] > MJL_return_data;
         bool MJL_value_test;
         void MJL_regReq(PacketPtr pkt) {
             if (!MJL_value_test || pkt->cmd.isSWPrefetch()) {
@@ -212,11 +216,11 @@ class Cache : public BaseCache
                     std::memcpy(&MJL_reg_data1, &((MJL_return_data[pkt])[sizeof(uint64_t)]), pkt->getSize() - sizeof(uint64_t));
                 }
                 if (MJL_pkt_data0 != MJL_reg_data0 || MJL_pkt_data1 != MJL_reg_data1) {
-                    std::cout << this->name() << "::MJL_Debug wrong read response ";
+                    std::clog << this->name() << "::MJL_Debug wrong read response ";
                     if (pkt->req->hasPC()) {
-                        std::cout << std::hex << pkt->req->getPC() << std::dec;
+                        std::clog << std::hex << pkt->req->getPC() << std::dec;
                     }
-                    std::cout << ": " << pkt->print() << ", " << std::hex << MJL_pkt_data0 << ":" << MJL_pkt_data1 << std::dec << ", should be " << std::hex << MJL_reg_data0 << ":" << MJL_reg_data1 << std::dec << std::endl;
+                    std::clog << ": " << pkt->print() << ", " << std::hex << MJL_pkt_data0 << ":" << MJL_pkt_data1 << std::dec << ", should be " << std::hex << MJL_reg_data0 << ":" << MJL_reg_data1 << std::dec << std::endl;
                     // Addr base_addr = pkt->getAddr();
                     // unsigned offset = pkt->getAddr() % sizeof(uint64_t);
                     // std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t)])[offset]), pkt->getConstPtr<uint8_t>(), std::min((Addr)pkt->getSize(), sizeof(uint64_t) - offset));
@@ -224,7 +228,7 @@ class Cache : public BaseCache
                         // std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t) + 1])[0]), pkt->getConstPtr<uint8_t>() + sizeof(uint64_t) - offset, pkt->getSize() + offset - sizeof(uint64_t));
                     // }
                 }
-                assert(MJL_pkt_data0 == MJL_reg_data0 && MJL_pkt_data1 == MJL_reg_data1);
+                // assert(MJL_pkt_data0 == MJL_reg_data0 && MJL_pkt_data1 == MJL_reg_data1);
                 MJL_return_data.erase(pkt);
             }
         }
@@ -266,13 +270,13 @@ class Cache : public BaseCache
             if (this->name().find("dcache") != std::string::npos){
                 MJL_checkResp(pkt);
             } 
-            /* MJL_Test 
+            /* MJL_Test */
             // if (this->name().find("dcache") != std::string::npos && pkt->req->hasPC() && pkt->req->getPC() == 0x43296c && pkt->getAddr() == 0x38c8c0 && pkt->MJL_dataIsColumn()) {
             //     MJL_debugOutFlag = false;
             // } 
-            if ((this->name().find("dcache") != std::string::npos
-                 || this->name().find("l2") != std::string::npos)
-                // || this->name().find("l3") != std::string::npos
+            if (cache->MJL_Debug_Out && (this->name().find("dcache") != std::string::npos
+                 || this->name().find("l2") != std::string::npos
+                 || this->name().find("l3") != std::string::npos)
                 // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
                 // && (pkt->getAddr() <= 0x38c8c0 && (pkt->getAddr() + pkt->getSize()) >= 0x38c8c0)
                 // && MJL_debugOutFlag
@@ -280,12 +284,12 @@ class Cache : public BaseCache
                 // && (pkt->getAddr() >= 0x374000 && pkt->getAddr() < 0x378000)
                 // && pkt->req->hasPC() && (pkt->req->getPC() == 0x4b8526 || pkt->req->getPC() == 0x4b9e9e || pkt->req->getPC() == 0x4ba0ea || pkt->req->getPC() == 0x4ba0f4 || pkt->req->getPC() == 0x4b84db || pkt->req->getPC() == 0x4ba007)
                 // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x4b82d0 && pkt->req->getPC() <=0x4ba2ab )
-                && (pkt->getAddr() >= 0x8ffc000 && pkt->getAddr() < 0x9000000)
+                // && (pkt->getAddr() >= 0x8ffc000 && pkt->getAddr() < 0x9000000)
                 // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x44eb30 && pkt->req->getPC() <=0x44f00b )
             ) {
-                std::cout << this->name() << "::MJL_Debug: sendTimingResp " << pkt->print() << std::endl; 
+                std::clog << this->name() << "::MJL_Debug: sendTimingResp " << pkt->print() << std::endl; 
             }
-             */
+            /* */
             /* MJL_Test: Packet information output 
             if ((this->name().find("dcache") != std::string::npos 
                   || this->name().find("l2") != std::string::npos

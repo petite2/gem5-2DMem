@@ -629,7 +629,7 @@ Packet::print(ostream &o, const int verbosity, const string &prefix) const
     */
     /* MJL_Begin */
     std::ostringstream dataStr;
-    if (hasData()) {
+    if (hasData() && flags.isSet(STATIC_DATA|DYNAMIC_DATA)) {
         uint64_t MJL_data = 0;
         std::memcpy(&MJL_data, getConstPtr<uint8_t>(), std::min(sizeof(uint64_t), (Addr)getSize()));
         dataStr << std::hex << "[0]" <<  MJL_data;
@@ -654,10 +654,11 @@ Packet::print(ostream &o, const int verbosity, const string &prefix) const
             dataStr << MJL_wordDirty[i/sizeof(uint64_t)];
         }
     }
-    ccprintf(o, "%s%s:%s %x:%s (%s%s):%s%s [%x:%x] %s%s%s%s", prefix, cmdString(),
+    ccprintf(o, "%s%s:%s %x:%s:%d (%s%s):%s%s [%x:%x] %s%s%s%s", prefix, cmdString(),
              MJL_cmdIsRow() ? "r" : "c",
              req->hasPC() ? req->getPC() : 0,
              req->MJL_reqIsRow() ? "r" : "c",
+             req->hasContextId() ? req->contextId() : -1,
              hasData() ? dataStr.str() : "noData",
              isUpgrade() && isResponse() ? dataStr.str() : "",
              MJL_dataIsRow() ? "r" : "c",
