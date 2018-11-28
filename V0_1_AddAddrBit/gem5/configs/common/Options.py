@@ -100,6 +100,7 @@ def addNoISAOptions(parser):
     parser.add_option("--l2cache", action="store_true")
     # MJL_Begin
     parser.add_option("--l3cache", action="store_true")
+    parser.add_option("--l3cacheWithPrivateL2s", action="store_true")
     # MJL_End
     parser.add_option("--num-dirs", type="int", default=1)
     parser.add_option("--num-l2caches", type="int", default=1)

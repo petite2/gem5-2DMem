@@ -118,7 +118,7 @@ def config_cache(options, system):
         system.l2.cpu_side = system.tol2bus.master
         system.l2.mem_side = system.membus.slave
         # MJL_Begin
-        if options.l3cache:
+        if options.l3cache or options.l3cacheWithPrivateL2s:
             fatal("Having l3 implies having l2, shouldn't have both flags set at the same time")
         if options.MJL_2DL2Cache and options.MJL_L2sameSetMapping:
             fatal("Physically 2D caches option does not coexist with same set mapping option")
@@ -188,6 +188,45 @@ def config_cache(options, system):
         system.l3.cpu_side = system.tol3bus.master
         system.l3.mem_side = system.membus.slave
 
+        if options.l2cache or options.l3cacheWithPrivateL2s:
+            fatal("Having l3 implies having l2, shouldn't have both flags set at the same time")
+        if options.MJL_2DL2Cache and options.MJL_L3sameSetMapping:
+            fatal("Physically 2D caches option does not coexist with same set mapping option")
+        if options.MJL_Prefetcher:
+            system.l3.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = options.MJL_pfBasedPredictDir) 
+
+    if options.l3cacheWithPrivateL2s:
+        if options.MJL_L3sameSetMapping:
+            MJL_l3_ignore_extra_tag_check_latecy = options.MJL_L3sameSetMapping
+        else:
+            MJL_l3_ignore_extra_tag_check_latecy = options.MJL_noLatOverhead
+        system.l3 = l2_cache_class(clk_domain=system.cpu_clk_domain,
+                                   size=options.l3_size,
+                                   assoc=options.l3_assoc\
+                                   # MJL_Begin
+                                   , tag_latency=8
+                                   , data_latency=12
+                                   , response_latency=20
+                                   , mshrs=20
+                                   , tgts_per_mshr=12
+                                   , write_buffers=8
+                                   , MJL_2D_Cache=options.MJL_2DL2Cache\
+                                   , MJL_timeStep=options.MJL_timeStep\
+                                   , MJL_2D_Transfer_Type=options.MJL_2DL2TransferType\
+                                   , MJL_extra2DWrite_latency=options.MJL_extra2DWrite_latency\
+                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
+                                   , sequential_access=True\
+                                   , MJL_sameSetMapping=options.MJL_L3sameSetMapping\
+                                   , MJL_ignoreExtraTagCheckLatency=MJL_l3_ignore_extra_tag_check_latecy\
+                                   , MJL_bloomFilterSize=options.MJL_l3_bloomFilterSize\
+                                   , MJL_bloomFilterHashFuncId=options.MJL_l3_bloomFilterHashFuncId\
+                                   # MJL_End
+                                   )
+        system.tol3bus = L2XBar(clk_domain = system.cpu_clk_domain, width=32)
+        system.l3.cpu_side = system.tol3bus.master
+        system.l3.mem_side = system.membus.slave
+        if options.l2cache or options.l3cache:
+            fatal("Having l3 implies having l2, shouldn't have both flags set at the same time")
         if options.MJL_2DL2Cache and options.MJL_L3sameSetMapping:
             fatal("Physically 2D caches option does not coexist with same set mapping option")
         if options.MJL_Prefetcher:
@@ -262,9 +301,33 @@ def config_cache(options, system):
                 # Let CPU connect to monitors
                 dcache = dcache_mon
 
+            # MJL_Begin
+            if options.l3cacheWithPrivateL2s:
+                if options.MJL_L2sameSetMapping:
+                    MJL_l2_ignore_extra_tag_check_latecy = options.MJL_L2sameSetMapping
+                else:
+                    MJL_l2_ignore_extra_tag_check_latecy = options.MJL_noLatOverhead
+                l2cache = l2_cache_class(clk_domain=system.cpu_clk_domain,
+                                   size=options.l2_size,
+                                   assoc=options.l2_assoc\
+                                   # MJL_Begin
+                                   , tag_latency=6
+                                   , data_latency=9
+                                   , MJL_timeStep=options.MJL_timeStep\
+                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
+                                   , sequential_access=True\
+                                   , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
+                                   , MJL_ignoreExtraTagCheckLatency=MJL_l2_ignore_extra_tag_check_latecy\
+                                   , MJL_bloomFilterSize=options.MJL_l2_bloomFilterSize\
+                                   , MJL_bloomFilterHashFuncId=options.MJL_l2_bloomFilterHashFuncId\
+                                   # MJL_End
+                                   )
+                system.cpu[i].addTwoLevelCacheHierarchy(icache, dcache, l2cache, iwalkcache, dwalkcache)
+            else:
+            # MJL_End
             # When connecting the caches, the clock is also inherited
             # from the CPU in question
-            system.cpu[i].addPrivateSplitL1Caches(icache, dcache,
+                system.cpu[i].addPrivateSplitL1Caches(icache, dcache,
                                                   iwalkcache, dwalkcache)
 
             if options.memchecker:
@@ -296,6 +359,8 @@ def config_cache(options, system):
         # MJL_Begin
         elif options.l3cache:
             system.cpu[i].connectAllPorts(system.tol2bus, system.membus)
+        elif options.l3cacheWithPrivateL2s:
+            system.cpu[i].connectAllPorts(system.tol3bus, system.membus)
         # MJL_End
         elif options.external_memory_system:
             system.cpu[i].connectUncachedPorts(system.membus)
