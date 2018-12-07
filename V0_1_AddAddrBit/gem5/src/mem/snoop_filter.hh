@@ -341,6 +341,7 @@ class SnoopFilter : public SimObject {
     Stats::Scalar totSnoops;
     Stats::Scalar hitSingleSnoops;
     Stats::Scalar hitMultiSnoops;
+    Stats::Scalar MJL_crossSnoopHits;
 };
 
 inline SnoopFilter::SnoopMask

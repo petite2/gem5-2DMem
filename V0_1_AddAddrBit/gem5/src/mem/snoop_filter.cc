@@ -132,6 +132,18 @@ SnoopFilter::lookupRequest(const Packet* cpkt, const SlavePort& slave_port)
         }
     } else {
         for (int i = 0; i < linesize/sizeof(uint64_t); ++i) {
+            /* MJL_Begin */
+            auto MJL_temp_it = MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].find(cpkt->MJL_getCrossBlockAddrs(linesize, i));
+            if (MJL_temp_it != MJL_cachedLocations[cpkt->MJL_getCrossCmdDir()].end()) {
+                    SnoopItem& MJL_temp_item = MJL_temp_it->second;
+                    if (((MJL_temp_item.holder | MJL_temp_item.requested) & ~req_port) != 0) {
+                        MJL_crossSnoopHits++;
+                    }
+                    /* MJL_TODO: for coherence 
+                    interested = interested | MJL_temp_item.holder | MJL_temp_item.requested;
+                    */
+            }
+            /* MJL_End */
             MJL_retrySet[i] = false;
         }
     } 
@@ -826,6 +838,12 @@ SnoopFilter::regStats()
         .name(name() + ".hit_multi_snoops")
         .desc("Number of snoops hitting in the snoop filter with multiple "\
               "(>1) holders of the requested data.");
+
+    /* MJL_Begin */
+    MJL_crossSnoopHits
+        .name(name() + ".MJL_crossSnoopHits")
+        .desc("Number of snoops hitting in the snoop filter with cross direction to other ports.");
+    /* MJL_End */
 }
 
 SnoopFilter *
