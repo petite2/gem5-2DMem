@@ -114,8 +114,14 @@ Cache::Cache(const CacheParams *p)
     }
     
     std::cout << "MJL_2DCache? " << MJL_2DCache << std::endl;
+    bool MJL_pred_Debug_Out = false;
+    /* MJL_Test 
+    if (this->name().find("dcache") != std::string::npos && this->name().find("cpu2") != std::string::npos) {
+        MJL_pred_Debug_Out = true;
+    }
+    */
     if (MJL_predictDir) {
-        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir);
+        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir);
     }
     if (MJL_bloomFilterSize > 0) {
         MJL_rowColBloomFilter = new MJL_RowColBloomFilter(this->name() + ".MJL_bloomfilter", MJL_bloomFilterSize, tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, MJL_bloomFilterHashFuncId);
@@ -126,6 +132,7 @@ Cache::Cache(const CacheParams *p)
     /* MJL_End */
     /* MJL_Test */ 
     if (this->name().find("l2") != std::string::npos) {
+    // if (this->name().find("l2") != std::string::npos || this->name().find("dcache") != std::string::npos) {
         MJL_perPCAccessCount = new std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > >();
         MJL_perPCAccessTrace = new std::map < Addr, std::vector < MemCmd::MJL_DirAttribute > >();
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printAccess>(this));
@@ -1054,6 +1061,13 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             MemCmd::MJL_DirAttribute MJL_predDir = MJL_dirPredictor->MJL_predictDir(pkt);
             pkt->cmd.MJL_setCmdDir(MJL_predDir);
             pkt->MJL_setDataDir(MJL_predDir);
+            /* MJL_Test 
+            // couldn't fix for pthread column write problem, due to false sharing
+            if (pkt->req->hasPC() && pkt->req->getPC() >= 0x403ff0 && pkt->req->getPC() <= 0x404fad) {
+                pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsRow);
+                pkt->MJL_setDataDir(MemCmd::MJL_DirAttribute::MJL_IsRow);
+            }
+             */
         }
         bool MJL_crossFullHit = true;
         bool MJL_crossHit = false;
@@ -2718,7 +2732,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     } else {
         /* MJL_Begin */
         if (MJL_predictDir && MJL_mshrPredictDir) {
-            MJL_dirPredictor->MJL_removeFromPredictMshrQueue(mshr, MJL_targetHasPC);
+            MJL_dirPredictor->MJL_removeFromPredictMshrQueue(mshr, MJL_targetHasPC, pkt->isUpgrade());
         }
         /* MJL_End */
         mshrQueue.deallocate(mshr);
@@ -4915,12 +4929,17 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         pkt->MJL_setAllDirty();
     }
 
-    /* MJL_Test */ 
+    /* MJL_Test */
     if (this->name().find("l2") != std::string::npos) {
         if (pkt->req->hasPC()) {
             cache->MJL_countAccess(pkt->req->getPC(), pkt->MJL_getDataDir());
         }
     }
+    // if (this->name().find("dcache") != std::string::npos) {
+        // if (pkt->req->hasPC() && pkt->req->getPC() >= 0x4081d0 && pkt->req->getPC() <= 0x4086f9) {
+            // cache->MJL_countAccess(pkt->req->getPC(), MemCmd::MJL_DirAttribute::MJL_IsRow);
+        // }
+    // }
     /* */
 
     /* MJL_Test: Packet information output 
@@ -4979,7 +4998,25 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
         ) {
         std::clog << this->name() << "::MJL_Debug: recvTimingReq " << pkt->print() << std::endl;
     }
-    /* */    
+    /* */
+    /* MJL_TODO 
+    std::list<uint64_t> access_list {0x40825c, 0x408265, 0x40826e, 0x408277, 0x408280, 0x408289, 0x408297, 0x40829b, 0x408397, 0x40839d, 0x4083a8, 0x4083b3, 0x4084a0, 0x4084a6, 0x4084b1, 0x4084bc, 0x408513, 0x408519, 0x408520, 0x408527, 0x408601, 0x40860a, 0x408613, 0x40861c, 0x408625, 0x40862e, 0x40863c, 0x408640, 0x40867c, 0x408685, 0x40868e, 0x408697, 0x4086a0, 0x4086a9, 0x4086b7, 0x4086bb};
+    if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && (std::find(access_list.begin(), access_list.end(), pkt->req->getPC()) != access_list.end())) {
+        if (pkt->isRead()) {
+            std::cout << "r ";
+        } else if (pkt->isWrite()) {
+            std::cout << "w ";
+        }
+        std::cout << std::hex << pkt->getAddr() << std::dec;
+        std::cout << std::endl;
+        // if (this->name().find("cpu2") != std::string::npos) {
+            // std::clog << this->name() << "::recvTimingReq " << pkt->print() << std::endl;
+        // }
+    }
+    // if ((this->name().find("cpu2.l2") != std::string::npos) && pkt->req->hasPC() && (std::find(access_list.begin(), access_list.end(), pkt->req->getPC()) != access_list.end())) {
+        // std::clog << this->name() << "::recvTimingReq " << pkt->print() << std::endl;
+    // }
+     */    
 
     // Column vector access handler
     if ((pkt->req->hasPC())
@@ -5322,6 +5359,11 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     }
      */
     if (this->name().find("dcache") != std::string::npos && pkt->isResponse()) {
+        /* MJL_TODO 
+        if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && pkt->req->getPC() >= 0x406f4c && pkt->req->getPC() <= 0x406f87) {
+            std::cout << "MJL_Output: Starting address is " << pkt->print() << std::endl; 
+        }
+         */
         /* MJL_Test: Respnse packet information output  
         std::cout << this->name() << "::recvAtomicPostAcc";
         std::cout << ": PC(hex) = ";
@@ -5372,6 +5414,11 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         pkt = MJL_sndPkt;
         time = time + cache->recvAtomic(pkt);
         if (this->name().find("dcache") != std::string::npos && pkt->isResponse() && MJL_sndPkt->isResponse()) {
+            /* MJL_TODO 
+            if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && pkt->req->getPC() >= 0x406f4c && pkt->req->getPC() <= 0x406f87) {
+                std::cout << "MJL_Output: Starting address is " << pkt->print() << std::endl; 
+            }
+             */
             /* MJL_Test: Respnse packet information output 
             std::cout << this->name() << "::recvAtomicPostAcc";
             std::cout << ": PC(hex) = ";
@@ -5422,7 +5469,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
                     std::clog << "Merged read results, data = ";
                     uint64_t MJL_Data = 0;
                     std::memcpy(&MJL_Data, MJL_origPacket->getConstPtr<uint8_t>(), MJL_origPacket->getSize());
-                    std::cout << std::hex << MJL_Data << std::dec << ", ";
+                    std::clog << std::hex << MJL_Data << std::dec << ", ";
                 } else if (pkt->isWrite()) {
                     MJL_origPacket->MJL_setSize(MJL_origPacket->getSize() + MJL_sndPacket->getSize());
                     MJL_origPacket->req->MJL_setSize(MJL_origPacket->getSize());
