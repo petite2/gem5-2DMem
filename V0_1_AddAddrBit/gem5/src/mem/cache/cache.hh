@@ -767,7 +767,7 @@ class Cache : public BaseCache
             if (entry->confidence >= threshConf) {
                 int colOffset = new_stride / (MJL_rowWidth * blkSize) + entry->lastColOff;
                 int rowOffset = new_stride/sizeof(uint64_t) + entry->lastRowOff;
-                if (new_stride % (MJL_rowWidth * blkSize) == 0 && colOffset >= 0 && colOffset < (int) (blkSize/sizeof(uint64_t)) ) {
+                if (new_stride % ((MJL_rowWidth * blkSize) / (1 + floorLog2(entry->confidence))) == 0 && colOffset >= 0 && colOffset < (int) (blkSize/sizeof(uint64_t)) ) {
                     selfStrideDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
                     selfStrideStep = colOffset - entry->lastColOff;
                 } else if ( rowOffset >= 0 && rowOffset < (int) (blkSize/sizeof(uint64_t)) ) {
