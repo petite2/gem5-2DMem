@@ -827,29 +827,30 @@ class Cache : public BaseCache
                 crossBlkHitCount += entry->crossBlkHits[i] ? 1 : 0;
             }
             bool changeDir = false;
+            assert((entry->predictLevel > 1 && entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) || (entry->predictLevel <= 1 && entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow));
             if (blkHitCount == 1 && crossBlkHitCount == 1) {
-                if (predictLevel == 2) {
+                if (entry->predictLevel == 2) {
                     changeDir = true;
                 }
-                if (predictLevel > 1) {
-                    predictLevel--;
-                } else if (predictLevel == 0) {
-                    predictLevel++;
+                if (entry->predictLevel > 1) {
+                    entry->predictLevel--;
+                } else if (entry->predictLevel == 0) {
+                    entry->predictLevel++;
                 }
             } else if (blkHitCount >= crossBlkHitCount) {
-                if (predictLevel == 2) {
+                if (entry->predictLevel == 2) {
                     assert( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn );
-                    predictLevel++;
-                } else if (predictLevel == 1) {
-                    assert( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow )
-                    predictLevel--;
+                    entry->predictLevel++;
+                } else if (entry->predictLevel == 1) {
+                    assert( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow );
+                    entry->predictLevel--;
                 }
             } else {
                 changeDir = true;
                 if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-                    predictLevel = 1;
+                    entry->predictLevel = 1;
                 } else if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
-                    predictLevel = 2;
+                    entry->predictLevel = 2;
                 }
             }
 
@@ -1022,6 +1023,13 @@ class Cache : public BaseCache
                         crossHitCount += pcTable_entry->crossBlkHits[i] ? 1 : 0;
                     }
                     if (hitCount == 1 && crossHitCount == 1) {
+                        if (pcTable_entry->lastPredDir != entry_found->blkDir) {
+                            if (entry_found->blkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                                pcTable_entry->predictLevel = 3;
+                            } else if (entry_found->blkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                                pcTable_entry->predictLevel = 0;
+                            }
+                        }
                         pcTable_entry->lastPredDir = entry_found->blkDir;
                     }
                 }
@@ -1045,7 +1053,11 @@ class Cache : public BaseCache
                 victim_entry->isSecure= entry_found->isSecure;
                 victim_entry->stride = 0;
                 victim_entry->confidence = startConf;
-                victim_entry->predictLevel = startPredLevel;
+                if (entry_found->blkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    victim_entry->predictLevel = startPredLevel + 1;
+                } else {
+                    victim_entry->predictLevel = startPredLevel;
+                }
                 victim_entry->lastPredDir = entry_found->blkDir;
                 for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                     victim_entry->blkHits[i] = entry_found->blkHits[i];
@@ -1102,10 +1114,15 @@ class Cache : public BaseCache
                 if (pcTableHit(pc, is_secure, master_id, entry)) {
                     // Hit in table
                     if (MJL_mshrPredictDir) {
+                        /* MJL_Test */
+                        if (MJL_Debug_Out) {
+                            std::clog << "MJL_predDebug: MJL_mshrPredictDir " << pkt->print() << ", lastPredDir " << entry->lastPredDir << ", predictLevel " << entry->predictLevel;
+                        }
+                        /* */
                         predictedDir = MJL_mshrPredict(pkt_addr, entry, pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsRow)/sizeof(uint64_t), pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsColumn)/sizeof(uint64_t), pkt->isWrite());
                         /* MJL_Test */
                         if (MJL_Debug_Out) {
-                            std::clog << "MJL_predDebug: MJL_mshrPredictDir " << pkt->print() << " predicted " << predictedDir << std::endl;
+                            std::clog << ", predicted " << predictedDir << std::endl;
                         }
                         /* */
                     } else if (MJL_pfBasedPredictDir) {
