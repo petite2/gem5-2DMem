@@ -73,6 +73,7 @@ class BaseTags : public ClockedObject
     const Cycles MJL_timeStep;
     bool MJL_timeStepScheduled;
     const bool MJL_sameSetMapping;
+    const bool MJL_oracleProxy;
     /* MJL_End */
     /** The size of the cache. */
     const unsigned size;

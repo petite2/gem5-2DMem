@@ -51,6 +51,7 @@ class BaseTags(ClockedObject):
     MJL_rowWidth = Param.Int(Parent.MJL_row_width, "row size in number of cachelines")
     MJL_timeStep = Param.Cycles(Parent.MJL_timeStep, "time step of intermediate output in cycles")
     MJL_sameSetMapping = Param.Bool(Parent.MJL_sameSetMapping, "The flag to get same set mapping for row and column in the cache")
+    MJL_oracleProxy = Param.Bool(Parent.MJL_oracleProxy, "The flag to get oracle proxy mapping for row and column in the cache")
     # MJL_End
 
     # Get the block size from the parent (system)

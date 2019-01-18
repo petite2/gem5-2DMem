@@ -108,6 +108,7 @@ def config_cache(options, system):
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
+                                   , MJL_oracleProxy=options.MJL_oracleProxy\
                                    , MJL_ignoreExtraTagCheckLatency=MJL_ignore_extra_tag_check_latecy\
                                    , MJL_bloomFilterSize=options.MJL_l2_bloomFilterSize\
                                    , MJL_bloomFilterHashFuncId=options.MJL_l2_bloomFilterHashFuncId\
@@ -145,6 +146,7 @@ def config_cache(options, system):
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
+                                   , MJL_oracleProxy=options.MJL_oracleProxy\
                                    , MJL_ignoreExtraTagCheckLatency=MJL_l2_ignore_extra_tag_check_latecy\
                                    , MJL_bloomFilterSize=options.MJL_l2_bloomFilterSize\
                                    , MJL_bloomFilterHashFuncId=options.MJL_l2_bloomFilterHashFuncId\
@@ -173,6 +175,7 @@ def config_cache(options, system):
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L3sameSetMapping\
+                                   , MJL_oracleProxy=options.MJL_oracleProxy\
                                    , MJL_ignoreExtraTagCheckLatency=MJL_l3_ignore_extra_tag_check_latecy\
                                    , MJL_bloomFilterSize=options.MJL_l3_bloomFilterSize\
                                    , MJL_bloomFilterHashFuncId=options.MJL_l3_bloomFilterHashFuncId\
@@ -217,6 +220,7 @@ def config_cache(options, system):
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L3sameSetMapping\
+                                   , MJL_oracleProxy=options.MJL_oracleProxy\
                                    , MJL_ignoreExtraTagCheckLatency=MJL_l3_ignore_extra_tag_check_latecy\
                                    , MJL_bloomFilterSize=options.MJL_l3_bloomFilterSize\
                                    , MJL_bloomFilterHashFuncId=options.MJL_l3_bloomFilterHashFuncId\
@@ -261,6 +265,7 @@ def config_cache(options, system):
                                   , MJL_mshrPredictDir=options.MJL_mshrPredictDir\
                                   , MJL_pfBasedPredictDir=options.MJL_pfBasedPredictDir\
                                   , MJL_sameSetMapping=options.MJL_L1sameSetMapping\
+                                  , MJL_oracleProxy=options.MJL_oracleProxy\
                                   , MJL_ignoreExtraTagCheckLatency=MJL_ignore_extra_tag_check_latecy\
                                   , MJL_bloomFilterSize=options.MJL_l1d_bloomFilterSize\
                                   , MJL_bloomFilterHashFuncId=options.MJL_l1d_bloomFilterHashFuncId\
@@ -317,6 +322,7 @@ def config_cache(options, system):
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
                                    , sequential_access=True\
                                    , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
+                                   , MJL_oracleProxy=options.MJL_oracleProxy\
                                    , MJL_ignoreExtraTagCheckLatency=MJL_l2_ignore_extra_tag_check_latecy\
                                    , MJL_bloomFilterSize=options.MJL_l2_bloomFilterSize\
                                    , MJL_bloomFilterHashFuncId=options.MJL_l2_bloomFilterHashFuncId\

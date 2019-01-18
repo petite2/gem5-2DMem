@@ -61,6 +61,7 @@ class BaseCache(MemObject):
     MJL_2D_Transfer_Type = Param.Int(0, "Set the type of transfer method from memory to L2 cache in physically 2D cache, 0 for per line on demand, 1 for whole tile")
     MJL_extra2DWrite_latency = Param.Cycles(0,"Additional data write access latency for physically 2D caches")
     MJL_sameSetMapping = Param.Bool(False, "The flag to get same set mapping for row and column in the cache")
+    MJL_oracleProxy = Param.Bool(False, "The flag to get oracle proxy mapping for row and column in the cache")
     MJL_bloomFilterSize = Param.Unsigned(0, "Size of the bloom filter, 0 when there isn't one")
     MJL_bloomFilterHashFuncId = Param.Unsigned(0, "Indicates which hash function to use for the bloom filter")
     # MJL_End 
