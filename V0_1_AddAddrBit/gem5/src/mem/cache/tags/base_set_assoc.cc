@@ -83,6 +83,12 @@ BaseSetAssoc::BaseSetAssoc(const Params *p)
     setShift = floorLog2(blkSize);
     setMask = numSets - 1;
     tagShift = setShift + floorLog2(numSets);
+    /* MJL_Begin */
+    if (MJL_oracleProxy) {
+        setMask = numSets/2 - 1;
+        tagShift = setShift + floorLog2(numSets/2);
+    }
+    /* MJL_End */
     /** @todo Make warmup percentage a parameter. */
     warmupBound = numSets * assoc;
 

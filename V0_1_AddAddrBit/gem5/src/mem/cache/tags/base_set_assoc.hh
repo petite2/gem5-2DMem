@@ -434,7 +434,7 @@ public:
             } else {
                 assert( (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) || (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) );
             }
-            if (!MJL_sameSetMapping) {
+            if (!MJL_sameSetMapping && !MJL_oracleProxy) {
                 lat = templat + lat;
             }
         }
@@ -863,6 +863,12 @@ public:
     {
         if (MJL_sameSetMapping) {
             return ((MJL_movColRight(addr) >> (setShift + MJL_rowShift)) & setMask);
+        } else if (MJL_oracleProxy) {
+            if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+                return ((MJL_movColRight(addr) >> setShift) & setMask);
+            } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+                return ((MJL_movColRight(MJL_swapRowColBits(addr)) >> setShift) & setMask) + (numSets/2);
+            }
         } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             return ((MJL_movColRight(addr) >> setShift) & setMask);
         } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_Temp: temporary fix for column 
@@ -916,6 +922,12 @@ public:
                 return MJL_swapRowColBits(MJL_movColLeft(commonHigh | ((tag & (Addr)MJL_wordMask) << setShift)));
             } else {
                 return ((tag << tagShift) | ((Addr)set << setShift));
+            }
+        } else if (MJL_oracleProxy) {
+            if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+                return MJL_movColLeft(((tag << tagShift) | ((Addr)set << setShift)));
+            } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) { // MJL_Temp: temporary fix for column 
+                return MJL_swapRowColBits(MJL_movColLeft(((tag << tagShift) | ((Addr)(set - numSets/2) << setShift))));
             }
         } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
             return MJL_movColLeft(((tag << tagShift) | ((Addr)set << setShift)));
