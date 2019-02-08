@@ -295,7 +295,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
         // note that the line may be also be considered writable in
         // downstream caches along the path to memory, but always
         // Exclusive, and never Modified
-        assert(blk->isWritable()/* MJL_Begin */|| (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkWritable) != 0))/* MJL_End */);
+        assert(blk->isWritable()/* MJL_Begin */ || MJL_oracleProxy || (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkWritable) != 0))/* MJL_End */);
         // Write or WriteLine at the first cache with block in writable state
         if (blk->checkWrite(pkt)) {
             /* MJL_Begin */
@@ -342,6 +342,11 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             blk->status |= BlkDirty;
         } else {
             blk->status |= BlkDirty;
+        }
+        // In oracle proxy mode, assume nothing ever becomes dirty to avoid complicated coherence problems
+        if (MJL_oracleProxy) { 
+            blk->status &= ~BlkDirty; 
+            blk->MJL_clearAllDirty();
         }
         /* MJL_End */
         /* MJL_Comment
@@ -420,6 +425,8 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
                 if (blk->isDirty()) {
                     pkt->setCacheResponding();
                     /* MJL_Begin */
+                    // In oracle proxy mode, there should not be any dirty to begin with
+                    assert(!MJL_oracleProxy);
                     if (MJL_2DCache && pkt->MJL_cmdIsColumn()) {
                         for (int i = pkt->getOffset(blkSize); i < pkt->getOffset(blkSize) + pkt->getSize(); i = i + sizeof(uint64_t) - i%sizeof(uint64_t)) {
                             tags->MJL_findBlockByTile(blk, i/sizeof(uint64_t))->MJL_clearWordDirty(pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t));
@@ -505,6 +512,10 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     } else if (pkt->isUpgrade()) {
         // sanity check
         // MJL_TODO: would need to comment this if cross directional block existence also mark sharers (cannot respond even if it is a sharer). Or is it that they should have invalidated theirs anyway?
+        /* MJL_Begin */
+        // There shouldn't be any upgrade misses generated in oracle proxy mode
+        assert(!MJL_oracleProxy);
+        /* MJL_End */
         assert(!pkt->hasSharers());
 
         if (blk->isDirty()) {
@@ -840,6 +851,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         // and leave it as is for a clean writeback
         if (pkt->cmd == MemCmd::WritebackDirty) {
             /* MJL_Begin */
+            // In oracle proxy mode, there should be no dirty writebacks since writes are not marked as dirty anyway
+            assert(!MJL_oracleProxy);
             // No need for invalidation for physically 2D Cache, but the setting dirty status should change
             if (MJL_2DCache) {
                 if (pkt->MJL_cmdIsColumn()) {
@@ -951,7 +964,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
          */
         return false;
     /* MJL_Begin */
-    } else if (blk && (pkt->needsWritable() ? (blk->isWritable() || (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkWritable) != 0))) :
+    } else if (blk && (pkt->needsWritable() ? (blk->isWritable() || MJL_oracleProxy || (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkWritable) != 0))) :
                        (blk->isReadable() || (MJL_2DCache && pkt->MJL_cmdIsColumn() && blk->MJL_crossValid[pkt->MJL_getColOffset(blkSize)/sizeof(uint64_t)] && ((blk->status & BlkReadable) != 0))))) {
     /* MJL_End */
     /* MJL_Comment
@@ -990,16 +1003,22 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             }
             // Taking the additional tag check into account
             for (unsigned offset = 0; offset < pkt->getSize(); offset = offset + sizeof(uint64_t)) {
-                if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] && MJL_bloomFilterHasCross && !MJL_ignoreExtraTagCheckLatency) {
+                if (pkt->MJL_wordDirty[offset/sizeof(uint64_t)] && MJL_bloomFilterHasCross && !MJL_ignoreExtraTagCheckLatency && !MJL_oracleProxy) {
                     lat += lookupLatency;
                 }
             }
-            MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
+            if (!MJL_oracleProxy) {
+                MJL_invalidateOtherBlocks(pkt->getAddr(), blk->MJL_blkDir, pkt->getSize(), pkt->isSecure(), writebacks, pkt->MJL_wordDirty);
+            }
         }
         // Add the additonal write access latency for physically 2D caches
         if (MJL_2DCache && pkt->isWrite()) {
             lat += MJL_extra2DWriteLatency;
         }
+        // Under oracle proxy mode, data should have been propagated to memory before any miss were handled, so any data brought in should be already updated and there's no need to update anymore
+        // if (MJL_oracleProxy && pkt->isWrite() && pkt->getSize() <= sizeof(uint64_t) && !MJL_2DCache) {
+        //     assert(this->name().find("dcache") != std::string::npos);
+        // }
         /* MJL_End */
         satisfyRequest(pkt, blk);
         maintainClusivity(pkt->fromCache(), blk);
@@ -1037,6 +1056,8 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     /* MJL_Begin */
     // Write upgrade miss
     if (blk && pkt->isWrite() && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
+        // Oracle proxy mode should not have upgrade misses since it can write without writable
+        assert(!MJL_oracleProxy); 
         // Bloom filter check
         bool MJL_bloomFilterHasCross = true;
         if (MJL_rowColBloomFilter) {
@@ -1053,7 +1074,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
     // We are going to bring in a cache line, crossing lines with dirty data at the crossing needs to be written back
     // And if the access were a write, then the crossing lines to the write section needs to be invalidated as well
     // If the cache is physically 2D, then there's no need for all this
-    if (blk == nullptr && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
+    if (blk == nullptr && !MJL_oracleProxy && (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache ) {
         CacheBlk *MJL_crossBlk = nullptr;
         Addr MJL_crossBlkAddr;
         Cycles templat = lat;
@@ -1978,6 +1999,11 @@ Cache::recvAtomic(PacketPtr pkt)
         return lat * clockPeriod();
     }
 
+    // In oracle proxy mode, make updates about data first if it's a write. 
+    if (MJL_oracleProxy && pkt->isWrite() && this->name().find("dcache") != std::string::npos) {
+        functionalAccess(pkt, true);
+    }
+
     // should assert here that there are no outstanding MSHRs or
     // writebacks... that would mean that someone used an atomic
     // access in timing mode
@@ -2000,7 +2026,7 @@ Cache::recvAtomic(PacketPtr pkt)
             lat += ticksToCycles(memSidePort->sendAtomic(pkt));
             return lat * clockPeriod();
         }
-        // only misses left
+        // only misses left 
 
         PacketPtr bus_pkt = createMissPacket(pkt, blk, pkt->needsWritable());
 
@@ -2011,6 +2037,16 @@ Cache::recvAtomic(PacketPtr pkt)
             // no local cache operation involved
             bus_pkt = pkt;
         }
+        /* MJL_Begin */
+        // In oracle proxy mode, should make a column miss packet as well. Column blk should not exist since if it existed, there should not have been a miss anyway
+        CacheBlk *col_blk = nullptr; 
+        PacketPtr col_bus_pkt = nullptr;
+        if (!is_forward && MJL_oracleProxy && this->name().find("dcache") != std::string::npos && pkt->getSize() <= sizeof(uint64_t)) { 
+            pkt->MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn); 
+            col_bus_pkt = createMissPacket(pkt, col_blk, pkt->needsWritable()); 
+            pkt->MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsRow); 
+        }
+        /* MJL_End */
 
         DPRINTF(Cache, "%s: Sending an atomic %s\n", __func__,
                 bus_pkt->print());
@@ -2020,6 +2056,12 @@ Cache::recvAtomic(PacketPtr pkt)
 #endif
 
         lat += ticksToCycles(memSidePort->sendAtomic(bus_pkt));
+        /* MJL_Begin */
+        // In oracle proxy mode, if column miss packet exists, should send column miss packet as well
+        if (MJL_oracleProxy && col_bus_pkt) {
+            memSidePort->sendAtomic(col_bus_pkt);
+        }
+        /* MJL_End */
 
         bool is_invalidate = bus_pkt->isInvalidate();
 
@@ -2057,6 +2099,14 @@ Cache::recvAtomic(PacketPtr pkt)
                     // satisfy the upstream request from the cache
                     blk = handleFill(bus_pkt, blk, writebacks,
                                      allocOnFill(pkt->cmd));
+                    /* MJL_Begin */
+                    // In oracle proxy mode, if column miss packet exists, make the handlefill for it as well. But no need to satisfy twice, and stat gathering things should be handled in satisfyRequest. Pass in a nullptr for blk and a block will be allocated in handlefill and the pointer will be passed in blk
+                    // MJL_TODO: satisfyRequest should check when there is row + column hit and collect stats accordingly
+                    if (MJL_oracleProxy && col_bus_pkt) {
+                        col_blk = handleFill(col_bus_pkt, col_blk, writebacks,
+                                     allocOnFill(pkt->cmd));
+                    }
+                    /* MJL_End */
                     satisfyRequest(pkt, blk);
                     maintainClusivity(pkt->fromCache(), blk);
                 } else {
@@ -2066,6 +2116,12 @@ Cache::recvAtomic(PacketPtr pkt)
                }
             }
             delete bus_pkt;
+            /* MJL_Begin */
+            // if column miss packet exists, it should be deleted
+            if (col_bus_pkt) {
+                delete col_bus_pkt;
+            }
+            /* MJL_End */
         }
 
         /* MJL_Begin */
@@ -2096,7 +2152,7 @@ Cache::recvAtomic(PacketPtr pkt)
     // clear it out, but only do so after the call to recvAtomic is
     // finished so that any downstream observers (such as a snoop
     // filter), first see the fill, and only then see the eviction
-    if (blk == tempBlock && tempBlock->isValid()) {
+    if (/* MJL_Begin */(blk == tempBlock || col_blk == tempBlock)/* MJL_End *//* MJL_Comment blk == tempBlock*/ && tempBlock->isValid()) {
         // the atomic CPU calls recvAtomic for fetch and load/store
         // sequentuially, and we may already have a tempBlock
         // writeback from the fetch that we have not yet sent
@@ -3593,6 +3649,8 @@ Cache::handleFill(PacketPtr pkt, CacheBlk *blk, PacketList &writebacks,
     } else {
         // existing block... probably an upgrade
         /* MJL_Begin */
+        // In oracle proxy mode, there should not be handling for upgrade misses
+        assert(!MJL_oracleProxy);
         if (MJL_2DCache) {
             assert((blk->MJL_blkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) && (blk->tag == tags->MJL_extractTag(addr, MemCmd::MJL_DirAttribute::MJL_IsRow)));
         } else if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
