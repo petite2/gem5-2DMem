@@ -228,7 +228,7 @@ class Cache : public BaseCache
                         // std::memcpy(&((MJL_current_data[base_addr/sizeof(uint64_t) + 1])[0]), pkt->getConstPtr<uint8_t>() + sizeof(uint64_t) - offset, pkt->getSize() + offset - sizeof(uint64_t));
                     // }
                 }
-                // assert(MJL_pkt_data0 == MJL_reg_data0 && MJL_pkt_data1 == MJL_reg_data1);
+                assert(MJL_pkt_data0 == MJL_reg_data0 && MJL_pkt_data1 == MJL_reg_data1);
                 MJL_return_data.erase(pkt);
             }
         }

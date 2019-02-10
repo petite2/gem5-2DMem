@@ -1999,10 +1999,16 @@ Cache::recvAtomic(PacketPtr pkt)
         return lat * clockPeriod();
     }
 
+    /* MJL_Begin */
     // In oracle proxy mode, make updates about data first if it's a write. 
     if (MJL_oracleProxy && pkt->isWrite() && this->name().find("dcache") != std::string::npos) {
-        functionalAccess(pkt, true);
+        PacketPtr func_pkt = new Packet(pkt, false, pkt->hasData());
+        func_pkt->setData(pkt->getConstPtr<uint8_t>());
+        functionalAccess(func_pkt, true);
+        delete func_pkt;
     }
+    CacheBlk *col_blk = nullptr;
+    /* MJL_End */
 
     // should assert here that there are no outstanding MSHRs or
     // writebacks... that would mean that someone used an atomic
@@ -2039,12 +2045,11 @@ Cache::recvAtomic(PacketPtr pkt)
         }
         /* MJL_Begin */
         // In oracle proxy mode, should make a column miss packet as well. Column blk should not exist since if it existed, there should not have been a miss anyway
-        CacheBlk *col_blk = nullptr; 
         PacketPtr col_bus_pkt = nullptr;
         if (!is_forward && MJL_oracleProxy && this->name().find("dcache") != std::string::npos && pkt->getSize() <= sizeof(uint64_t)) { 
-            pkt->MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn); 
+            pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsColumn); 
             col_bus_pkt = createMissPacket(pkt, col_blk, pkt->needsWritable()); 
-            pkt->MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsRow); 
+            pkt->cmd.MJL_setCmdDir(MemCmd::MJL_DirAttribute::MJL_IsRow); 
         }
         /* MJL_End */
 
@@ -5374,8 +5379,20 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         MJL_sndPkt->req->MJL_rowWidth = cache->MJL_rowWidth;
     }
     
+    if (this->name().find("dcache") != std::string::npos){
+        MJL_regReq(pkt);
+        if (cache->MJL_Debug_Out) {
+            std::cerr << this->name() << "::recvAtomicPreAcc" << pkt->print() << std::endl;
+        }
+    }
     // The actual access
     Tick time = cache->recvAtomic(pkt);
+    if (this->name().find("dcache") != std::string::npos){
+        MJL_checkResp(pkt);
+        if (cache->MJL_Debug_Out) {
+            std::cerr << this->name() << "::recvAtomicPostAcc" << pkt->print() << std::endl;
+        }
+    }
     
     /* MJL_Test: Response packet information output 
     if ((this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && pkt->isResponse()) {
@@ -5470,7 +5487,19 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     // Access for the second half of the split packet
     if (MJL_split) {
         pkt = MJL_sndPkt;
+        if (this->name().find("dcache") != std::string::npos){
+            MJL_regReq(pkt);
+            if (cache->MJL_Debug_Out) {
+                std::cerr << this->name() << "::recvAtomicPreAcc" << pkt->print() << std::endl;
+            }
+        }
         time = time + cache->recvAtomic(pkt);
+        if (this->name().find("dcache") != std::string::npos){
+            MJL_checkResp(pkt);
+            if (cache->MJL_Debug_Out) {
+                std::cerr << this->name() << "::recvAtomicPostAcc" << pkt->print() << std::endl;
+            }
+        }
         if (this->name().find("dcache") != std::string::npos && pkt->isResponse() && MJL_sndPkt->isResponse()) {
             /* MJL_TODO 
             if ((this->name().find("dcache") != std::string::npos) && pkt->req->hasPC() && pkt->req->getPC() >= 0x406f4c && pkt->req->getPC() <= 0x406f87) {
@@ -5600,6 +5629,9 @@ Cache::CpuSidePort::recvFunctional(PacketPtr pkt)
     // functional request
     cache->functionalAccess(pkt, true);
     /* MJL_Begin */
+    if ((this->name().find("dcache") != std::string::npos) && cache->MJL_Debug_Out) {
+        std::cerr << this->name() << "::recvFunctional " << pkt->print() << std::endl;
+    }
     /* MJL_Test response packet information output 
     if ((this->name().find("dcache") != std::string::npos) && pkt->isResponse()) {
         std::cout << this->name() << "::recvFunctionalPostAcc";

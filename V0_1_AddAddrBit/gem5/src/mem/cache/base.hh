@@ -608,6 +608,7 @@ class BaseCache : public MemObject
     const bool MJL_has2DLLC;
     const int MJL_2DTransferType;
     const Cycles MJL_extra2DWriteLatency;
+    const bool MJL_oracleProxy;
     /* MJL_End */
 
     /**
