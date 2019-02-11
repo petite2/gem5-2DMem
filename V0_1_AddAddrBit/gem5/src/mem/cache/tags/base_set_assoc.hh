@@ -239,6 +239,9 @@ public:
             cache->MJL_get_Test_rowColBloomFilters()->test_remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
         }
         /* */
+        if (MJL_oracleProxy) {
+            cache->collect_stats(blk);
+        }
         if (cache->MJL_get_rowColBloomFilter()) {
             cache->MJL_get_rowColBloomFilter()->remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
         }
@@ -707,6 +710,9 @@ public:
                  cache->MJL_get_Test_rowColBloomFilters()->test_remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
              }
              /* */
+             if (MJL_oracleProxy) {
+                 cache->collect_stats(blk);
+             }
              if (cache->MJL_get_rowColBloomFilter()) {
                  cache->MJL_get_rowColBloomFilter()->remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
              }

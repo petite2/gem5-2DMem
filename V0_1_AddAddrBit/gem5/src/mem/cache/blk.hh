@@ -120,6 +120,9 @@ class CacheBlk
     bool MJL_wordDirty[8];
     bool MJL_crossValid[8];
     bool MJL_wasDirty; // to mark the blocks that are clean but has data that's different from the next levels (dirty passed back to the upper level caches)
+    // For oracle proxy mode stats gathering
+    std::list< Addr > * MJL_accessPCList;
+    std::list< Addr > * MJL_accessAddrList;
     /* MJL_End */
 
     /** Which curTick() will this block be accessable */
@@ -276,6 +279,8 @@ class CacheBlk
           MJL_wordDirty{false, false, false, false, false, false, false, false},
           MJL_crossValid{false, false, false, false, false, false, false, false},
           MJL_wasDirty(false),
+          MJL_accessPCList(nullptr),
+          MJL_accessAddrList(nullptr),
           /* MJL_End */
            whenReady(0),
           set(-1), way(-1), isTouched(false), refCount(0),
@@ -360,6 +365,14 @@ class CacheBlk
     }
 
     /* MJL_Begin */
+    void MJL_regOracleProxyStats(Addr PC, Addr addr) {
+        if (MJL_accessPCList) {
+            MJL_accessPCList->push_back(PC);
+        }
+        if (MJL_accessAddrList) {
+            MJL_accessAddrList->push_back(addr);
+        }
+    }
     /**
      * Check if this block holds data in row direction
      * @return Truc if the block holds data in row direction

@@ -1160,6 +1160,80 @@ class Cache : public BaseCache
 
     bool MJL_ignoreExtraTagCheckLatency;
 
+    class MJL_oracleProxyStats {
+        public:
+            uint64_t col_hits;
+            uint64_t row_hits;
+
+            MJL_oracleProxyStats() : col_hits(0), row_hits(0) {}
+            void count_col (uint64_t in_hits) {
+                col_hits += in_hits;
+            }
+            void count_row (uint64_t in_hits) {
+                row_hits += in_hits;
+            }
+            void inc_hits (MemCmd::MJL_DirAttribute blkDir) {
+                if (blkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    row_hits++;
+                } else if (blkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    col_hits++;
+                } else {
+                    assert(false);
+                }
+            }
+            MemCmd::MJL_DirAttribute getDir() {
+                if (row_hits >= col_hits) {
+                    return MemCmd::MJL_DirAttribute::MJL_IsRow;
+                } else {
+                    return MemCmd::MJL_DirAttribute::MJL_IsColumn;
+                }
+            }
+            double getRowness() {
+                return ((double)row_hits/(col_hits + row_hits));
+            }
+            std::string print() const {
+                std::ostringstream statStr;
+                statStr << row_hits << " " << col_hits;
+                return statStr.str();
+            }
+    };
+    
+    std::map < Addr, std::map < Addr, MJL_oracleProxyStats * > > * MJL_perPCAddrOracleProxyStats;
+
+    void collect_stats (CacheBlk *blk) {
+        MemCmd::MJL_DirAttribute blkDir = blk->MJL_blkDir;
+        if (MJL_perPCAddrOracleProxyStats) {
+            assert(MJL_oracleProxy);
+            assert(blk->MJL_accessPCList);
+            assert(blk->MJL_accessAddrList);
+            assert(blk->MJL_accessPCList->size() == blk->MJL_accessAddrList->size());
+            while (!blk->MJL_accessPCList->empty()) {
+                Addr PC = blk->MJL_accessPCList->front();
+                Addr addr = blk->MJL_accessAddrList->front();
+                if (MJL_perPCAddrOracleProxyStats->find(PC) == MJL_perPCAddrOracleProxyStats->end() || (*MJL_perPCAddrOracleProxyStats)[PC].find(addr) == (*MJL_perPCAddrOracleProxyStats)[PC].end()) {
+                    (*MJL_perPCAddrOracleProxyStats)[PC][addr] = new MJL_oracleProxyStats();
+                }
+                (*MJL_perPCAddrOracleProxyStats)[PC][addr]->inc_hits(blkDir);
+                blk->MJL_accessPCList->pop_front();
+                blk->MJL_accessAddrList->pop_front();
+            }
+            assert(blk->MJL_accessAddrList->empty());
+        }
+    }
+
+    void MJL_printOracleProxyStats() {
+        std::ofstream oracleProxyOutFile;
+        if (MJL_perPCAddrOracleProxyStats) {
+            oracleProxyOutFile.open(this->name() + "_oracleProxyOut.txt");
+            for (auto PC_it = MJL_perPCAddrOracleProxyStats->begin(); PC_it != MJL_perPCAddrOracleProxyStats->end(); ++PC_it) {
+                for (auto addr_it = PC_it->second.begin(); addr_it != PC_it->second.end(); ++addr_it) {
+                    oracleProxyOutFile << PC_it->first << " " << addr_it->first << " " << addr_it->second->getDir() << " " << addr_it->second->print() << std::endl;
+                }
+            }
+            oracleProxyOutFile.close();
+        }
+    }
+
     std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > > * MJL_perPCAccessCount;
     std::map < Addr, std::vector < MemCmd::MJL_DirAttribute > > * MJL_perPCAccessTrace;
 

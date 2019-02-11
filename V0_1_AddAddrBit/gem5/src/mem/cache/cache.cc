@@ -137,6 +137,10 @@ Cache::Cache(const CacheParams *p)
         MJL_perPCAccessTrace = new std::map < Addr, std::vector < MemCmd::MJL_DirAttribute > >();
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printAccess>(this));
     }
+    if (MJL_oracleProxy && this->name().find("dcache") != std::string::npos) {
+        MJL_perPCAddrOracleProxyStats = new std::map < Addr, std::map < Addr, MJL_oracleProxyStats * > >();
+        registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printOracleProxyStats>(this));
+    }
     /* */
     /* MJL_Test 
     std::vector< unsigned > hash_func_ids;
@@ -281,6 +285,23 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
     // }
     assert(!pkt->isWrite() || pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);
     pkt->MJL_setDataDir(MJL_origDataDir);
+    if (MJL_oracleProxy && pkt->req->hasPC()) {
+        blk->MJL_regOracleProxyStats(pkt->req->getPC(), pkt->getAddr());
+        if (pkt->getSize() <= sizeof(uint64_t)) {
+            CacheBlk::MJL_CacheBlkDir cross_blkDir = blk->MJL_blkDir;
+            if (blk->MJL_isRow()) {
+                cross_blkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
+            } else if (blk->MJL_isColumn()) {
+                cross_blkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+            }
+            Addr cross_tag = MJL_extractTag(pkt->getAddr(), cross_blkDir);
+            int cross_set = MJL_extractSet(pkt->getAddr(), cross_blkDir);
+            BlkType *cross_blk = sets[cross_set].MJL_findBlk(cross_tag, cross_blkDir, pkt->isSecure());
+            if (cross_blk && cross_blk->isValid()) {
+                cross_blk->MJL_regOracleProxyStats(pkt->req->getPC(), pkt->getAddr());
+            }
+        }
+    }
     /* MJL_End */
     /* MJL_Comment
     assert(pkt->getOffset(blkSize) + pkt->getSize() <= blkSize);

@@ -122,6 +122,10 @@ BaseSetAssoc::BaseSetAssoc(const Params *p)
             /* MJL_Begin */
             // MJL_TODO: May not be needed, can be set to invalid to check if the direction information has been passed properly
             blk->MJL_blkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+            if (MJL_oracleProxy) {
+                blk->MJL_accessPCList = new std::list< Addr >();
+                blk->MJL_accessAddrList = new std::list< Addr >();
+            }
             /* MJL_End */
             blk->whenReady = 0;
             blk->isTouched = false;
