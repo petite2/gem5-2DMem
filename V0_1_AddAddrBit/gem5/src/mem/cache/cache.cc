@@ -294,9 +294,7 @@ Cache::satisfyRequest(PacketPtr pkt, CacheBlk *blk,
             } else if (blk->MJL_isColumn()) {
                 cross_blkDir = CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
             }
-            Addr cross_tag = MJL_extractTag(pkt->getAddr(), cross_blkDir);
-            int cross_set = MJL_extractSet(pkt->getAddr(), cross_blkDir);
-            BlkType *cross_blk = sets[cross_set].MJL_findBlk(cross_tag, cross_blkDir, pkt->isSecure());
+            CacheBlk *cross_blk = tags->MJL_findBlock(pkt->getAddr(), cross_blkDir, pkt->isSecure());
             if (cross_blk && cross_blk->isValid()) {
                 cross_blk->MJL_regOracleProxyStats(pkt->req->getPC(), pkt->getAddr());
             }

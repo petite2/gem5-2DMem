@@ -240,7 +240,7 @@ public:
         }
         /* */
         if (MJL_oracleProxy) {
-            cache->collect_stats(blk);
+            cache->MJL_collect_stats(blk->MJL_accessPCList, blk->MJL_accessAddrList, blk->MJL_blkDir);
         }
         if (cache->MJL_get_rowColBloomFilter()) {
             cache->MJL_get_rowColBloomFilter()->remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);
@@ -711,7 +711,7 @@ public:
              }
              /* */
              if (MJL_oracleProxy) {
-                 cache->collect_stats(blk);
+                 cache->MJL_collect_stats(blk->MJL_accessPCList, blk->MJL_accessAddrList, blk->MJL_blkDir);
              }
              if (cache->MJL_get_rowColBloomFilter()) {
                  cache->MJL_get_rowColBloomFilter()->remove(MJL_regenerateBlkAddr(blk->tag, blk->MJL_blkDir, blk->set), blk->MJL_blkDir);

@@ -525,6 +525,46 @@ class BaseCache : public MemObject
      * 0 and default: tileAddr % size
      */
     unsigned MJL_bloomFilterHashFuncId;
+
+    class MJL_oracleProxyStats {
+        public:
+            uint64_t col_hits;
+            uint64_t row_hits;
+
+            MJL_oracleProxyStats() : col_hits(0), row_hits(0) {}
+            void count_col (uint64_t in_hits) {
+                col_hits += in_hits;
+            }
+            void count_row (uint64_t in_hits) {
+                row_hits += in_hits;
+            }
+            void count_hits (uint64_t in_hits, MemCmd::MJL_DirAttribute blkDir) {
+                if (blkDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+                    count_row(in_hits);
+                } else if (blkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    count_col(in_hits);
+                } else {
+                    assert(false);
+                }
+            }
+            MemCmd::MJL_DirAttribute getDir() {
+                if (row_hits >= col_hits) {
+                    return MemCmd::MJL_DirAttribute::MJL_IsRow;
+                } else {
+                    return MemCmd::MJL_DirAttribute::MJL_IsColumn;
+                }
+            }
+            double getRowness() {
+                return ((double)row_hits/(col_hits + row_hits));
+            }
+            std::string print() const {
+                std::ostringstream statStr;
+                statStr << row_hits << " " << col_hits;
+                return statStr.str();
+            }
+    };
+    
+    std::map < Addr, std::map < Addr, MJL_oracleProxyStats * > > * MJL_perPCAddrOracleProxyStats;
     /* MJL_End */
 
   protected:
@@ -888,6 +928,27 @@ class BaseCache : public MemObject
 
     Addr blockAlign(Addr addr) const { return (addr & ~(Addr(blkSize - 1))); }
     /* MJL_Begin */
+    void MJL_collect_stats (std::list< Addr > * MJL_accessPCList, std::list< Addr > * MJL_accessAddrList, MemCmd::MJL_DirAttribute blkDir) {
+        if (MJL_perPCAddrOracleProxyStats) {
+            assert(MJL_oracleProxy);
+            assert(MJL_accessPCList);
+            assert(MJL_accessAddrList);
+            uint64_t num_hits = MJL_accessPCList->size();
+            assert(num_hits == MJL_accessAddrList->size());
+            while (!MJL_accessPCList->empty()) {
+                Addr PC = MJL_accessPCList->front();
+                Addr addr = MJL_accessAddrList->front();
+                if (MJL_perPCAddrOracleProxyStats->find(PC) == MJL_perPCAddrOracleProxyStats->end() || (*MJL_perPCAddrOracleProxyStats)[PC].find(addr) == (*MJL_perPCAddrOracleProxyStats)[PC].end()) {
+                    (*MJL_perPCAddrOracleProxyStats)[PC][addr] = new MJL_oracleProxyStats();
+                }
+                (*MJL_perPCAddrOracleProxyStats)[PC][addr]->count_hits(num_hits, blkDir);
+                MJL_accessPCList->pop_front();
+                MJL_accessAddrList->pop_front();
+            }
+            assert(MJL_accessAddrList->empty());
+        }
+    }
+
     bool MJL_is2DCache() const {
         return MJL_2DCache;
     }
