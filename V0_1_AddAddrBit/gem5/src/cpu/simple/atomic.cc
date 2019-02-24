@@ -351,7 +351,18 @@ AtomicSimpleCPU::readMem(Addr addr, uint8_t * data, unsigned size,
 
     //The address of the second part of this access if it needs to be split
     //across a cache line boundary.
+    /* MJL_Begin */
+    Addr secondAddr;
+    std::string MJL_inst_mnemonic(curStaticInst->disassemble(thread->pcState().instAddr()));
+    if ((MJL_inst_mnemonic.find("mjl") != std::string::npos) && (MJL_inst_mnemonic.find("vec") != std::string::npos)) {
+        secondAddr = roundDown(addr + size - 1, cacheLineSize());
+    } else {
+        secondAddr = roundDown(addr + size - 1, sizeof(uint64_t));
+    }
+    /* MJL_End */
+    /* MJL_Comment
     Addr secondAddr = roundDown(addr + size - 1, cacheLineSize());
+    */
 
     if (secondAddr > addr)
         size = secondAddr - addr;
@@ -483,7 +494,18 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
 
     //The address of the second part of this access if it needs to be split
     //across a cache line boundary.
+    /* MJL_Begin */
+    Addr secondAddr;
+    std::string MJL_inst_mnemonic(curStaticInst->disassemble(thread->pcState().instAddr()));
+    if ((MJL_inst_mnemonic.find("mjl") != std::string::npos) && (MJL_inst_mnemonic.find("vec") != std::string::npos)) {
+        secondAddr = roundDown(addr + size - 1, cacheLineSize());
+    } else {
+        secondAddr = roundDown(addr + size - 1, sizeof(uint64_t));
+    }
+    /* MJL_End */
+    /* MJL_Comment
     Addr secondAddr = roundDown(addr + size - 1, cacheLineSize());
+    */
 
     if (secondAddr > addr)
         size = secondAddr - addr;

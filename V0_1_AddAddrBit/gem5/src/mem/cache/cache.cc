@@ -139,7 +139,7 @@ Cache::Cache(const CacheParams *p)
     }
     if (MJL_oracleProxy && this->name().find("dcache") != std::string::npos) {
         MJL_perPCAddrOracleProxyStats = new std::map < Addr, std::map < Addr, MJL_oracleProxyStats * > >();
-        registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printOracleProxyStats>(this));
+        // registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printOracleProxyStats>(this));
     }
     /* */
     /* MJL_Test 
@@ -5284,6 +5284,12 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     // Assign dirty bits for write requests at L1D$
     if ((this->name().find("dcache") != std::string::npos) && pkt->isWrite()) {
         pkt->MJL_setAllDirty();
+    }
+    
+    // Trace output for oracle proxy analysis
+    if ((pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos) && cache->MJL_oracleProxy) {
+        std::cout << "MJL_traceOut: " << std::hex << pkt->req->getPC() << " " << pkt->getAddr() << std::dec << " " << pkt->getSize() << std::endl;
     }
 
     /* MJL_Test: Request packet information output  
