@@ -5006,6 +5006,20 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
          */
     }
 
+    // Assign direction preference to packet based on PC and address at L1D$
+    if (cache->MJL_oracleProxyReplay && (pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos)
+        && (cache->MJL_PCAddr2DirMap.find(pkt->req->getPC()) != cache->MJL_PCAddr2DirMap.end())
+         && (cache->MJL_PCAddr2DirMap[pkt->req->getPC()].find(pkt->getAddr()) != cache->MJL_PCAddr2DirMap[pkt->req->getPC()].end())) {
+        CacheBlk::MJL_CacheBlkDir InputDir = cache->MJL_PCAddr2DirMap[pkt->req->getPC()][pkt->getAddr()];
+        pkt->cmd.MJL_setCmdDir(InputDir);
+        pkt->req->MJL_setReqDir(InputDir);
+        pkt->MJL_setDataDir(InputDir);
+        /* MJL_Test 
+        std::cout << this->name() << "::recvTimingReq MJL_debug: " << pkt->print() << std::endl;
+         */
+    }
+
     // Assign dirty bits for write requests at L1D$
     if ((this->name().find("dcache") != std::string::npos) && pkt->isWrite()) {
         pkt->MJL_setAllDirty();

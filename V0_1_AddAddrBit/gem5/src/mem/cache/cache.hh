@@ -1167,7 +1167,7 @@ class Cache : public BaseCache
             for (auto PC_it = MJL_perPCAddrOracleProxyStats->begin(); PC_it != MJL_perPCAddrOracleProxyStats->end(); ++PC_it) {
                 for (auto addr_it = PC_it->second.begin(); addr_it != PC_it->second.end(); ++addr_it) {
                     if (addr_it->second->getDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-                        oracleProxyOutFile << std::hex << PC_it->first << " " << addr_it->first << std::dec << " " << addr_it->second->getDir() << std::endl;
+                        oracleProxyOutFile << std::hex << PC_it->first << " " << addr_it->first << std::dec << " " << addr_it->second->printDir() << std::endl;
                     }
                     if (addr_it->second->row_hits > 1 || addr_it->second->col_hits > 1) {
                         std::cout << std::hex << PC_it->first << " " << addr_it->first << std::dec << " " << addr_it->second->print() << std::endl;
@@ -1306,6 +1306,7 @@ class Cache : public BaseCache
      * The map that contains the mapping from PC to direction
      */
     std::map<Addr, CacheBlk::MJL_CacheBlkDir> MJL_PC2DirMap;
+    std::map<Addr, std::map<Addr, CacheBlk::MJL_CacheBlkDir> > MJL_PCAddr2DirMap;
 
     /**
      * The set that contains the PC number of vector instructions
@@ -1339,29 +1340,49 @@ class Cache : public BaseCache
         MJL_PC2DirFile.open(MJL_PC2DirFilename);
         if (MJL_PC2DirFile.is_open()) {
             std::cout << this->name() << "::Reading PC to direction preference input from " << MJL_PC2DirFilename << ":" << std::endl;
-            while (getline(MJL_PC2DirFile, line)) {
-                std::stringstream(line) >> std::hex >> tempPC >> std::dec >> tempDir >> tempPos >> std::hex >> tempOtherPC >> std::dec;
-                if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
-                    std::cout << "MJL_Error: Redefinition of instruction direction found!\n";
+            if (MJL_PC2DirFilename.find("PCAddr2Dir") != std::string::npos) {
+                Addr tempAddr;
+                uint64_t tempRowCount;
+                uint64_t tempColCount;
+                while (getline(MJL_PC2DirFile, line)) {
+                    std::stringstream(line) >> std::hex >> tempPC >> tempAddr >> std::dec >> tempDir >> tempRowCount >> tempColCount;
+                    if (tempDir == 'R') {
+                        MJL_PCAddr2DirMap[tempPC][tempAddr] =  CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+                    } else if (tempDir == 'C') {
+                        MJL_PCAddr2DirMap[tempPC][tempAddr] =  CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
+                    } else {
+                        std::cout << "MJL_Error: Invalid input direction annotation!\n";
+                        assert((tempDir == 'R') || (tempDir == 'C'));
+                    }
+                    /* MJL_Test: file information output 
+                    std::cout << "PC: " << std::hex << MJL_PCAddr2DirMap.find(tempPC)->first << ", Addr: " << MJL_PCAddr2DirMap[tempPC].find(tempAddr)->first << std::dec << ", Dir: " << MJL_PCAddr2DirMap[tempPC].find(tempAddr)->second << std::endl;
+                     */
+                };
+            } else {
+                while (getline(MJL_PC2DirFile, line)) {
+                    std::stringstream(line) >> std::hex >> tempPC >> std::dec >> tempDir >> tempPos >> std::hex >> tempOtherPC >> std::dec;
+                    if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
+                        std::cout << "MJL_Error: Redefinition of instruction direction found!\n";
+                    }
+                    if (tempDir == 'R') {
+                        MJL_PC2DirMap[tempPC] =  CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
+                    } else if (tempDir == 'C') {
+                        MJL_PC2DirMap[tempPC] =  CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
+                    } else {
+                        std::cout << "MJL_Error: Invalid input direction annotation!\n";
+                        assert((tempDir == 'R') || (tempDir == 'C'));
+                    }
+                    if (tempPos > 0) {
+                        assert(tempPos == 1 || tempPos == 2);
+                        assert( MJL_colVecHandler.MJL_ColVecList.find(tempOtherPC) == MJL_colVecHandler.MJL_ColVecList.end() || MJL_colVecHandler.MJL_ColVecList.at(tempOtherPC).pos != tempPos-1);
+                        MJL_colVecHandler.MJL_ColVecList.emplace(tempPC, MJL_ColVecHandler::MJL_VecInfo(tempOtherPC, tempPos-1));
+                    }
+                    /* MJL_Test: file information output */
+                    if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
+                        std::cout << "PC: " << std::hex << MJL_PC2DirMap.find(tempPC)->first << std::dec << ", Dir: " << MJL_PC2DirMap.find(tempPC)->second << ", ColumnVec: " << tempPos << ", OtherPC: " << std::hex << tempOtherPC << std::dec << "\n";
+                    }
+                    /* */
                 }
-                if (tempDir == 'R') {
-                    MJL_PC2DirMap[tempPC] =  CacheBlk::MJL_CacheBlkDir::MJL_IsRow;
-                } else if (tempDir == 'C') {
-                    MJL_PC2DirMap[tempPC] =  CacheBlk::MJL_CacheBlkDir::MJL_IsColumn;
-                } else {
-                    std::cout << "MJL_Error: Invalid input direction annotation!\n";
-                    assert((tempDir == 'R') || (tempDir == 'C'));
-                }
-                if (tempPos > 0) {
-                    assert(tempPos == 1 || tempPos == 2);
-                    assert( MJL_colVecHandler.MJL_ColVecList.find(tempOtherPC) == MJL_colVecHandler.MJL_ColVecList.end() || MJL_colVecHandler.MJL_ColVecList.at(tempOtherPC).pos != tempPos-1);
-                    MJL_colVecHandler.MJL_ColVecList.emplace(tempPC, MJL_ColVecHandler::MJL_VecInfo(tempOtherPC, tempPos-1));
-                }
-                /* MJL_Test: file information output */
-                if (MJL_PC2DirMap.find(tempPC) != MJL_PC2DirMap.end()) {
-                    std::cout << "PC: " << std::hex << MJL_PC2DirMap.find(tempPC)->first << std::dec << ", Dir: " << MJL_PC2DirMap.find(tempPC)->second << ", ColumnVec: " << tempPos << ", OtherPC: " << std::hex << tempOtherPC << std::dec << "\n";
-                }
-                /* */
             }
         }
         else {

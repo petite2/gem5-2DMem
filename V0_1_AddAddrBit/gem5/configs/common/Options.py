@@ -131,6 +131,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_L2sameSetMapping", action="store_true", help="Use same set mapping for L2 caches")
     parser.add_option("--MJL_L3sameSetMapping", action="store_true", help="Use same set mapping for L3 caches")
     parser.add_option("--MJL_oracleProxy", action="store_true", help="Use oracle proxy mapping for all caches")
+    parser.add_option("--MJL_oracleProxyReplay", action="store_true", help="Use oracle proxy result for cache accesses")
     parser.add_option("--MJL_noLatOverhead", action="store_true", help="Test use")
     parser.add_option("--MJL_pfBasedPredictDir", action="store_true", help="Use the prefetch scheme for direction predictor (in L1Dcache)")
     parser.add_option("--MJL_l1d_bloomFilterSize", type="int", default=0, help="Specify the size of the bloom filter for cross cacheline existence check for l1 dcache, 0 for no bloom filter")

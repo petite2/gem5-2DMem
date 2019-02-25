@@ -562,6 +562,13 @@ class BaseCache : public MemObject
                 statStr << row_hits << " " << col_hits;
                 return statStr.str();
             }
+            std::string printDir() const {
+                if (row_hits >= col_hits) {
+                    return "R";
+                } else {
+                    return "C";
+                }
+            }
     };
     
     std::map < Addr, std::map < Addr, MJL_oracleProxyStats * > > * MJL_perPCAddrOracleProxyStats;
@@ -649,6 +656,7 @@ class BaseCache : public MemObject
     const int MJL_2DTransferType;
     const Cycles MJL_extra2DWriteLatency;
     const bool MJL_oracleProxy;
+    const bool MJL_oracleProxyReplay;
     /* MJL_End */
 
     /**

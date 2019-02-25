@@ -82,6 +82,7 @@ BaseCache::BaseCache(const BaseCacheParams *p, unsigned blk_size)
       MJL_2DTransferType(p->MJL_2D_Transfer_Type),
       MJL_extra2DWriteLatency(p->MJL_extra2DWrite_latency),
       MJL_oracleProxy(p->MJL_oracleProxy),
+      MJL_oracleProxyReplay(p->MJL_oracleProxyReplay),
       /* MJL_End */
       lookupLatency(p->tag_latency),
       dataLatency(p->data_latency),
