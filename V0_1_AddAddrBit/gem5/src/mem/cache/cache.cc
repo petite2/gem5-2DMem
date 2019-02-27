@@ -5302,7 +5302,7 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
     
     // Trace output for oracle proxy analysis
     if ((pkt->req->hasPC())
-        && (this->name().find("dcache") != std::string::npos) && cache->MJL_oracleProxy) {
+        && (this->name().find("dcache") != std::string::npos) /*&& cache->MJL_oracleProxy*/) {
         std::cout << "MJL_traceOut: " << std::hex << pkt->req->getPC() << " " << pkt->getAddr() << std::dec << " " << pkt->getSize() << std::endl;
     }
 
