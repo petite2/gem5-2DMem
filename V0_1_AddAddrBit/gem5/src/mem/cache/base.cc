@@ -1055,6 +1055,19 @@ BaseCache::regStats()
         .desc("number of true negatives in the bloom filter")
         .flags(nonan)
         ;
+
+    MJL_predTrue
+        .name(name() + ".MJL_predTrue")
+        .desc("number of misses with predicted direction that is the same as oracle direction")
+        .flags(nozero | nonan)
+        ;
+
+    MJL_predFalse
+        .name(name() + ".MJL_predFalse")
+        .desc("number of misses with predicted direction that is different from oracle direction")
+        .flags(nozero | nonan)
+        ;
+    
     /* MJL_End */
 
 }

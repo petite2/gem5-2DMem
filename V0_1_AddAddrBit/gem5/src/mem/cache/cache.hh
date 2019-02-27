@@ -1180,6 +1180,7 @@ class Cache : public BaseCache
 
     std::map < Addr, std::map < MemCmd::MJL_DirAttribute, uint64_t > > * MJL_perPCAccessCount;
     std::map < Addr, std::vector < MemCmd::MJL_DirAttribute > > * MJL_perPCAccessTrace;
+    std::map < Addr, std::map < Addr, std::map< MemCmd::MJL_DirAttribute, uint64_t> > > * MJL_perPCAddrAccessCount;
 
     void MJL_countAccess(Addr pc, MemCmd::MJL_DirAttribute dir) {
         if ( MJL_perPCAccessCount->find(pc) == MJL_perPCAccessCount->end() || (*MJL_perPCAccessCount)[pc].find(dir) == (*MJL_perPCAccessCount)[pc].end() ) {
@@ -1187,6 +1188,40 @@ class Cache : public BaseCache
         }
         (*MJL_perPCAccessCount)[pc][dir]++;
         (*MJL_perPCAccessTrace)[pc].push_back(dir);
+    }
+
+    void MJL_countPCAddrAccess(Addr pc, Addr addr, MemCmd::MJL_DirAttribute dir) {
+        assert(MJL_perPCAddrAccessCount);
+        if ( MJL_perPCAddrAccessCount->find(pc) == MJL_perPCAddrAccessCount->end() || (*MJL_perPCAddrAccessCount)[pc].find(addr) == (*MJL_perPCAddrAccessCount)[pc].end() || (*MJL_perPCAddrAccessCount)[pc][addr].find(dir) == (*MJL_perPCAddrAccessCount)[pc][addr].end() ) {
+            (*MJL_perPCAddrAccessCount)[pc][addr][dir] = 0;
+        }
+        (*MJL_perPCAddrAccessCount)[pc][addr][dir]++;
+        if (MJL_PCAddr2DirMap.find(pc) != MJL_PCAddr2DirMap.end())
+         && (MJL_PCAddr2DirMap[pc].find(addr) != MJL_PCAddr2DirMap[pc].end()) {
+             if (MJL_PCAddr2DirMap[pc][addr] == dir) {
+                 MJL_predTrue++;
+             } else {
+                 MJL_predFalse++;
+             }
+         }
+    }
+
+    void MJL_printPCAddrAccess() {
+        assert(MJL_perPCAddrAccessCount);
+        std::cout << std::endl << "==== MJL_perPCAddrAccessCount Begin ====" << this->name() << std::endl;
+        std::cout << "PC Addr Row_Accesses Col_Accesses" << std::endl;
+        for (auto PC_it = MJL_perPCAddrAccessCount->begin(); PC_it != MJL_perPCAddrAccessCount->end(); ++PC_it) {
+            for (auto it = PC_it->second.begin(); it != PC_it->second.end(); ++it) {
+                if ( it->second.find(MemCmd::MJL_DirAttribute::MJL_IsRow) == it->second.end() ) {
+                    (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] = 0;
+                }
+                if ( it->second.find(MemCmd::MJL_DirAttribute::MJL_IsColumn) == it->second.end() ) {
+                    (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] = 0;
+                }
+                std::cout << std::hex << PC_it->first << " " << it->first << std::dec << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsRow] << " " << (it->second)[MemCmd::MJL_DirAttribute::MJL_IsColumn] << std::endl;
+            }
+        }
+        std::cout << "==== MJL_perPCAddrAccessCount End ====" << this->name() << std::endl;
     }
 
     void MJL_printAccess() {

@@ -900,6 +900,8 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_bloomFilterFalsePositives;
     Stats::Scalar MJL_bloomFilterTruePositives;
     Stats::Scalar MJL_bloomFilterTrueNegatives;
+    Stats::Scalar MJL_predTrue;
+    Stats::Scalar MJL_predFalse;
     bool MJL_Debug_Out;
     /* MJL_End */
 

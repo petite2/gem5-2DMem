@@ -122,6 +122,10 @@ Cache::Cache(const CacheParams *p)
     */
     if (MJL_predictDir) {
         MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir);
+        if (this->name().find("dcache") != std::string::npos) {
+            MJL_perPCAddrAccessCount = new std::map < Addr, std::map < Addr, std::map< MemCmd::MJL_DirAttribute, uint64_t > > > ();
+            registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printPCAddrAccess>(this));
+        }
     }
     if (MJL_bloomFilterSize > 0) {
         MJL_rowColBloomFilter = new MJL_RowColBloomFilter(this->name() + ".MJL_bloomfilter", MJL_bloomFilterSize, tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, MJL_bloomFilterHashFuncId);
@@ -1970,6 +1974,10 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
         assert(pkt->getAddr() == MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir()));
     } else {
         assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
+    }
+
+    if ( MJL_perPCAddrAccessCount && cpu_pkt->req->hasPC() ) {
+        MJL_countPCAddrAccess(cpu_pkt->req->getPC(), cpu_pkt->getAddr(), pkt->MJL_getCmdDir());
     }
 
     /* MJL_End */
