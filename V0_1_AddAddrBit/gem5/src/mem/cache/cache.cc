@@ -120,6 +120,7 @@ Cache::Cache(const CacheParams *p)
         MJL_pred_Debug_Out = true;
     }
     */
+    MJL_perPCAddrAccessCount = nullptr;
     if (MJL_predictDir) {
         MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir);
         if (this->name().find("dcache") != std::string::npos) {
@@ -1975,11 +1976,6 @@ Cache::createMissPacket(PacketPtr cpu_pkt, CacheBlk *blk,
     } else {
         assert(pkt->getAddr() == blockAlign(pkt->getAddr()));
     }
-
-    if ( MJL_perPCAddrAccessCount && cpu_pkt->req->hasPC() ) {
-        MJL_countPCAddrAccess(cpu_pkt->req->getPC(), cpu_pkt->getAddr(), pkt->MJL_getCmdDir());
-    }
-
     /* MJL_End */
     /* MJL_Test 
     if (this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
@@ -4871,6 +4867,11 @@ Cache::sendMSHRQueuePacket(MSHR* mshr)
     // either a prefetch that is not present upstream, or a normal
     // MSHR request, proceed to get the packet to send downstream
     PacketPtr pkt = createMissPacket(tgt_pkt, blk, mshr->needsWritable());
+    /* MJL_Begin */
+    if ( MJL_perPCAddrAccessCount && tgt_pkt->req->hasPC() ) {
+        MJL_countPCAddrAccess(tgt_pkt->req->getPC(), tgt_pkt->getAddr(), pkt->MJL_getCmdDir());
+    }
+    /* MJL_End */
 
     mshr->isForward = (pkt == nullptr);
 

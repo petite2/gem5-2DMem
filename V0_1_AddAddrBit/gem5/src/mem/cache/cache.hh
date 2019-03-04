@@ -1196,8 +1196,8 @@ class Cache : public BaseCache
             (*MJL_perPCAddrAccessCount)[pc][addr][dir] = 0;
         }
         (*MJL_perPCAddrAccessCount)[pc][addr][dir]++;
-        if (MJL_PCAddr2DirMap.find(pc) != MJL_PCAddr2DirMap.end())
-         && (MJL_PCAddr2DirMap[pc].find(addr) != MJL_PCAddr2DirMap[pc].end()) {
+        if (MJL_PCAddr2DirMap.find(pc) != MJL_PCAddr2DirMap.end()
+         && MJL_PCAddr2DirMap[pc].find(addr) != MJL_PCAddr2DirMap[pc].end()) {
              if (MJL_PCAddr2DirMap[pc][addr] == dir) {
                  MJL_predTrue++;
              } else {
