@@ -244,6 +244,34 @@ class Queue : public Drainable
         return nullptr;
     }
 
+    Entry* MJL_findPendingTile(Addr blk_addr, bool is_secure, Addr tilemask) const
+    {
+        for (const auto& entry : readyList) {
+            if ((entry->blkAddr & tilemask) == (blk_addr & tilemask) && entry->isSecure == is_secure) {
+                return entry;
+            }
+        }
+        return nullptr;
+    }
+
+    Entry* MJL_findPendingCrossing(Addr blk_addr, QueueEntry::MJL_QEntryDir MJL_queue_entry_dir, bool is_secure, Addr tilemask) const
+    {
+        QueueEntry::MJL_QEntryDir MJL_cross_queue_entry_dir = MJL_queue_entry_dir;
+        if (MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsRow) {
+            MJL_cross_queue_entry_dir = QueueEntry::MJL_QEntryDir::MJL_IsColumn;
+        } else if (MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsColumn) {
+            MJL_cross_queue_entry_dir = QueueEntry::MJL_QEntryDir::MJL_IsRow;
+        } else {
+            assert(MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsRow || MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsColumn);
+        }
+        for (const auto& entry : readyList) {
+            if ((entry->blkAddr & tilemask) == (blk_addr & tilemask) && entry->isSecure == is_secure && entry->MJL_qEntryDir == MJL_cross_queue_entry_dir) {
+                return entry;
+            }
+        }
+        return nullptr;
+    }
+
     bool MJL_hasCrossing(Addr blk_addr, QueueEntry::MJL_QEntryDir MJL_queue_entry_dir, bool is_secure, Addr tilemask) const
     {
         QueueEntry::MJL_QEntryDir MJL_cross_queue_entry_dir = MJL_queue_entry_dir;
