@@ -57,7 +57,7 @@ using namespace std;
 BaseTags::BaseTags(const Params *p)
     : ClockedObject(p), blkSize(p->block_size)/* MJL_Begin */, 
       MJL_rowWidth(p->MJL_rowWidth), MJL_timeStep(p->MJL_timeStep), 
-      MJL_timeStepScheduled(false), MJL_sameSetMapping(p->MJL_sameSetMapping), MJL_oracleProxy(p->MJL_oracleProxy)/* MJL_End */, size(p->size),
+      MJL_timeStepScheduled(false), MJL_sameSetMapping(p->MJL_sameSetMapping), MJL_oracleProxy(false)/* MJL_End */, size(p->size),
       lookupLatency(p->tag_latency),
       accessLatency(p->sequential_access ?
                     p->tag_latency + p->data_latency :

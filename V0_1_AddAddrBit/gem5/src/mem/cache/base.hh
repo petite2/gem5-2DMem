@@ -1196,17 +1196,6 @@ class BaseCache : public MemObject
         // should only see writes or clean evicts here
         assert(pkt->isWrite() || pkt->cmd == MemCmd::CleanEvict);
 
-        /* MJL_Test */
-        if (MJL_Debug_Out && (this->name().find("dcache") != std::string::npos
-                || this->name().find("l2") != std::string::npos
-                || this->name().find("l3") != std::string::npos)
-                // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
-                // && ( MJL_debugOutFlag )
-                // && (pkt->getAddr() >= 0x38c000 && pkt->getAddr() < 0x390000)
-            ) {
-            std::clog << this->name() << "::MJL_Debug: allocateWriteBuffer " << pkt->print() << std::endl;
-        }
-        /* */
         /* MJL_Comment
         Addr blk_addr = blockAlign(pkt->getAddr());
         */
@@ -1220,6 +1209,10 @@ class BaseCache : public MemObject
         */
         /* MJL_Begin */
             writeBuffer.MJL_findMatch(blk_addr, pkt->MJL_getDataDir(), pkt->isSecure());
+        WriteQueueEntry *crossing_wq_entry = writeBuffer.MJL_findMatchCrossing(blk_addr, pkt->MJL_getDataDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))));
+        if (crossing_wq_entry && (wq_entry == nullptr || (wq_entry && crossing_wq_entry->getTarget()->readyTime > wq_entry->getTarget()->readyTime))) {
+            wq_entry = crossing_wq_entry;
+        }
 
         uint64_t MJL_order;
         if (pkt->MJL_hasOrder) {
@@ -1232,6 +1225,17 @@ class BaseCache : public MemObject
         if (wq_entry && wq_entry->getTarget()->readyTime > MJL_time) {
             MJL_time = wq_entry->getTarget()->readyTime;
         }
+        /* MJL_Test */
+        if (MJL_Debug_Out && (this->name().find("dcache") != std::string::npos
+                || this->name().find("l2") != std::string::npos
+                || this->name().find("l3") != std::string::npos)
+                // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
+                // && ( MJL_debugOutFlag )
+                // && (pkt->getAddr() >= 0x38c000 && pkt->getAddr() < 0x390000)
+            ) {
+            std::clog << this->name() << "::MJL_Debug: allocateWriteBuffer " << pkt->print() << ", order " << MJL_order << ", time " << MJL_time << std::endl;
+        }
+        /* */
         /* MJL_End */
         if (wq_entry && !wq_entry->inService) {
             DPRINTF(Cache, "Potential to merge writeback %s", pkt->print());

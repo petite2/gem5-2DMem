@@ -254,8 +254,9 @@ class Queue : public Drainable
         return nullptr;
     }
 
-    Entry* MJL_findPendingCrossing(Addr blk_addr, QueueEntry::MJL_QEntryDir MJL_queue_entry_dir, bool is_secure, Addr tilemask) const
+    Entry* MJL_findMatchCrossing(Addr blk_addr, QueueEntry::MJL_QEntryDir MJL_queue_entry_dir, bool is_secure, Addr tilemask) const
     {
+        Entry* matchCrossing_entry = nullptr;
         QueueEntry::MJL_QEntryDir MJL_cross_queue_entry_dir = MJL_queue_entry_dir;
         if (MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsRow) {
             MJL_cross_queue_entry_dir = QueueEntry::MJL_QEntryDir::MJL_IsColumn;
@@ -264,12 +265,12 @@ class Queue : public Drainable
         } else {
             assert(MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsRow || MJL_queue_entry_dir == QueueEntry::MJL_QEntryDir::MJL_IsColumn);
         }
-        for (const auto& entry : readyList) {
-            if ((entry->blkAddr & tilemask) == (blk_addr & tilemask) && entry->isSecure == is_secure && entry->MJL_qEntryDir == MJL_cross_queue_entry_dir) {
-                return entry;
+        for (const auto& entry : allocatedList) {
+            if (!entry->isUncacheable() && (entry->blkAddr & tilemask) == (blk_addr & tilemask) && entry->isSecure == is_secure && entry->MJL_qEntryDir == MJL_cross_queue_entry_dir) {
+                matchCrossing_entry = entry;
             }
         }
-        return nullptr;
+        return matchCrossing_entry;
     }
 
     bool MJL_hasCrossing(Addr blk_addr, QueueEntry::MJL_QEntryDir MJL_queue_entry_dir, bool is_secure, Addr tilemask) const
