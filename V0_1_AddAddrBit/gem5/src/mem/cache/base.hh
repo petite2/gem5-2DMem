@@ -267,6 +267,12 @@ class BaseCache : public MemObject
             uint64_t MJL_bloomFilterTruePositives;
             uint64_t MJL_bloomFilterTrueNegatives;
 
+            unsigned LLBC_num_bits;
+            std::vector<std::vector<unsigned>* > LLBC_perms;
+            bool dual_hash;
+            const unsigned dual_hash_func_id;
+            std::vector<MJL_RowColBloomFilterEntry> dual_rol_col_BloomFilter;
+
             int floorLog2(unsigned x) const {
                 assert(x > 0);
 
@@ -293,13 +299,34 @@ class BaseCache : public MemObject
 
                 return (tile_row_Id << (MJL_colShift - MJL_lineShift)) | tile_col_Id;
             }
+            Addr SPNRoundFunction(Addr addr, unsigned num_bits, std::vector<unsigned> * perm) const {
+                Addr Raddr = addr & ((1 << num_bits) - 1);
+                Addr Laddr = (addr >> num_bits) & ((1 << num_bits) - 1);
+                Addr Haddr = addr >> (2*num_bits);
+                Addr new_Laddr = Raddr;
+                Addr Saddr = Raddr;
+                Addr Paddr = 0;
+                for (unsigned i = 0; i < num_bits; ++i) {
+                    Addr ith_bit = (Saddr >> i) & 1;
+                    Paddr = Paddr | (ith_bit << perm->at(i));
+                }
+                Addr new_Raddr = Laddr ^ Paddr;
+                return ((Haddr << (2*num_bits)) | (new_Laddr << num_bits) | new_Raddr);
+            }
+            Addr LLBC(Addr addr, unsigned perm_id) const {
+                Addr new_addr = addr;
+                for (int i = 0; i < 4; ++i) {
+                    new_addr = SPNRoundFunction(new_addr, LLBC_num_bits, LLBC_perms[perm_id]);
+                }
+                return new_addr;
+            }
             /** Obtain hash of the tile address */
-            Addr tileAddrHash(Addr tileAddr) const {
+            Addr tileAddrHash(Addr tileAddr, unsigned in_hash_func_id) const {
                 Addr hash = tileAddr;
                 int col_shift = floorLog2(MJL_rowWidth);
                 Addr hash_row = tileAddr >> col_shift;
                 Addr hash_col = tileAddr & ((1 << col_shift) - 1);
-                switch(hash_func_id) {
+                switch(in_hash_func_id) {
                     case 0: hash = tileAddr % size;
                         break;
                     case 1: col_shift = std::min(col_shift, floorLog2(size)/2);
@@ -368,45 +395,137 @@ class BaseCache : public MemObject
                             hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
                             assert(hash < size);
                         break;
+                    case 11: hash_row = hash_row >> 1;
+                            hash_col = hash_col;
+                            col_shift = std::min(col_shift, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 12: hash_row = hash_row;
+                            hash_col = hash_col >> 1;
+                            if (col_shift < 1) {
+                            	col_shift = 1;
+                            }
+                            col_shift = std::min(col_shift - 1, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 21: hash_row = hash_row >> 2;
+                            hash_col = hash_col;
+                            col_shift = std::min(col_shift, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 22: hash_row = hash_row;
+                            hash_col = hash_col >> 2;
+                            if (col_shift < 2) {
+                            	col_shift = 2;
+                            }
+                            col_shift = std::min(col_shift - 2, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 30:
+                        hash = LLBC(tileAddr, 0) % size;
+                        break;
+                    case 31:
+                        hash = LLBC(tileAddr, 1) % size;
+                        break;
+                    case 32:
+                        hash_row = hash_row >> 1;
+                        hash_col = hash_col;
+                        hash = LLBC(((hash_row << col_shift) | hash_col), 2) % size;
+                        break;
+                    case 33:
+                        hash_row = hash_row;
+                        hash_col = hash_col >> 1;
+                        hash = LLBC(((hash_row << (col_shift - 1)) | hash_col), 3) % size;
+                        break;
                     default: hash = tileAddr % size;
                         break;
                 }
                 return hash;
             }
             /** Obtain hash of the address */
-            Addr addrHash(Addr addr) const {
-                return tileAddrHash(getTileAddr(addr));
+            Addr addrHash(Addr addr, unsigned in_hash_func_id) const {
+                return tileAddrHash(getTileAddr(addr), in_hash_func_id);
             }
         public:
-            MJL_RowColBloomFilter(std::string in_name, unsigned in_size, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, unsigned in_hash_func_id):name(in_name), size(in_size), cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_id(in_hash_func_id), MJL_bloomFilterFalsePositives(0), MJL_bloomFilterTruePositives(0), MJL_bloomFilterTrueNegatives(0) {
-                for (unsigned i = 0; i < size; ++i) {
-                    rol_col_BloomFilter.emplace_back(cache_num_of_cachelines);
+            MJL_RowColBloomFilter(std::string in_name, unsigned in_size, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, unsigned in_hash_func_id, bool in_dual_hash = false):name(in_name), size(in_size), cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_id(in_hash_func_id), MJL_bloomFilterFalsePositives(0), MJL_bloomFilterTruePositives(0), MJL_bloomFilterTrueNegatives(0), dual_hash(in_dual_hash), dual_hash_func_id(in_hash_func_id + 1) {
+                if (dual_hash) {
+                    for (unsigned i = 0; i < size; ++i) {
+                        rol_col_BloomFilter.emplace_back(cache_num_of_cachelines);
+                        dual_rol_col_BloomFilter.emplace_back(cache_num_of_cachelines);
+                    }
+                } else {
+                    for (unsigned i = 0; i < size; ++i) {
+                        rol_col_BloomFilter.emplace_back(cache_num_of_cachelines);
+                    }
+                }
+                LLBC_num_bits = 20;
+                std::vector<unsigned> * perm0 = new std::vector<unsigned>({4, 10, 11, 15, 14, 16, 17, 1, 6, 9, 3, 7, 19, 2, 0, 12, 5, 18, 13, 8});
+                std::vector<unsigned> * perm1 = new std::vector<unsigned>({2, 4, 12, 18, 11, 10, 5, 7, 6, 19, 9, 17, 0, 15, 13, 1, 8, 3, 16, 14});
+                std::vector<unsigned> * perm2 = new std::vector<unsigned>({7, 13, 14, 15, 8, 11, 2, 5, 3, 9, 12, 1, 4, 10, 18, 16, 6, 19, 17, 0});
+                std::vector<unsigned> * perm3 = new std::vector<unsigned>({8, 15, 3, 11, 2, 9, 13, 0, 7, 19, 12, 4, 14, 5, 17, 10, 1, 18, 6, 16});
+                LLBC_perms.push_back(perm0);
+                LLBC_perms.push_back(perm1);
+                LLBC_perms.push_back(perm2);
+                LLBC_perms.push_back(perm3);
+            }
+            ~MJL_RowColBloomFilter() {
+                for (int i = 0; i < 4; ++i) {
+                    delete LLBC_perms[i];
                 }
             }
-            ~MJL_RowColBloomFilter() {}
             /** Return the total number of cache lines counted */
             unsigned total() const {
                 unsigned total = 0;
                 for (auto bloomFilterEntry : rol_col_BloomFilter) {
                     total += bloomFilterEntry.total();
                 }
+                if (dual_hash) {
+                    for (auto bloomFilterEntry : dual_rol_col_BloomFilter) {
+                        total += bloomFilterEntry.total();
+                    }
+                }
                 return total;
             }
             /** Add the cacheline to the bloom filter */
             void add(Addr addr, MemCmd::MJL_DirAttribute blkDir) {
-                rol_col_BloomFilter[addrHash(addr)].countBlkAlloc(blkDir);
+                rol_col_BloomFilter[addrHash(addr, hash_func_id)].countBlkAlloc(blkDir);
+                if (dual_hash) {
+                    dual_rol_col_BloomFilter[addrHash(addr, dual_hash_func_id)].countBlkAlloc(blkDir);
+                }
             }
             /** Remove the cacheline from the bloom filter */
             void remove(Addr addr, MemCmd::MJL_DirAttribute blkDir) {
-                rol_col_BloomFilter[addrHash(addr)].countBlkEvict(blkDir);
+                rol_col_BloomFilter[addrHash(addr, hash_func_id)].countBlkEvict(blkDir);
+                if (dual_hash) {
+                    dual_rol_col_BloomFilter[addrHash(addr, dual_hash_func_id)].countBlkEvict(blkDir);
+                }
             }
             /** Check in the bloom filter if there may exist crossing cachelines in the cache */
             bool hasCross(Addr addr, MemCmd::MJL_DirAttribute blkDir) const {
-                return rol_col_BloomFilter[addrHash(addr)].hasCross(blkDir);
+                bool result = rol_col_BloomFilter[addrHash(addr, hash_func_id)].hasCross(blkDir);
+                if (dual_hash) {
+                    result &= dual_rol_col_BloomFilter[addrHash(addr, dual_hash_func_id)].hasCross(blkDir);
+                }
+                return result;
             }
             /** Count for the stats */
             void countStats(Addr addr, MemCmd::MJL_DirAttribute blkDir, bool hasCross) {
-                bool bloomFilterHasCross = rol_col_BloomFilter[addrHash(addr)].hasCross(blkDir);
+                bool bloomFilterHasCross = rol_col_BloomFilter[addrHash(addr, hash_func_id)].hasCross(blkDir);
+                if (dual_hash) {
+                    bloomFilterHasCross &= dual_rol_col_BloomFilter[addrHash(addr, dual_hash_func_id)].hasCross(blkDir);
+                }
                 if (!bloomFilterHasCross) {
                     assert(!hasCross);
                     MJL_bloomFilterTrueNegatives++;
@@ -424,6 +543,14 @@ class BaseCache : public MemObject
                 for (unsigned i = 0; i < size; ++i) {
                     if (rol_col_BloomFilter[i].hasCross(MemCmd::MJL_DirAttribute::MJL_IsRow) || rol_col_BloomFilter[i].hasCross(MemCmd::MJL_DirAttribute::MJL_IsColumn)) {
                         str << i << ": " << rol_col_BloomFilter[i].print() << std::endl;
+                    }
+                }
+                if (dual_hash) {
+                    str << "dual_" << name << ": " << std::endl;
+                    for (unsigned i = 0; i < size; ++i) {
+                        if (dual_rol_col_BloomFilter[i].hasCross(MemCmd::MJL_DirAttribute::MJL_IsRow) || dual_rol_col_BloomFilter[i].hasCross(MemCmd::MJL_DirAttribute::MJL_IsColumn)) {
+                            str << i << ": " << dual_rol_col_BloomFilter[i].print() << std::endl;
+                        }
                     }
                 }
                 return str.str();
@@ -448,11 +575,12 @@ class BaseCache : public MemObject
             std::map< unsigned, std::map<unsigned, MJL_RowColBloomFilter*> > test_row_col_BloomFilters;
             std::vector< unsigned > hash_func_ids;
             std::vector< unsigned > sizes;
+            const bool dual_hash;
         public:
-            MJL_Test_RowColBloomFilters(std::string in_name, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, std::vector< unsigned > &in_hash_func_ids, std::vector< unsigned > &in_sizes):cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_ids(in_hash_func_ids), sizes(in_sizes) {
+            MJL_Test_RowColBloomFilters(std::string in_name, unsigned in_cache_num_of_cachelines, unsigned in_MJL_rowWidth, unsigned in_blkSize, std::vector< unsigned > &in_hash_func_ids, std::vector< unsigned > &in_sizes, bool in_dual_hash = false):cache_num_of_cachelines(in_cache_num_of_cachelines), MJL_rowWidth(in_MJL_rowWidth), blkSize(in_blkSize), hash_func_ids(in_hash_func_ids), sizes(in_sizes), dual_hash(in_dual_hash) {
                 for (auto hash_func_id : hash_func_ids) {
                     for (auto size : sizes) {
-                        test_row_col_BloomFilters[hash_func_id][size] = new MJL_RowColBloomFilter(in_name + ".MJL_Test_bloomfilter_" + std::to_string(hash_func_id) + "_" + std::to_string(size), size, cache_num_of_cachelines, MJL_rowWidth, blkSize, hash_func_id);
+                        test_row_col_BloomFilters[hash_func_id][size] = new MJL_RowColBloomFilter(in_name + ".MJL_Test_bloomfilter_" + std::to_string(hash_func_id) + "_" + std::to_string(size), size, cache_num_of_cachelines, MJL_rowWidth, blkSize, hash_func_id, dual_hash);
                     }
                 }
                 std::cout << "MJL_TestBloomFilters_Configs:" << std::endl;
@@ -465,6 +593,8 @@ class BaseCache : public MemObject
                 for (auto size : sizes) {
                     std::cout << size << " ";
                 }
+                std::cout << std::endl;
+                std::cout << "dual_hash: " << dual_hash;
                 std::cout << std::endl;
             }
             void test_add(Addr addr, MemCmd::MJL_DirAttribute blkDir) {

@@ -147,20 +147,24 @@ Cache::Cache(const CacheParams *p)
         // registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printOracleProxyStats>(this));
     } */
     /* */
-    /* MJL_Test  
+    /* MJL_Test */ 
     std::vector< unsigned > hash_func_ids;
     std::vector< unsigned > sizes;
-    for (unsigned i = 0; i < 8; ++i) {
-        hash_func_ids.emplace_back(i);
-    }
+    // for (unsigned i = 0; i < 8; ++i) {
+    //     hash_func_ids.emplace_back(i);
+    // }
+    hash_func_ids.emplace_back(11);
+    hash_func_ids.emplace_back(21);
+    hash_func_ids.emplace_back(30);
+    hash_func_ids.emplace_back(32);
     for (unsigned i = 1; i <= tags->getNumSets() * tags->getNumWays(); i = 2*i) {
         sizes.emplace_back(i);
     }
     if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache) {
-        MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(this->name(), tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes);
+        MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(this->name(), tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes, true);
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printTestBloomFiltersStats>(this));
     }
-     */
+    /* */
 }
 
 Cache::~Cache()
