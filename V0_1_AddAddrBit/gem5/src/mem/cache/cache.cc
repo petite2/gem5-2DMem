@@ -129,7 +129,7 @@ Cache::Cache(const CacheParams *p)
         }
     }
     if (MJL_bloomFilterSize > 0) {
-        MJL_rowColBloomFilter = new MJL_RowColBloomFilter(this->name() + ".MJL_bloomfilter", MJL_bloomFilterSize, tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, MJL_bloomFilterHashFuncId);
+        MJL_rowColBloomFilter = new MJL_RowColBloomFilter(this->name() + ".MJL_bloomfilter", MJL_bloomFilterSize, tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, MJL_bloomFilterHashFuncId);//, true);
     }
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
         std::cout << "MJL_ignoreExtraTagCheckLatency? " << MJL_ignoreExtraTagCheckLatency << std::endl;
@@ -147,7 +147,7 @@ Cache::Cache(const CacheParams *p)
         // registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printOracleProxyStats>(this));
     } */
     /* */
-    /* MJL_Test */ 
+    /* MJL_Test  
     std::vector< unsigned > hash_func_ids;
     std::vector< unsigned > sizes;
     // for (unsigned i = 0; i < 8; ++i) {
@@ -155,16 +155,19 @@ Cache::Cache(const CacheParams *p)
     // }
     hash_func_ids.emplace_back(11);
     hash_func_ids.emplace_back(21);
+    hash_func_ids.emplace_back(23);
     hash_func_ids.emplace_back(30);
     hash_func_ids.emplace_back(32);
-    for (unsigned i = 1; i <= tags->getNumSets() * tags->getNumWays(); i = 2*i) {
+    hash_func_ids.emplace_back(34);
+    hash_func_ids.emplace_back(36);
+    for (unsigned i = 1; i <= tags->getNumSets() * tags->getNumWays() / 2; i = 2*i) {
         sizes.emplace_back(i);
     }
     if ((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !MJL_2DCache) {
         MJL_Test_rowColBloomFilters = new MJL_Test_RowColBloomFilters(this->name(), tags->getNumSets() * tags->getNumWays(), MJL_rowWidth, blkSize, hash_func_ids, sizes, true);
         registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printTestBloomFiltersStats>(this));
     }
-    /* */
+     */
 }
 
 Cache::~Cache()

@@ -433,6 +433,25 @@ class BaseCache : public MemObject
                             hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
                             assert(hash < size);
                         break;
+                    case 23: hash_row = hash_row >> 3;
+                            hash_col = hash_col;
+                            col_shift = std::min(col_shift, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
+                    case 24: hash_row = hash_row;
+                            hash_col = hash_col >> 3;
+                            if (col_shift < 3) {
+                                col_shift = 3;
+                            }
+                            col_shift = std::min(col_shift - 3, floorLog2(size)/2);
+                            hash_row = hash_row ^ (hash_row >> (floorLog2(size) - col_shift));
+                            hash_col = hash_col ^ (hash_col >> col_shift);
+                            hash = ((hash_row & ((1 << (floorLog2(size) - col_shift)) - 1)) << col_shift) | (hash_col & ((1 << col_shift) - 1));
+                            assert(hash < size);
+                        break;
                     case 30:
                         hash = LLBC(tileAddr, 0) % size;
                         break;
@@ -448,6 +467,26 @@ class BaseCache : public MemObject
                         hash_row = hash_row;
                         hash_col = hash_col >> 1;
                         hash = LLBC(((hash_row << (col_shift - 1)) | hash_col), 3) % size;
+                        break;
+                    case 34:
+                        hash_row = hash_row >> 2;
+                        hash_col = hash_col;
+                        hash = LLBC(((hash_row << col_shift) | hash_col), 2) % size;
+                        break;
+                    case 35:
+                        hash_row = hash_row;
+                        hash_col = hash_col >> 2;
+                        hash = LLBC(((hash_row << (col_shift - 2)) | hash_col), 3) % size;
+                        break;
+                    case 36:
+                        hash_row = hash_row >> 3;
+                        hash_col = hash_col;
+                        hash = LLBC(((hash_row << col_shift) | hash_col), 2) % size;
+                        break;
+                    case 37:
+                        hash_row = hash_row;
+                        hash_col = hash_col >> 3;
+                        hash = LLBC(((hash_row << (col_shift - 3)) | hash_col), 3) % size;
                         break;
                     default: hash = tileAddr % size;
                         break;
@@ -492,9 +531,11 @@ class BaseCache : public MemObject
                     total += bloomFilterEntry.total();
                 }
                 if (dual_hash) {
+                    unsigned dual_total = 0;
                     for (auto bloomFilterEntry : dual_rol_col_BloomFilter) {
-                        total += bloomFilterEntry.total();
+                        dual_total += bloomFilterEntry.total();
                     }
+                    assert(total == dual_total);
                 }
                 return total;
             }
