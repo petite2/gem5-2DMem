@@ -89,6 +89,15 @@ class StridePrefetcher(QueuedPrefetcher):
 
     degree = Param.Int(4, "Number of prefetches to generate")
 
+class GHBDeltaCorrelationPrefetcher(QueuedPrefetcher):
+    type = 'GHBDeltaCorrelationPrefetcher'
+    cxx_class = 'GHBDCPrefetcher'
+    cxx_header = "mem/cache/prefetch/GHBDC.hh"
+
+    index_table_size = Param.Int(64, "Number of entries in the index table")
+    GHB_size = Param.Int(256, "Number of entries in the global history table")
+    degree = Param.Int(4, "Number of prefetches to generate")
+
 class TaggedPrefetcher(QueuedPrefetcher):
     type = 'TaggedPrefetcher'
     cxx_class = 'TaggedPrefetcher'
