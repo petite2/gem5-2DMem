@@ -89,13 +89,35 @@ class StridePrefetcher(QueuedPrefetcher):
 
     degree = Param.Int(4, "Number of prefetches to generate")
 
-class GHBDeltaCorrelationPrefetcher(QueuedPrefetcher):
-    type = 'GHBDeltaCorrelationPrefetcher'
-    cxx_class = 'GHBDCPrefetcher'
-    cxx_header = "mem/cache/prefetch/GHBDC.hh"
+# class BingoPrefetcher(QueuedPrefetcher):
+#     type = 'BingoPrefetcher'
+#     cxx_class = 'BingoPrefetcher'
+#     cxx_header = "mem/cache/prefetch/bingo.hh"
 
-    index_table_size = Param.Int(64, "Number of entries in the index table")
-    GHB_size = Param.Int(256, "Number of entries in the global history table")
+#     pattern_len = Param.Int(2 * 1024 / 64, "Number of cache lines per region")
+#     filter_table_size = Param.Int(64, "Number of entries in the filter table")
+#     accumulation_table_size = Param.Int(128, "Number of entries in the accumulation table")
+#     pattern_history_table_size = Param.Int(16 * 1024, "Number of entries in the pattern history tables")
+#     addr_width = Param.Int(16, "Number of bits (from LSB) of the address used to generate pattern history table key")
+#     pc_width =Param.Int(16, "Number of bits (from LSB) of the PC used to generate pattern history table key")
+#     use_master_id = Param.Bool(True, "Use master id based history")
+
+#     degree = Param.Int(4, "Number of prefetches to generate")
+
+class BestOffsetPrefetcher(QueuedPrefetcher):
+    type = 'BestOffsetPrefetcher'
+    cxx_class = 'BestOffsetPrefetcher'
+    cxx_header = "mem/cache/prefetch/bo.hh"
+
+    max_conf = Param.Int(7, "Maximum confidence level")
+    thresh_conf = Param.Int(4, "Threshold confidence level")
+    min_conf = Param.Int(0, "Minimum confidence level")
+    start_conf = Param.Int(4, "Starting confidence for new entries")
+
+    table_sets = Param.Int(16, "Number of sets in PC lookup table")
+    table_assoc = Param.Int(4, "Associativity of PC lookup table")
+    use_master_id = Param.Bool(True, "Use master id based history")
+
     degree = Param.Int(4, "Number of prefetches to generate")
 
 class TaggedPrefetcher(QueuedPrefetcher):
