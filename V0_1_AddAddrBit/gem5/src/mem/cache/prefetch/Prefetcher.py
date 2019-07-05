@@ -94,8 +94,6 @@ class BingoPrefetcher(QueuedPrefetcher):
     cxx_class = 'BingoPrefetcher'
     cxx_header = "mem/cache/prefetch/bingo.hh"
 
-    on_write = Param.Bool(False, "Notify prefetcher on writes")
-
     pattern_len = Param.Int(2 * 1024 / 64, "Number of cache lines per region")
     filter_table_size = Param.Int(64, "Number of entries in the filter table")
     accumulation_table_size = Param.Int(128, "Number of entries in the accumulation table")

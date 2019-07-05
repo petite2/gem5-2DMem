@@ -61,8 +61,8 @@ BingoPrefetcher::BingoPrefetcher(const BingoPrefetcherParams *p)
 {
     // Don't consult stride prefetcher on instruction accesses
     onInst = false;
-
-    assert(isPowerOf2(pcTableSets));
+    onWrite = false;
+    std::cout << "MJL_BingoPrefetcher" << std::endl;
 }
 
 void
@@ -86,8 +86,10 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     // Get required packet info
     Addr pkt_addr = pkt->getAddr();
     Addr pc = pkt->req->getPC();
+    /* MJL_TODO: commenting these now, but would need to deal with them in the future
     bool is_secure = pkt->isSecure();
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
+    */
 
     uint64_t block_number = pkt_addr/blkSize;
 
@@ -144,14 +146,14 @@ void BingoPrefetcher::MJL_eviction(Addr addr) {
     }
 }
 
-vector<bool> BingoPrefetcher::find_in_pht(uint64_t pc, uint64_t address) {
+vector<bool> BingoPrefetcher::find_in_phts(uint64_t pc, uint64_t address) {
     if (this->debug_level >= 1) {
         cerr << "[Bingo] find_in_phts(pc=" << pc << ", address=" << address << ")" << endl;
     }
     return this->pht.find(pc, address);
 }
 
-void BingoPrefetcher::insert_in_pht(const AccumulationTable::Entry &entry) {
+void BingoPrefetcher::insert_in_phts(const AccumulationTable::Entry &entry) {
     if (this->debug_level >= 1) {
         cerr << "[Bingo] insert_in_phts(...)" << endl;
     }
@@ -169,13 +171,13 @@ BingoPrefetcherParams::create()
 
 Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}
 
-void Table::set_row(int row, const vector<string> &data, int start_col = 0) {
+void Table::set_row(int row, const vector<string> &data, int start_col/* = 0*/) {
     assert(data.size() + start_col == this->width);
     for (unsigned col = start_col; col < this->width; col += 1)
         this->set_cell(row, col, data[col]);
 }
 
-void Table::set_col(int col, const vector<string> &data, int start_row = 0) {
+void Table::set_col(int col, const vector<string> &data, int start_row/* = 0*/) {
     assert(data.size() + start_row == this->height);
     for (unsigned row = start_row; row < this->height; row += 1)
         this->set_cell(row, col, data[row]);
@@ -233,13 +235,13 @@ string Table::data_row(int row, const vector<int> &widths) {
     return out;
 }
 
-static string Table::top_line(const vector<int> &widths) { return Table::line(widths, "┌", "┬", "┐"); }
+string Table::top_line(const vector<int> &widths) { return Table::line(widths, "┌", "┬", "┐"); }
 
-static string Table::mid_line(const vector<int> &widths) { return Table::line(widths, "├", "┼", "┤"); }
+string Table::mid_line(const vector<int> &widths) { return Table::line(widths, "├", "┼", "┤"); }
 
-static string Table::bot_line(const vector<int> &widths) { return Table::line(widths, "└", "┴", "┘"); }
+string Table::bot_line(const vector<int> &widths) { return Table::line(widths, "└", "┴", "┘"); }
 
-static string Table::line(const vector<int> &widths, string left, string mid, string right) {
+string Table::line(const vector<int> &widths, string left, string mid, string right) {
     string out = " " + left;
     for (unsigned i = 0; i < widths.size(); i += 1) {
         int w = widths[i];
@@ -296,7 +298,7 @@ AccumulationTable::Entry AccumulationTable::insert(FilterTable::Entry &entry) {
 }
 
 PatternHistoryTable::PatternHistoryTable(
-    int size, int pattern_len, int min_addr_width, int max_addr_width, int pc_width, int num_ways = 16)
+    int size, int pattern_len, int min_addr_width, int max_addr_width, int pc_width, int num_ways/* = 16*/)
     : Super(size, num_ways), pattern_len(pattern_len), min_addr_width(min_addr_width),
         max_addr_width(max_addr_width), pc_width(pc_width) {
     assert(this->pc_width >= 0);
@@ -385,7 +387,7 @@ uint64_t PatternHistoryTable::build_key(uint64_t pc, uint64_t address) {
     return key;
 }
 
-vector<bool> PatternHistoryTable::vote(const vector<vector<SC2>> &x, float thresh = THRESH) {
+vector<bool> PatternHistoryTable::vote(const vector<vector<SC2>> &x, float thresh/* = THRESH*/) {
     int n = x.size();
     vector<bool> ret(this->pattern_len, false);
     for (int i = 0; i < n; i += 1)

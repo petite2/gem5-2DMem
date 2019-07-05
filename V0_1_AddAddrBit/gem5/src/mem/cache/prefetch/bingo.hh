@@ -355,6 +355,33 @@ class AccumulationTable : public LRUFullyAssociativeCache<AccumulationTableData>
     int pattern_len;
 };
 
+class SC2 {
+  public:
+    SC2(int thresh = 2) : thresh(thresh) {}
+
+    void input(bool in) {
+        if (cnt == -1) {
+            /* init */
+            if (in)
+                cnt = thresh;
+            else
+                cnt = thresh - 1;
+            return;
+        }
+
+        if (in && cnt < 3)
+            cnt += 1;
+        if (!in && cnt > 0)
+            cnt -= 1;
+    }
+
+    bool output() const { return (cnt >= thresh); }
+
+  private:
+    int thresh;
+    int cnt = -1;
+};
+
 template <class T> std::vector<T> my_rotate(const std::vector<T> &x, int n) {
     std::vector<T> y;
     int len = x.size();
@@ -407,8 +434,8 @@ class BingoPrefetcher : public QueuedPrefetcher
     int debug_level = 0;
     const bool useMasterId;
 
-    std::vector<bool> find_in_pht(uint64_t pc, uint64_t address);
-    void insert_in_pht(const AccumulationTable::Entry &entry);
+    std::vector<bool> find_in_phts(uint64_t pc, uint64_t address);
+    void insert_in_phts(const AccumulationTable::Entry &entry);
 
   public:
 
