@@ -1251,6 +1251,12 @@ Cache::doWritebacks(PacketList& writebacks, Tick forward_time)
             std::clog << this->name() << "::doWritebacks " << wbPkt->print() << std::endl;
         }
         /* */
+        /* MJL_Begin */
+        // For Bingo prefetcher, do the eviction 
+        if (prefetcher && !wbPkt->isBlockCached()) {
+            prefetcher->MJL_eviction(wbPkt->getAddr());
+        }
+        /* MJL_End */
         // We use forwardLatency here because we are copying writebacks to
         // write buffer.  Call isCachedAbove for both Writebacks and
         // CleanEvicts. If isCachedAbove returns true we set BLOCK_CACHED flag
@@ -2913,12 +2919,24 @@ endl;
         /* */
         if (blk->isDirty() || writebackClean) {
             PacketPtr wbPkt = writebackBlk(blk);
+            /* MJL_Begin */
+            // For Bingo prefetcher, do the eviction 
+            if (prefetcher && !wbPkt->isBlockCached()) {
+                prefetcher->MJL_eviction(wbPkt->getAddr());
+            }
+            /* MJL_End */
             allocateWriteBuffer(wbPkt, forward_time);
             // Set BLOCK_CACHED flag if cached above.
             if (isCachedAbove(wbPkt))
                 wbPkt->setBlockCached();
         } else {
             PacketPtr wcPkt = cleanEvictBlk(blk);
+            /* MJL_Begin */
+            // For Bingo prefetcher, do the eviction 
+            if (prefetcher && !wcPkt->isBlockCached()) {
+                prefetcher->MJL_eviction(wcPkt->getAddr());
+            }
+            /* MJL_End */
             // Check to see if block is cached above. If not allocate
             // write buffer
             if (isCachedAbove(wcPkt))

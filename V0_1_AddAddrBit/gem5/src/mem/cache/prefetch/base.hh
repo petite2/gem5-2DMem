@@ -159,5 +159,8 @@ class BasePrefetcher : public ClockedObject
     virtual Tick nextPrefetchReadyTime() const = 0;
 
     virtual void regStats();
+    /* MJL_Begin */
+    virtual void MJL_eviction(Addr addr) {};
+    /* MJL_End */
 };
 #endif //__MEM_CACHE_PREFETCH_BASE_HH__

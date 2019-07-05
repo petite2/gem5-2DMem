@@ -89,20 +89,21 @@ class StridePrefetcher(QueuedPrefetcher):
 
     degree = Param.Int(4, "Number of prefetches to generate")
 
-# class BingoPrefetcher(QueuedPrefetcher):
-#     type = 'BingoPrefetcher'
-#     cxx_class = 'BingoPrefetcher'
-#     cxx_header = "mem/cache/prefetch/bingo.hh"
+class BingoPrefetcher(QueuedPrefetcher):
+    type = 'BingoPrefetcher'
+    cxx_class = 'BingoPrefetcher'
+    cxx_header = "mem/cache/prefetch/bingo.hh"
 
-#     pattern_len = Param.Int(2 * 1024 / 64, "Number of cache lines per region")
-#     filter_table_size = Param.Int(64, "Number of entries in the filter table")
-#     accumulation_table_size = Param.Int(128, "Number of entries in the accumulation table")
-#     pattern_history_table_size = Param.Int(16 * 1024, "Number of entries in the pattern history tables")
-#     addr_width = Param.Int(16, "Number of bits (from LSB) of the address used to generate pattern history table key")
-#     pc_width =Param.Int(16, "Number of bits (from LSB) of the PC used to generate pattern history table key")
-#     use_master_id = Param.Bool(True, "Use master id based history")
+    on_write = Param.Bool(False, "Notify prefetcher on writes")
 
-#     degree = Param.Int(4, "Number of prefetches to generate")
+    pattern_len = Param.Int(2 * 1024 / 64, "Number of cache lines per region")
+    filter_table_size = Param.Int(64, "Number of entries in the filter table")
+    accumulation_table_size = Param.Int(128, "Number of entries in the accumulation table")
+    pattern_history_table_size = Param.Int(16 * 1024, "Number of entries in the pattern history tables")
+    min_addr_width = Param.Int(5, "Number of bits (from LSB) of the address used to generate pattern history table key (offset)")
+    max_addr_width = Param.Int(16, "Number of bits (from LSB) of the address used to generate pattern history table key (address)")
+    pc_width =Param.Int(16, "Number of bits (from LSB) of the PC used to generate pattern history table key")
+    use_master_id = Param.Bool(True, "Use master id based history")
 
 class BestOffsetPrefetcher(QueuedPrefetcher):
     type = 'BestOffsetPrefetcher'
