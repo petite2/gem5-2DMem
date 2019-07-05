@@ -51,7 +51,7 @@
 #include <unordered_map>
 
 #include "mem/cache/prefetch/queued.hh"
-#include "params/bo.hh"
+#include "params/BestOffsetPrefetcher.hh"
 
 class BestOffsetPrefetcher : public QueuedPrefetcher
 {
