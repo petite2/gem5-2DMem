@@ -62,14 +62,20 @@ template <class T> class InfiniteCache {
         uint64_t index;
         uint64_t tag;
         bool valid;
+        /* MJL_Begin */
+        bool is_secure;
+        /* MJL_End */
         T data;
     };
 
-    Entry *erase(uint64_t key) {
-        Entry *entry = this->find(key);
+    Entry *erase(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */) {
+        Entry *entry = this->find(key/* MJL_Begin */, is_secure/* MJL_End */);
         if (!entry)
             return nullptr;
         entry->valid = false;
+        /* MJL_Begin */
+        entry->is_secure = false;
+        /* MJL_End */
         this->last_erased_entry = *entry;
         int num_erased = this->entries.erase(key);
         assert(num_erased == 1);
@@ -79,18 +85,21 @@ template <class T> class InfiniteCache {
     /**
      * @return The old state of the entry that was written to.
      */
-    Entry insert(uint64_t key, const T &data) {
+    Entry insert(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */, const T &data) {
         Entry *entry = this->find(key);
         if (entry != nullptr) {
             Entry old_entry = *entry;
             entry->data = data;
+            /* MJL_Begin */
+            entry->is_secure = is_secure;
+            /* MJL_End */
             return old_entry;
         }
-        entries[key] = {key, 0, key, true, data};
+        entries[key] = {key, 0, key, true/* MJL_Begin */, is_secure/* MJL_End */, data};
         return {};
     }
 
-    Entry *find(uint64_t key) {
+    Entry *find(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */) {
         auto it = this->entries.find(key);
         if (it == this->entries.end())
             return nullptr;
@@ -127,6 +136,9 @@ template <class T> class SetAssociativeCache {
         uint64_t index;
         uint64_t tag;
         bool valid;
+        /* MJL_Begin */
+        bool is_secure;
+        /* MJL_End */
         T data;
     };
 
@@ -134,19 +146,34 @@ template <class T> class SetAssociativeCache {
         : size(size), num_ways(num_ways), num_sets(size / num_ways), entries(num_sets, std::vector<Entry>(num_ways)),
           cams(num_sets) {
         assert(size % num_ways == 0);
-        for (int i = 0; i < num_sets; i += 1)
-            for (int j = 0; j < num_ways; j += 1)
+        for (int i = 0; i < num_sets; i += 1) {
+            for (int j = 0; j < num_ways; j += 1) {
                 entries[i][j].valid = false;
+                /* MJL_Begin */
+                entries[i][j].is_secure = false;
+                /* MJL_End */
+            }
+        }
     }
 
-    Entry *erase(uint64_t key) {
-        Entry *entry = this->find(key);
+    Entry *erase(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */) {
+        Entry *entry = this->find(key/* MJL_Begin */, is_secure/* MJL_End */);
         uint64_t index = key % this->num_sets;
         uint64_t tag = key / this->num_sets;
         auto &cam = cams[index];
+        /* MJL_Begin */
+        uint64_t cam_tag = (tag << 1) + is_secure;
+        int num_erased = cam.erase(cam_tag);
+        /* MJL_End */
+        /* MJL_Comment
         int num_erased = cam.erase(tag);
-        if (entry)
+         */
+        if (entry) {
             entry->valid = false;
+            /* MJL_Begin */
+            entry->is_secure = false;
+            /* MJL_End */
+        }
         assert(entry ? num_erased == 1 : num_erased == 0);
         return entry;
     }
@@ -154,11 +181,14 @@ template <class T> class SetAssociativeCache {
     /**
      * @return The old state of the entry that was written to.
      */
-    Entry insert(uint64_t key, const T &data) {
-        Entry *entry = this->find(key);
+    Entry insert(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */, const T &data) {
+        Entry *entry = this->find(key/* MJL_Begin */, is_secure/* MJL_End */);
         if (entry != nullptr) {
             Entry old_entry = *entry;
             entry->data = data;
+            /* MJL_Begin */
+            entry->is_secure = is_secure;
+            /* MJL_End */
             return old_entry;
         }
         uint64_t index = key % this->num_sets;
@@ -175,25 +205,44 @@ template <class T> class SetAssociativeCache {
         }
         Entry &victim = set[victim_way];
         Entry old_entry = victim;
-        victim = {key, index, tag, true, data};
+        victim = {key, index, tag, true/* MJL_Begin */, is_secure/* MJL_End */, data};
         auto &cam = cams[index];
         if (old_entry.valid) {
+            /* MJL_Begin */
+            int num_erased = cam.erase((old_entry.tag << 1) + old_entry.is_secure);
+            /* MJL_End */
+            /* MJL_Comment
             int num_erased = cam.erase(old_entry.tag);
+             */
             assert(num_erased == 1);
         }
+        /* MJL_Begin */
+        uint64_t cam_tag = (tag << 1) + is_secure;
+        cam[cam_tag] = victim_way;
+        /* MJL_End */
+        /* MJL_Comment
         cam[tag] = victim_way;
+         */
         return old_entry;
     }
 
-    Entry *find(uint64_t key) {
+    Entry *find(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */) {
         uint64_t index = key % this->num_sets;
         uint64_t tag = key / this->num_sets;
         auto &cam = cams[index];
+        /* MJL_Begin */
+        uint64_t cam_tag = (tag << 1) + is_secure;
+        if (cam.find(cam_tag) == cam.end())
+            return nullptr;
+        int way = cam[cam_tag];
+        /* MJL_End */
+        /* MJL_Comment
         if (cam.find(tag) == cam.end())
             return nullptr;
         int way = cam[tag];
+         */
         Entry &entry = this->entries[index][way];
-        assert(entry.tag == tag && entry.valid);
+        assert(entry.tag == tag && entry.valid/* MJL_Begin */ && entry.is_secure == is_secure/* MJL_End */);
         return &entry;
     }
 
@@ -244,9 +293,9 @@ template <class T> class LRUSetAssociativeCache : public SetAssociativeCache<T> 
     LRUSetAssociativeCache(int size, int num_ways)
         : Super(size, num_ways), lru(this->num_sets, std::vector<uint64_t>(num_ways)) {}
 
-    void set_mru(uint64_t key) { *this->get_lru(key) = this->t++; }
+    void set_mru(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */) { *this->get_lru(key/* MJL_Begin */, is_secure/* MJL_End */) = this->t++; }
 
-    void set_lru(uint64_t key) { *this->get_lru(key) = 0; }
+    void set_lru(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */) { *this->get_lru(key/* MJL_Begin */, is_secure/* MJL_End */) = 0; }
 
   protected:
     /* @override */
@@ -255,10 +304,16 @@ template <class T> class LRUSetAssociativeCache : public SetAssociativeCache<T> 
         return min_element(lru_set.begin(), lru_set.end()) - lru_set.begin();
     }
 
-    uint64_t *get_lru(uint64_t key) {
+    uint64_t *get_lru(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */) {
         uint64_t index = key % this->num_sets;
         uint64_t tag = key / this->num_sets;
+        /* MJL_Begin */
+        uint64_t cam_tag = (tag << 1) + is_secure;
+        int way = this->cams[index][cam_tag];
+        /* MJL_End */
+        /* MJL_Comment
         int way = this->cams[index][tag];
+         */
         return &this->lru[index][way];
     }
 
@@ -272,10 +327,16 @@ template <class T> class NMRUSetAssociativeCache : public SetAssociativeCache<T>
   public:
     NMRUSetAssociativeCache(int size, int num_ways) : Super(size, num_ways), mru(this->num_sets) {}
 
-    void set_mru(uint64_t key) {
+    void set_mru(uint64_t key/* MJL_Begin */, bool is_secure/* MJL_End */) {
         uint64_t index = key % this->num_sets;
         uint64_t tag = key / this->num_sets;
+        /* MJL_Begin */
+        uint64_t cam_tag = (tag << 1) + is_secure;
+        int way = this->cams[index][cam_tag];
+        /* MJL_End */
+        /* MJL_Comment
         int way = this->cams[index][tag];
+         */
         this->mru[index] = way;
     }
 
@@ -326,9 +387,9 @@ class FilterTable : public LRUFullyAssociativeCache<FilterTableData> {
   public:
     FilterTable(int size);
 
-    Entry *find(uint64_t region_number);
+    Entry *find(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */);
 
-    void insert(uint64_t region_number, uint64_t pc, int offset);
+    void insert(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */, uint64_t pc, int offset);
 };
 
 class AccumulationTableData {
@@ -347,7 +408,7 @@ class AccumulationTable : public LRUFullyAssociativeCache<AccumulationTableData>
     /**
      * @return A return value of false means that the tag wasn't found in the table and true means success.
      */
-    bool set_pattern(uint64_t region_number, int offset);
+    bool set_pattern(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */, int offset);
 
     Entry insert(FilterTable::Entry &entry);
 
@@ -406,13 +467,13 @@ class PatternHistoryTable : LRUSetAssociativeCache<PatternHistoryTableData> {
         int size, int pattern_len, int min_addr_width, int max_addr_width, int pc_width, int num_ways = 16);
 
     /* address is actually block number */
-    void insert(uint64_t pc, uint64_t address, std::vector<bool> pattern);
+    void insert(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */, std::vector<bool> pattern);
 
     /**
      * @return An un-rotated pattern if match was found, otherwise an empty vector.
      * Finds best match and in case of ties, uses the MRU entry.
      */
-    std::vector<bool> find(uint64_t pc, uint64_t address);
+    std::vector<bool> find(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */);
 
   private:
     uint64_t build_key(uint64_t pc, uint64_t address);
@@ -434,7 +495,7 @@ class BingoPrefetcher : public QueuedPrefetcher
     int debug_level = 0;
     const bool useMasterId;
 
-    std::vector<bool> find_in_phts(uint64_t pc, uint64_t address);
+    std::vector<bool> find_in_phts(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */);
     void insert_in_phts(const AccumulationTable::Entry &entry);
 
   public:
@@ -447,7 +508,7 @@ class BingoPrefetcher : public QueuedPrefetcher
     void MJL_calculatePrefetch(const PacketPtr &pkt,
                            std::vector<AddrPriority> &addresses, 
                            MemCmd::MJL_DirAttribute &MJL_cmdDir);
-    void MJL_eviction(Addr addr) override;
+    void MJL_eviction(Addr addr/* MJL_Begin */, bool is_secure/* MJL_End */) override;
     
 };
 

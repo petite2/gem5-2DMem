@@ -69,8 +69,8 @@ void
 BingoPrefetcher::calculatePrefetch(const PacketPtr &pkt,
                                     std::vector<AddrPriority> &addresses)
 {
-    MemCmd::MJL_DirAttribute MJL_cmdDir;
-    MJL_calculatePrefetch(pkt, addresses, MJL_cmdDir);
+    MemCmd::MJL_DirAttribute dummy_MJL_cmdDir;
+    MJL_calculatePrefetch(pkt, addresses, dummy_MJL_cmdDir);
 }
 /* MJL_Begin */
 void
@@ -86,32 +86,32 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     // Get required packet info
     Addr pkt_addr = pkt->getAddr();
     Addr pc = pkt->req->getPC();
-    /* MJL_TODO: commenting these now, but would need to deal with them in the future
     bool is_secure = pkt->isSecure();
+    /* MJL_TODO: commenting these now, but would need to deal with them in the future
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
     */
 
     uint64_t block_number = pkt_addr/blkSize;
 
     if (this->debug_level >= 1) {
-        cerr << "[Bingo] access(block_number=" << block_number << ", pc=" << pc << ")" << endl;
+        cerr << "[Bingo] access(block_number=" << std::hex << block_number * blkSize << ", pc=" << pc << std::dec << ")" << endl;
     }
     uint64_t region_number = block_number / this->pattern_len;
     int region_offset = block_number % this->pattern_len;
-    bool success = this->accumulation_table.set_pattern(region_number, region_offset);
+    bool success = this->accumulation_table.set_pattern(region_number/* MJL_Begin */, is_secure/* MJL_End */, region_offset);
     if (success)
         return;
-    FilterTable::Entry *entry = this->filter_table.find(region_number);
+    FilterTable::Entry *entry = this->filter_table.find(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     if (!entry) {
         /* trigger access */
-        this->filter_table.insert(region_number, pc, region_offset);
-        vector<bool> pattern = this->find_in_phts(pc, block_number);
+        this->filter_table.insert(region_number/* MJL_Begin */, is_secure/* MJL_End */, pc, region_offset);
+        vector<bool> pattern = this->find_in_phts(pc, block_number/* MJL_Begin */, is_secure/* MJL_End */);
         if (pattern.empty())
             return;
         for (int i = 0; i < this->pattern_len; i += 1)
             if (pattern[i]) {
                 if (this->debug_level >= 1) {
-                    cerr << "[Bingo] access(prefetch_addr=" << (region_number * this->pattern_len + i) * blkSize << ")" << endl;
+                    cerr << "[Bingo] access(prefetch_addr=" << std::hex << (region_number * this->pattern_len + i) * blkSize << std::dec << ")" << endl;
                 }
                 addresses.push_back(AddrPriority((region_number * this->pattern_len + i) * blkSize, 0));
             }
@@ -120,8 +120,8 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     if (entry->data.offset != region_offset) {
         /* move from filter table to accumulation table */
         AccumulationTable::Entry victim = this->accumulation_table.insert(*entry);
-        this->accumulation_table.set_pattern(region_number, region_offset);
-        this->filter_table.erase(region_number);
+        this->accumulation_table.set_pattern(region_number/* MJL_Begin */, is_secure/* MJL_End */, region_offset);
+        this->filter_table.erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
         if (victim.valid) {
             /* move from accumulation table to pattern history table */
             this->insert_in_phts(victim);
@@ -131,26 +131,26 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
 }
 /* MJL_End */
 
-void BingoPrefetcher::MJL_eviction(Addr addr) {
+void BingoPrefetcher::MJL_eviction(Addr addr/* MJL_Begin */, bool is_secure/* MJL_End */) {
     uint64_t block_number = addr/blkSize;
     if (this->debug_level >= 1) {
-        cerr << "[Bingo] eviction(block_number=" << block_number << ")" << endl;
+        cerr << "[Bingo] eviction(block_number=" << std::hex << block_number * blkSize << std::dec << ")" << endl;
     }
     /* end of generation */
     uint64_t region_number = block_number / this->pattern_len;
-    this->filter_table.erase(region_number);
-    AccumulationTable::Entry *entry = this->accumulation_table.erase(region_number);
+    this->filter_table.erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
+    AccumulationTable::Entry *entry = this->accumulation_table.erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     if (entry) {
         /* move from accumulation table to pattern history table */
         this->insert_in_phts(*entry);
     }
 }
 
-vector<bool> BingoPrefetcher::find_in_phts(uint64_t pc, uint64_t address) {
+vector<bool> BingoPrefetcher::find_in_phts(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */) {
     if (this->debug_level >= 1) {
-        cerr << "[Bingo] find_in_phts(pc=" << pc << ", address=" << address << ")" << endl;
+        cerr << "[Bingo] find_in_phts(pc=" << std::hex << pc << ", address=" << address * blkSize << std::dec << ")" << endl;
     }
-    return this->pht.find(pc, address);
+    return this->pht.find(pc, address/* MJL_Begin */, is_secure/* MJL_End */);
 }
 
 void BingoPrefetcher::insert_in_phts(const AccumulationTable::Entry &entry) {
@@ -160,7 +160,7 @@ void BingoPrefetcher::insert_in_phts(const AccumulationTable::Entry &entry) {
     uint64_t pc = entry.data.pc;
     uint64_t address = entry.key * this->pattern_len + entry.data.offset;
     const vector<bool> &pattern = entry.data.pattern;
-    this->pht.insert(pc, address, pattern);
+    this->pht.insert(pc, address/* MJL_Begin */, entry.is_secure/* MJL_End */, pattern);
 }
 
 BingoPrefetcher*
@@ -257,18 +257,18 @@ string Table::line(const vector<int> &widths, string left, string mid, string ri
 
 FilterTable::FilterTable(int size) : Super(size) { assert(__builtin_popcount(size) == 1); }
 
-FilterTable::Entry * FilterTable::find(uint64_t region_number) {
-    Entry *entry = Super::find(region_number);
+FilterTable::Entry * FilterTable::find(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */) {
+    Entry *entry = Super::find(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     if (!entry)
         return nullptr;
-    this->set_mru(region_number);
+    this->set_mru(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     return entry;
 }
 
-void FilterTable::insert(uint64_t region_number, uint64_t pc, int offset) {
-    assert(!this->find(region_number));
-    Super::insert(region_number, {pc, offset});
-    this->set_mru(region_number);
+void FilterTable::insert(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */, uint64_t pc, int offset) {
+    assert(!this->find(region_number/* MJL_Begin */, is_secure/* MJL_End */));
+    Super::insert(region_number/* MJL_Begin */, is_secure/* MJL_End */, {pc, offset});
+    this->set_mru(region_number/* MJL_Begin */, is_secure/* MJL_End */);
 }
 
 AccumulationTable::AccumulationTable(int size, int pattern_len) : Super(size), pattern_len(pattern_len) {
@@ -279,21 +279,21 @@ AccumulationTable::AccumulationTable(int size, int pattern_len) : Super(size), p
 /**
     * @return A return value of false means that the tag wasn't found in the table and true means success.
     */
-bool AccumulationTable::set_pattern(uint64_t region_number, int offset) {
-    Entry *entry = Super::find(region_number);
+bool AccumulationTable::set_pattern(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */, int offset) {
+    Entry *entry = Super::find(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     if (!entry)
         return false;
     entry->data.pattern[offset] = true;
-    this->set_mru(region_number);
+    this->set_mru(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     return true;
 }
 
 AccumulationTable::Entry AccumulationTable::insert(FilterTable::Entry &entry) {
-    assert(!this->find(entry.key));
+    assert(!this->find(entry.key/* MJL_Begin */, entry.is_secure/* MJL_End */));
     vector<bool> pattern(this->pattern_len, false);
     pattern[entry.data.offset] = true;
-    Entry old_entry = Super::insert(entry.key, {entry.data.pc, entry.data.offset, pattern});
-    this->set_mru(entry.key);
+    Entry old_entry = Super::insert(entry.key/* MJL_Begin */, entry.is_secure/* MJL_End */, {entry.data.pc, entry.data.offset, pattern});
+    this->set_mru(entry.key/* MJL_Begin */, entry.is_secure/* MJL_End */);
     return old_entry;
 }
 
@@ -311,28 +311,28 @@ PatternHistoryTable::PatternHistoryTable(
 }
 
 /* address is actually block number */
-void PatternHistoryTable::insert(uint64_t pc, uint64_t address, vector<bool> pattern) {
+void PatternHistoryTable::insert(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */, vector<bool> pattern) {
     assert((int)pattern.size() == this->pattern_len);
     int offset = address % this->pattern_len;
     pattern = my_rotate(pattern, -offset);
     uint64_t key = this->build_key(pc, address);
 
-    Entry *entry = Super::find(key);
+    Entry *entry = Super::find(key/* MJL_Begin */, is_secure/* MJL_End */);
     if (!entry) {
-        Super::insert(key, {vector<SC2>(this->pattern_len)});
-        entry = Super::find(key);
+        Super::insert(key/* MJL_Begin */, is_secure/* MJL_End */, {vector<SC2>(this->pattern_len)});
+        entry = Super::find(key/* MJL_Begin */, is_secure/* MJL_End */);
     }
     for (int i = 0; i < this->pattern_len; i += 1)
         entry->data.pattern[i].input(pattern[i]);
 
-    this->set_mru(key);
+    this->set_mru(key/* MJL_Begin */, is_secure/* MJL_End */);
 }
 
 /**
     * @return An un-rotated pattern if match was found, otherwise an empty vector.
     * Finds best match and in case of ties, uses the MRU entry.
     */
-vector<bool> PatternHistoryTable::find(uint64_t pc, uint64_t address) {
+vector<bool> PatternHistoryTable::find(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */) {
     uint64_t key = this->build_key(pc, address);
     uint64_t index = key % this->num_sets;
     uint64_t tag = key / this->num_sets;
@@ -344,11 +344,11 @@ vector<bool> PatternHistoryTable::find(uint64_t pc, uint64_t address) {
     for (int i = 0; i < this->num_ways; i += 1) {
         if (!set[i].valid)
             continue;
-        bool min_match = ((set[i].tag & min_tag_mask) == (tag & min_tag_mask));
-        bool max_match = ((set[i].tag & max_tag_mask) == (tag & max_tag_mask));
+        bool min_match = ((set[i].tag & min_tag_mask) == (tag & min_tag_mask)/* MJL_Begin */ && set[i].is_secure == is_secure/* MJL_End */);
+        bool max_match = ((set[i].tag & max_tag_mask) == (tag & max_tag_mask)/* MJL_Begin */ && set[i].is_secure == is_secure/* MJL_End */);
         vector<SC2> &cur_pattern = set[i].data.pattern;
         if (max_match) {
-            this->set_mru(set[i].key);
+            this->set_mru(set[i].key/* MJL_Begin */, is_secure/* MJL_End */);
             pattern = cur_pattern;
             break;
         }
