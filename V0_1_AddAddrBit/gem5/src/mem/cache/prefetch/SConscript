@@ -36,6 +36,6 @@ Source('base.cc')
 Source('queued.cc')
 Source('stride.cc')
 Source('tagged.cc')
-# Source('bingo.cc')
+Source('bingo.cc')
 Source('bo.cc')
 
