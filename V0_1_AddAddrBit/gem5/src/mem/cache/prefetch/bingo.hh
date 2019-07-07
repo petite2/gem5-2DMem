@@ -5,8 +5,8 @@
  * Describes a global history buffer based delta correlation prefetcher.
  */
 
-#ifndef __MEM_CACHE_PREFETCH_GHBDC_HH__
-#define __MEM_CACHE_PREFETCH_GHBDC_HH__
+#ifndef __MEM_CACHE_PREFETCH_BINGO_HH__
+#define __MEM_CACHE_PREFETCH_BINGO_HH__
 
 #include <list>
 #include <unordered_map>
@@ -512,6 +512,6 @@ class BingoPrefetcher : public QueuedPrefetcher
     
 };
 
-#endif // __MEM_CACHE_PREFETCH_GHBDC_HH__
+#endif // __MEM_CACHE_PREFETCH_BINGO_HH__
 
 /* MJL_End */

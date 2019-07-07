@@ -50,130 +50,27 @@
 #include "debug/HWPrefetch.hh"
 #include "mem/cache/prefetch/bo.hh"
 
+using namespace std;
+
 BestOffsetPrefetcher::BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p)
     : QueuedPrefetcher(p),
-      maxConf(p->max_conf),
-      threshConf(p->thresh_conf),
-      minConf(p->min_conf),
-      startConf(p->start_conf),
-      pcTableAssoc(p->table_assoc),
-      pcTableSets(p->table_sets),
+      blocks_in_page(p->blocks_in_page), 
+      best_offset_learning(p->blocks_in_page),
+      recent_requests_table(p->recent_requests_table_size),
       useMasterId(p->use_master_id),
-      degree(p->degree),
-      pcTable(pcTableAssoc, pcTableSets, name())
+      degree(p->degree)
 {
     // Don't consult stride prefetcher on instruction accesses
     onInst = false;
-
-    assert(isPowerOf2(pcTableSets));
-}
-
-BestOffsetPrefetcher::StrideEntry**
-BestOffsetPrefetcher::PCTable::allocateNewContext(int context)
-{
-    auto res = entries.insert(std::make_pair(context,
-                              new StrideEntry*[pcTableSets]));
-    auto it = res.first;
-    chatty_assert(res.second, "Allocating an already created context\n");
-    assert(it->first == context);
-
-    DPRINTF(HWPrefetch, "Adding context %i with stride entries at %p\n",
-            context, it->second);
-
-    StrideEntry** entry = it->second;
-    for (int s = 0; s < pcTableSets; s++) {
-        entry[s] = new StrideEntry[pcTableAssoc];
-    }
-    return entry;
-}
-
-BestOffsetPrefetcher::PCTable::~PCTable() {
-    for (auto entry : entries) {
-        for (int s = 0; s < pcTableSets; s++) {
-            delete[] entry.second[s];
-        }
-        delete[] entry.second;
-    }
+    std::cout << "MJL_BestOffsetPrefetcher" << std::endl;
 }
 
 void
 BestOffsetPrefetcher::calculatePrefetch(const PacketPtr &pkt,
                                     std::vector<AddrPriority> &addresses)
 {
-    if (!pkt->req->hasPC()) {
-        DPRINTF(HWPrefetch, "Ignoring request with no PC.\n");
-        return;
-    }
-
-    // Get required packet info
-    Addr pkt_addr = pkt->getAddr();
-    Addr pc = pkt->req->getPC();
-    bool is_secure = pkt->isSecure();
-    MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
-
-    // Lookup pc-based information
-    StrideEntry *entry;
-
-    if (pcTableHit(pc, is_secure, master_id, entry)) {
-        // Hit in table
-        int new_stride = pkt_addr - entry->lastAddr;
-        bool stride_match = (new_stride == entry->stride);
-
-        // Adjust confidence for stride entry
-        if (stride_match && new_stride != 0) {
-            if (entry->confidence < maxConf)
-                entry->confidence++;
-        } else {
-            if (entry->confidence > minConf)
-                entry->confidence--;
-            // If confidence has dropped below the threshold, train new stride
-            if (entry->confidence < threshConf)
-                entry->stride = new_stride;
-        }
-
-        DPRINTF(HWPrefetch, "Hit: PC %x pkt_addr %x (%s) stride %d (%s), "
-                "conf %d\n", pc, pkt_addr, is_secure ? "s" : "ns", new_stride,
-                stride_match ? "match" : "change",
-                entry->confidence);
-
-        entry->lastAddr = pkt_addr;
-
-        // Abort prefetch generation if below confidence threshold
-        if (entry->confidence < threshConf)
-            return;
-
-        // Generate up to degree prefetches
-        for (int d = 1; d <= degree; d++) {
-            // Round strides up to atleast 1 cacheline
-            int prefetch_stride = new_stride;
-            if (abs(new_stride) < blkSize) {
-                prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
-            }
-
-            Addr new_addr = pkt_addr + d * prefetch_stride;
-            if (/* MJL_Comment samePage(pkt_addr, new_addr)*/ MJL_colSamePage(pkt_addr, new_addr) // Trying for fair comparison with 2MB page in both row and column prefetching
-                /* MJL_Begin */|| (MJL_colPf && pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colSamePage(pkt_addr, new_addr))/* MJL_End */) {
-                DPRINTF(HWPrefetch, "Queuing prefetch to %#x.\n", new_addr);
-                addresses.push_back(AddrPriority(new_addr, 0));
-            } else {
-                // Record the number of page crossing prefetches generated
-                pfSpanPage += degree - d + 1;
-                DPRINTF(HWPrefetch, "Ignoring page crossing prefetch.\n");
-                return;
-            }
-        }
-    } else {
-        // Miss in table
-        DPRINTF(HWPrefetch, "Miss: PC %x pkt_addr %x (%s)\n", pc, pkt_addr,
-                is_secure ? "s" : "ns");
-
-        StrideEntry* entry = pcTableVictim(pc, master_id);
-        entry->instAddr = pc;
-        entry->lastAddr = pkt_addr;
-        entry->isSecure= is_secure;
-        entry->stride = 0;
-        entry->confidence = startConf;
-    }
+    MemCmd::MJL_DirAttribute dummy_MJL_cmdDir;
+    MJL_calculatePrefetch(pkt, addresses, dummy_MJL_cmdDir);
 }
 /* MJL_Begin */
 void
@@ -189,142 +86,303 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     // Get required packet info
     Addr pkt_addr = pkt->getAddr();
     Addr pc = pkt->req->getPC();
+    /* MJL_TODO: commenting these now, but would need to deal with them in the future
     bool is_secure = pkt->isSecure();
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
+     */
 
-    // Lookup pc-based information
-    StrideEntry *entry;
-
-    if (pcTableHit(pc, is_secure, master_id, entry)) {
-        // Hit in table
-        int new_stride = pkt_addr - entry->lastAddr;
-        bool stride_match = (new_stride == entry->stride);
-
-        // Adjust confidence for stride entry
-        if (stride_match && new_stride != 0) {
-            if (entry->confidence < maxConf)
-                entry->confidence++;
-        } else {
-            if (entry->confidence > minConf)
-                entry->confidence--;
-            // If confidence has dropped below the threshold, train new stride
-            if (entry->confidence < threshConf)
-                entry->stride = new_stride;
-        }
-
-        DPRINTF(HWPrefetch, "Hit: PC %x pkt_addr %x (%s) stride %d (%s), "
-                "conf %d\n", pc, pkt_addr, is_secure ? "s" : "ns", new_stride,
-                stride_match ? "match" : "change",
-                entry->confidence);
-
-        entry->lastAddr = pkt_addr;
-
-        // Abort prefetch generation if below confidence threshold
-        if (entry->confidence < threshConf)
-            return;
-
-        // Generate up to degree prefetches
-        for (int d = 1; d <= degree; d++) {
-            // Round strides up to atleast 1 cacheline
-            int prefetch_stride = new_stride;
-            /* MJL_Begin 
-            Addr new_addr;
-            if (MJL_predictDir) {
-                if (new_stride % (MJL_getRowWidth() * blkSize) == 0) {
-                    MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-                    if (abs(new_stride) < (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize) {
-                        prefetch_stride = (new_stride < 0) ? -(blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize : (blkSize/sizeof(uint64_t)) * MJL_getRowWidth() * blkSize;
-                    }
-                } else if (abs(new_stride) < blkSize) {
-                    prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
-                }
-            } else {
-                if (abs(new_stride) < blkSize) {
-                    prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
-                }
-            }
-             MJL_End */
-            /* MJL_Comment */
-            if (abs(new_stride) < blkSize) {
-                prefetch_stride = (new_stride < 0) ? -blkSize : blkSize;
-            }
-
-            Addr new_addr = pkt_addr + d * prefetch_stride;
-            /* */
-
-            /* MJL_Begin */
-            MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
-            if (new_stride % (MJL_getRowWidth() * blkSize) == 0 && (new_stride < (MJL_getRowWidth() * blkSize * blkSize/sizeof(uint64_t)) || pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn)) {
-                MJL_cmdDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-            }
-            /* MJL_End */
-
-            if (/* MJL_Comment samePage(pkt_addr, new_addr)*/ MJL_colSamePage(pkt_addr, new_addr) // Trying for fair comparison with 2MB page in both row and column prefetching
-                /* MJL_Begin */|| (MJL_colPf && pkt->MJL_getCmdDir() == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colSamePage(pkt_addr, new_addr))/* MJL_End */) {
-                DPRINTF(HWPrefetch, "Queuing prefetch to %#x.\n", new_addr);
-                addresses.push_back(AddrPriority(new_addr, 0));
-            } else {
-                // Record the number of page crossing prefetches generated
-                pfSpanPage += degree - d + 1;
-                DPRINTF(HWPrefetch, "Ignoring page crossing prefetch.\n");
-                return;
-            }
-        }
-    } else {
-        // Miss in table
-        DPRINTF(HWPrefetch, "Miss: PC %x pkt_addr %x (%s)\n", pc, pkt_addr,
-                is_secure ? "s" : "ns");
-
-        StrideEntry* entry = pcTableVictim(pc, master_id);
-        entry->instAddr = pc;
-        entry->lastAddr = pkt_addr;
-        entry->isSecure= is_secure;
-        entry->stride = 0;
-        entry->confidence = startConf;
-        entry->MJL_lastDir = pkt->MJL_getCmdDir();
+    uint64_t block_number = pkt_addr / blkSize;
+    uint64_t page_number = block_number / this->blocks_in_page;
+    int page_offset = block_number % this->blocks_in_page;
+    /* ... and if X and X + D lie in the same memory page, a prefetch request for line X + D is sent to the L3
+        * cache. */
+    if (this->debug) {
+        cerr << "[BOP] block_number=" << block_number << endl;
+        cerr << "[BOP] page_number=" << page_number << endl;
+        cerr << "[BOP] page_offset=" << page_offset << endl;
+        cerr << "[BOP] best_offset=" << this->prefetch_offset << endl;
     }
+
+    vector<uint64_t> pred;
+    for (int i = 1; i <= this->degree; i += 1) {
+        if (this->prefetch_offset != 0 && is_inside_page(page_offset + i * this->prefetch_offset))
+            addresses.push_back(AddrPriority((block_number + i * this->prefetch_offset) * blkSize, 0));
+        else {
+            if (this->debug)
+                cerr << "[BOP] X and X + " << i << " * D do not lie in the same memory page, no prefetch issued"
+                        << endl;
+            break;
+        }
+    }
+
+    int old_offset = this->prefetch_offset;
+    /* On every eligible L2 read access (miss or prefetched hit), we test an offset di from the list. */
+    this->prefetch_offset = this->best_offset_learning.test_offset(block_number, recent_requests_table);
+    if (this->debug) {
+        if (old_offset != this->prefetch_offset)
+            cerr << "[BOP] offset changed from " << old_offset << " to " << this->prefetch_offset << endl;
+        cerr << this->recent_requests_table.log();
+        cerr << this->best_offset_learning.log();
+    }
+    return pred;
 }
 /* MJL_End */
-
-inline Addr
-BestOffsetPrefetcher::pcHash(Addr pc) const
-{
-    Addr hash1 = pc >> 1;
-    Addr hash2 = hash1 >> floorLog2(pcTableSets);
-    return (hash1 ^ hash2) & (Addr)(pcTableSets - 1);
-}
-
-inline BestOffsetPrefetcher::StrideEntry*
-BestOffsetPrefetcher::pcTableVictim(Addr pc, int master_id)
-{
-    // Rand replacement for now
-    int set = pcHash(pc);
-    int way = random_mt.random<int>(0, pcTableAssoc - 1);
-
-    DPRINTF(HWPrefetch, "Victimizing lookup table[%d][%d].\n", set, way);
-    return &pcTable[master_id][set][way];
-}
-
-inline bool
-BestOffsetPrefetcher::pcTableHit(Addr pc, bool is_secure, int master_id,
-                             StrideEntry* &entry)
-{
-    int set = pcHash(pc);
-    StrideEntry* set_entries = pcTable[master_id][set];
-    for (int way = 0; way < pcTableAssoc; way++) {
-        // Search ways for match
-        if (set_entries[way].instAddr == pc &&
-            set_entries[way].isSecure == is_secure) {
-            DPRINTF(HWPrefetch, "Lookup hit table[%d][%d].\n", set, way);
-            entry = &set_entries[way];
-            return true;
-        }
-    }
-    return false;
-}
 
 BestOffsetPrefetcher*
 BestOffsetPrefetcherParams::create()
 {
     return new BestOffsetPrefetcher(this);
 }
+
+bool 
+BestOffsetPrefetcher::is_inside_page(int page_offset) {
+    return (0 <= page_offset && page_offset < this->blocks_in_page); 
+}
+
+void 
+BestOffsetPrefetcher::MJL_cache_fill(Addr addr, bool prefetch) {
+    uint64_t block_number = addr/blkSize;
+    int page_offset = block_number % this->blocks_in_page;
+    if (this->prefetch_offset == 0 && prefetch)
+        return;
+    if (this->prefetch_offset != 0 && !prefetch)
+        return;
+    if (!this->is_inside_page(page_offset - this->prefetch_offset))
+        return;
+    this->recent_requests_table.insert(block_number - this->prefetch_offset);
+}
+
+void 
+BestOffsetPrefetcher::set_debug_level(int debug_level) {
+    bool enable = (bool)debug_level;
+    this->debug = enable;
+    this->best_offset_learning.set_debug_mode(enable);
+    this->recent_requests_table.set_debug_mode(enable);
+}
+
+Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}
+
+void 
+Table::set_row(int row, const vector<string> &data, int start_col = 0) {
+    assert(data.size() + start_col == this->width);
+    for (unsigned col = start_col; col < this->width; col += 1)
+        this->set_cell(row, col, data[col]);
+}
+
+void 
+Table::set_col(int col, const vector<string> &data, int start_row = 0) {
+    assert(data.size() + start_row == this->height);
+    for (unsigned row = start_row; row < this->height; row += 1)
+        this->set_cell(row, col, data[row]);
+}
+
+void 
+Table::set_cell(int row, int col, string data) {
+    assert(0 <= row && row < (int)this->height);
+    assert(0 <= col && col < (int)this->width);
+    this->cells[row][col] = data;
+}
+
+void 
+Table::set_cell(int row, int col, double data) {
+    this->oss.str("");
+    this->oss << setw(11) << fixed << setprecision(8) << data;
+    this->set_cell(row, col, this->oss.str());
+}
+
+void 
+Table::set_cell(int row, int col, int64_t data) {
+    this->oss.str("");
+    this->oss << setw(11) << std::left << data;
+    this->set_cell(row, col, this->oss.str());
+}
+
+void 
+Table::set_cell(int row, int col, int data) { this->set_cell(row, col, (int64_t)data); }
+
+void 
+Table::set_cell(int row, int col, uint64_t data) { this->set_cell(row, col, (int64_t)data); }
+
+string 
+Table::to_string() {
+    vector<int> widths;
+    for (unsigned i = 0; i < this->width; i += 1) {
+        int max_width = 0;
+        for (unsigned j = 0; j < this->height; j += 1)
+            max_width = max(max_width, (int)this->cells[j][i].size());
+        widths.push_back(max_width + 2);
+    }
+    string out;
+    out += Table::top_line(widths);
+    out += this->data_row(0, widths);
+    for (unsigned i = 1; i < this->height; i += 1) {
+        out += Table::mid_line(widths);
+        out += this->data_row(i, widths);
+    }
+    out += Table::bot_line(widths);
+    return out;
+}
+
+string 
+Table::data_row(int row, const vector<int> &widths) {
+    string out;
+    for (unsigned i = 0; i < this->width; i += 1) {
+        string data = this->cells[row][i];
+        data.resize(widths[i] - 2, ' ');
+        out += " | " + data;
+    }
+    out += " |\n";
+    return out;
+}
+
+string 
+Table::top_line(const vector<int> &widths) { return Table::line(widths, "┌", "┬", "┐"); }
+
+string 
+Table::mid_line(const vector<int> &widths) { return Table::line(widths, "├", "┼", "┤"); }
+
+string 
+Table::bot_line(const vector<int> &widths) { return Table::line(widths, "└", "┴", "┘"); }
+
+string 
+Table::line(const vector<int> &widths, string left, string mid, string right) {
+    string out = " " + left;
+    for (unsigned i = 0; i < widths.size(); i += 1) {
+        int w = widths[i];
+        for (int j = 0; j < w; j += 1)
+            out += "─";
+        if (i != widths.size() - 1)
+            out += mid;
+        else
+            out += right;
+    }
+    return out + "\n";
+}
+
+RecentRequestsTable::RecentRequestsTable(int size) : Super(size) {
+    assert(__builtin_popcount(size) == 1);
+    this->hash_w = __builtin_ctz(size);
+}
+
+RecentRequestsTable::Entry 
+RecentRequestsTable::insert(uint64_t base_address) {
+    uint64_t key = this->hash(base_address);
+    return Super::insert(key, {base_address});
+}
+
+bool 
+RecentRequestsTable::find(uint64_t base_address) {
+    uint64_t key = this->hash(base_address);
+    return (Super::find(key) != nullptr);
+}
+
+string 
+RecentRequestsTable::log() {
+    vector<string> headers({"Hash", "Base Address"});
+    return Super::log(headers, this->write_data);
+}
+
+void 
+RecentRequestsTable::write_data(Entry &entry, Table &table, int row) {
+    table.set_cell(row, 0, bitset<20>(entry.key).to_string());
+    table.set_cell(row, 1, entry.data.base_address);
+}
+
+/* The RR table is accessed through a simple hash function. For instance, for a 256-entry RR table, we XOR the 8
+* least significant line address bits with the next 8 bits to obtain the table index. For 12-bit tags, we skip the
+* 8 least significant line address bits and extract the next 12 bits. */
+uint64_t 
+RecentRequestsTable::hash(uint64_t input) {
+    int next_w_bits = ((1 << hash_w) - 1) & (input >> hash_w);
+    uint64_t output = ((1 << 20) - 1) & (next_w_bits ^ input);
+    if (this->debug) {
+        cerr << "[RR] hash( " << bitset<32>(input).to_string() << " ) = " << bitset<20>(output).to_string() << endl;
+    }
+    return output;
+}
+
+BestOffsetLearning::BestOffsetLearning(int blocks_in_page) : blocks_in_page(blocks_in_page) {
+    /* Useful offset values depend on the memory page size, as the BO prefetcher does not prefetch across page
+        * boundaries. For instance, assuming 4KB pages and 64B lines, a page contains 64 lines, and there is no point
+        * in considering offset values greater than 63. However, it may be useful to consider offsets greater than 63
+        * for systems having superpages. */
+    /* We propose a method for offset sampling that is algorithmic and not totally arbitrary: we include in our list
+        * all the offsets between 1 and 256 whose prime factorization does not contain primes greater than 5. */
+    /* Nothing prevents a BO prefetcher to use negative offset values. Although some applications might benefit from
+        * negative offsets, we did not observe any benefit in our experiments. Hence we consider only positive offsets
+        * in this study. */
+    for (int i = 1; i < blocks_in_page; i += 1) {
+        int n = i;
+        for (int j = 2; j <= 5; j += 1)
+            while (n % j == 0)
+                n /= j;
+        if (n == 1)
+            offset_list.push_back({i, 0});
+    }
+}
+
+/**
+    * @return The current best offset.
+    */
+int 
+BestOffsetLearning::test_offset(uint64_t block_number, RecentRequestsTable &recent_requests_table) {
+    int page_offset = block_number % this->blocks_in_page;
+    Entry &entry = this->offset_list[this->index_to_test];
+    bool found =
+        is_inside_page(page_offset - entry.offset) && recent_requests_table.find(block_number - entry.offset);
+    if (this->debug) {
+        cerr << "[BOL] testing offset=" << entry.offset << " with score=" << entry.score << endl;
+        cerr << "[BOL] match=" << found << endl;
+    }
+    if (found) {
+        entry.score += 1;
+        if (entry.score > this->best_score) {
+            this->best_score = entry.score;
+            this->local_best_offset = entry.offset;
+        }
+    }
+    this->index_to_test = (this->index_to_test + 1) % this->offset_list.size();
+    /* test round termination */
+    if (this->index_to_test == 0) {
+        if (this->debug) {
+            cerr << "[BOL] round=" << this->round << " finished" << endl;
+        }
+        this->round += 1;
+        /* The current learning phase finishes at the end of a round when either of the two following events happens
+            * first: one of the scores equals SCOREMAX, or the number of rounds equals ROUNDMAX (a fixed parameter). */
+        if (this->best_score >= SCORE_MAX || this->round == ROUND_MAX) {
+            if (this->best_score <= BAD_SCORE)
+                this->global_best_offset = 0; /* turn off prefetching */
+            else
+                this->global_best_offset = this->local_best_offset;
+            if (this->debug) {
+                cerr << "[BOL] learning phase finished, winner=" << this->global_best_offset << endl;
+                cerr << this->log();
+            }
+            /* reset all internal state */
+            for (auto &entry : this->offset_list)
+                entry.score = 0;
+            this->local_best_offset = 0;
+            this->best_score = 0;
+            this->round = 0;
+        }
+    }
+    return this->global_best_offset;
+}
+
+string 
+BestOffsetLearning::log() {
+    Table table(2, offset_list.size() + 1);
+    table.set_row(0, {"Offset", "Score"});
+    for (unsigned i = 0; i < offset_list.size(); i += 1) {
+        table.set_cell(i + 1, 0, offset_list[i].offset);
+        table.set_cell(i + 1, 1, offset_list[i].score);
+    }
+    return table.to_string();
+}
+
+void 
+BestOffsetLearning::set_debug_mode(bool enable) { this->debug = enable; }
+
+bool 
+BestOffsetLearning::is_inside_page(int page_offset) { return (0 <= page_offset && page_offset < this->blocks_in_page); }

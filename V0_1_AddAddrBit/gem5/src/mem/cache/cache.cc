@@ -1254,7 +1254,7 @@ Cache::doWritebacks(PacketList& writebacks, Tick forward_time)
         /* MJL_Begin */
         // For Bingo prefetcher, do the eviction 
         if (prefetcher && !wbPkt->isBlockCached()) {
-            prefetcher->MJL_eviction(wbPkt->getAddr());
+            prefetcher->MJL_eviction(wbPkt->getAddr(), wbPkt->isSecure());
         }
         /* MJL_End */
         // We use forwardLatency here because we are copying writebacks to
@@ -2471,7 +2471,12 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (is_fill && !is_error) {
         DPRINTF(Cache, "Block for addr %#llx being updated in Cache\n",
                 pkt->getAddr());
-
+        /* MJL_Begin */
+        // For the Best Offset prefetcher
+        if (prefetcher) {
+            prefetcher->MJL_cache_fill(pkt->getAddr(), initial_tgt->pkt->cmd == MemCmd::HardPFReq);
+        }
+        /* MJL_End */
         blk = handleFill(pkt, blk, writebacks, mshr->allocOnFill());
         assert(blk != nullptr);
         /* MJL_Test 
@@ -2922,7 +2927,7 @@ endl;
             /* MJL_Begin */
             // For Bingo prefetcher, do the eviction 
             if (prefetcher && !wbPkt->isBlockCached()) {
-                prefetcher->MJL_eviction(wbPkt->getAddr());
+                prefetcher->MJL_eviction(wbPkt->getAddr(), wbPkt->isSecure());
             }
             /* MJL_End */
             allocateWriteBuffer(wbPkt, forward_time);
@@ -2934,7 +2939,7 @@ endl;
             /* MJL_Begin */
             // For Bingo prefetcher, do the eviction 
             if (prefetcher && !wcPkt->isBlockCached()) {
-                prefetcher->MJL_eviction(wcPkt->getAddr());
+                prefetcher->MJL_eviction(wcPkt->getAddr(), wcPkt->isSecure());
             }
             /* MJL_End */
             // Check to see if block is cached above. If not allocate
