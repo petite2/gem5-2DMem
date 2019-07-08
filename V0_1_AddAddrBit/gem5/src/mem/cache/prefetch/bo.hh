@@ -57,34 +57,6 @@
 
 class BestOffsetPrefetcher : public QueuedPrefetcher
 {
-  protected:
-    int blocks_in_page;
-    int prefetch_offset = 0;
-
-    BestOffsetLearning best_offset_learning;
-    RecentRequestsTable recent_requests_table;
-
-    bool debug = false;
-
-    const bool useMasterId;
-
-    const int degree;
-
-    bool is_inside_page(int page_offset);
-  public:
-
-    BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p);
-
-    void calculatePrefetch(const PacketPtr &pkt,
-                           std::vector<AddrPriority> &addresses);
-    /* MJL_Begin */
-    void MJL_calculatePrefetch(const PacketPtr &pkt,
-                           std::vector<AddrPriority> &addresses, 
-                           MemCmd::MJL_DirAttribute &MJL_cmdDir);
-    /* MJL_End */
-    void MJL_cache_fill(Addr addr, bool prefetch);
-
-    void set_debug_level(int debug_level);
   private:
     class Table {
       public:
@@ -449,6 +421,34 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
         bool debug = false;
     };
 
+  protected:
+    int blocks_in_page;
+    int prefetch_offset = 0;
+
+    BestOffsetLearning best_offset_learning;
+    RecentRequestsTable recent_requests_table;
+
+    bool debug = false;
+
+    const bool useMasterId;
+
+    const int degree;
+
+    bool is_inside_page(int page_offset);
+  public:
+
+    BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p);
+
+    void calculatePrefetch(const PacketPtr &pkt,
+                           std::vector<AddrPriority> &addresses);
+    /* MJL_Begin */
+    void MJL_calculatePrefetch(const PacketPtr &pkt,
+                           std::vector<AddrPriority> &addresses, 
+                           MemCmd::MJL_DirAttribute &MJL_cmdDir);
+    /* MJL_End */
+    void MJL_cache_fill(Addr addr, bool prefetch);
+
+    void set_debug_level(int debug_level);
 };
 
 #endif // __MEM_CACHE_PREFETCH_BO_HH__

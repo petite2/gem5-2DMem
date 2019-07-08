@@ -153,7 +153,7 @@ vector<bool> BingoPrefetcher::find_in_phts(uint64_t pc, uint64_t address/* MJL_B
     return this->pht.find(pc, address/* MJL_Begin */, is_secure/* MJL_End */);
 }
 
-void BingoPrefetcher::insert_in_phts(const AccumulationTable::Entry &entry) {
+void BingoPrefetcher::insert_in_phts(const BingoPrefetcher::AccumulationTable::Entry &entry) {
     if (this->debug_level >= 1) {
         cerr << "[Bingo] insert_in_phts(...)" << endl;
     }
@@ -305,7 +305,7 @@ BingoPrefetcher::AccumulationTable::set_pattern(uint64_t region_number/* MJL_Beg
 }
 
 BingoPrefetcher::AccumulationTable::Entry 
-BingoPrefetcher::AccumulationTable::insert(FilterTable::Entry &entry) {
+BingoPrefetcher::AccumulationTable::insert(BingoPrefetcher::FilterTable::Entry &entry) {
     assert(!this->find(entry.key/* MJL_Begin */, entry.is_secure/* MJL_End */));
     vector<bool> pattern(this->pattern_len, false);
     pattern[entry.data.offset] = true;

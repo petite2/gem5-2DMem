@@ -282,7 +282,7 @@ BestOffsetPrefetcher::RecentRequestsTable::log() {
 }
 
 void 
-BestOffsetPrefetcher::RecentRequestsTable::write_data(Entry &entry, Table &table, int row) {
+BestOffsetPrefetcher::RecentRequestsTable::write_data(Entry &entry, BestOffsetPrefetcher::Table &table, int row) {
     table.set_cell(row, 0, bitset<20>(entry.key).to_string());
     table.set_cell(row, 1, entry.data.base_address);
 }
@@ -324,7 +324,7 @@ BestOffsetPrefetcher::BestOffsetLearning::BestOffsetLearning(int blocks_in_page)
     * @return The current best offset.
     */
 int 
-BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, RecentRequestsTable &recent_requests_table) {
+BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, BestOffsetPrefetcher::RecentRequestsTable &recent_requests_table) {
     int page_offset = block_number % this->blocks_in_page;
     Entry &entry = this->offset_list[this->index_to_test];
     bool found =
