@@ -85,7 +85,7 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
 
     // Get required packet info
     Addr pkt_addr = pkt->getAddr();
-    Addr pc = pkt->req->getPC();
+    // Addr pc = pkt->req->getPC(); Best Offset prefetcher does not use the PC information
     /* MJL_TODO: commenting these now, but would need to deal with them in the future
     bool is_secure = pkt->isSecure();
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
@@ -103,7 +103,6 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         cerr << "[BOP] best_offset=" << this->prefetch_offset << endl;
     }
 
-    vector<uint64_t> pred;
     for (int i = 1; i <= this->degree; i += 1) {
         if (this->prefetch_offset != 0 && is_inside_page(page_offset + i * this->prefetch_offset))
             addresses.push_back(AddrPriority((block_number + i * this->prefetch_offset) * blkSize, 0));
@@ -124,7 +123,7 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         cerr << this->recent_requests_table.log();
         cerr << this->best_offset_learning.log();
     }
-    return pred;
+    return;
 }
 /* MJL_End */
 
@@ -160,51 +159,51 @@ BestOffsetPrefetcher::set_debug_level(int debug_level) {
     this->recent_requests_table.set_debug_mode(enable);
 }
 
-Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}
+BestOffsetPrefetcher::Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}
 
 void 
-Table::set_row(int row, const vector<string> &data, int start_col = 0) {
+BestOffsetPrefetcher::Table::set_row(int row, const vector<string> &data, int start_col/* = 0*/) {
     assert(data.size() + start_col == this->width);
     for (unsigned col = start_col; col < this->width; col += 1)
         this->set_cell(row, col, data[col]);
 }
 
 void 
-Table::set_col(int col, const vector<string> &data, int start_row = 0) {
+BestOffsetPrefetcher::Table::set_col(int col, const vector<string> &data, int start_row/* = 0*/) {
     assert(data.size() + start_row == this->height);
     for (unsigned row = start_row; row < this->height; row += 1)
         this->set_cell(row, col, data[row]);
 }
 
 void 
-Table::set_cell(int row, int col, string data) {
+BestOffsetPrefetcher::Table::set_cell(int row, int col, string data) {
     assert(0 <= row && row < (int)this->height);
     assert(0 <= col && col < (int)this->width);
     this->cells[row][col] = data;
 }
 
 void 
-Table::set_cell(int row, int col, double data) {
+BestOffsetPrefetcher::Table::set_cell(int row, int col, double data) {
     this->oss.str("");
     this->oss << setw(11) << fixed << setprecision(8) << data;
     this->set_cell(row, col, this->oss.str());
 }
 
 void 
-Table::set_cell(int row, int col, int64_t data) {
+BestOffsetPrefetcher::Table::set_cell(int row, int col, int64_t data) {
     this->oss.str("");
     this->oss << setw(11) << std::left << data;
     this->set_cell(row, col, this->oss.str());
 }
 
 void 
-Table::set_cell(int row, int col, int data) { this->set_cell(row, col, (int64_t)data); }
+BestOffsetPrefetcher::Table::set_cell(int row, int col, int data) { this->set_cell(row, col, (int64_t)data); }
 
 void 
-Table::set_cell(int row, int col, uint64_t data) { this->set_cell(row, col, (int64_t)data); }
+BestOffsetPrefetcher::Table::set_cell(int row, int col, uint64_t data) { this->set_cell(row, col, (int64_t)data); }
 
 string 
-Table::to_string() {
+BestOffsetPrefetcher::Table::to_string() {
     vector<int> widths;
     for (unsigned i = 0; i < this->width; i += 1) {
         int max_width = 0;
@@ -224,7 +223,7 @@ Table::to_string() {
 }
 
 string 
-Table::data_row(int row, const vector<int> &widths) {
+BestOffsetPrefetcher::Table::data_row(int row, const vector<int> &widths) {
     string out;
     for (unsigned i = 0; i < this->width; i += 1) {
         string data = this->cells[row][i];
@@ -236,16 +235,16 @@ Table::data_row(int row, const vector<int> &widths) {
 }
 
 string 
-Table::top_line(const vector<int> &widths) { return Table::line(widths, "┌", "┬", "┐"); }
+BestOffsetPrefetcher::Table::top_line(const vector<int> &widths) { return Table::line(widths, "┌", "┬", "┐"); }
 
 string 
-Table::mid_line(const vector<int> &widths) { return Table::line(widths, "├", "┼", "┤"); }
+BestOffsetPrefetcher::Table::mid_line(const vector<int> &widths) { return Table::line(widths, "├", "┼", "┤"); }
 
 string 
-Table::bot_line(const vector<int> &widths) { return Table::line(widths, "└", "┴", "┘"); }
+BestOffsetPrefetcher::Table::bot_line(const vector<int> &widths) { return Table::line(widths, "└", "┴", "┘"); }
 
 string 
-Table::line(const vector<int> &widths, string left, string mid, string right) {
+BestOffsetPrefetcher::Table::line(const vector<int> &widths, string left, string mid, string right) {
     string out = " " + left;
     for (unsigned i = 0; i < widths.size(); i += 1) {
         int w = widths[i];
@@ -259,31 +258,31 @@ Table::line(const vector<int> &widths, string left, string mid, string right) {
     return out + "\n";
 }
 
-RecentRequestsTable::RecentRequestsTable(int size) : Super(size) {
+BestOffsetPrefetcher::RecentRequestsTable::RecentRequestsTable(int size) : Super(size) {
     assert(__builtin_popcount(size) == 1);
     this->hash_w = __builtin_ctz(size);
 }
 
-RecentRequestsTable::Entry 
-RecentRequestsTable::insert(uint64_t base_address) {
+BestOffsetPrefetcher::RecentRequestsTable::Entry 
+BestOffsetPrefetcher::RecentRequestsTable::insert(uint64_t base_address) {
     uint64_t key = this->hash(base_address);
     return Super::insert(key, {base_address});
 }
 
 bool 
-RecentRequestsTable::find(uint64_t base_address) {
+BestOffsetPrefetcher::RecentRequestsTable::find(uint64_t base_address) {
     uint64_t key = this->hash(base_address);
     return (Super::find(key) != nullptr);
 }
 
 string 
-RecentRequestsTable::log() {
+BestOffsetPrefetcher::RecentRequestsTable::log() {
     vector<string> headers({"Hash", "Base Address"});
     return Super::log(headers, this->write_data);
 }
 
 void 
-RecentRequestsTable::write_data(Entry &entry, Table &table, int row) {
+BestOffsetPrefetcher::RecentRequestsTable::write_data(Entry &entry, Table &table, int row) {
     table.set_cell(row, 0, bitset<20>(entry.key).to_string());
     table.set_cell(row, 1, entry.data.base_address);
 }
@@ -292,7 +291,7 @@ RecentRequestsTable::write_data(Entry &entry, Table &table, int row) {
 * least significant line address bits with the next 8 bits to obtain the table index. For 12-bit tags, we skip the
 * 8 least significant line address bits and extract the next 12 bits. */
 uint64_t 
-RecentRequestsTable::hash(uint64_t input) {
+BestOffsetPrefetcher::RecentRequestsTable::hash(uint64_t input) {
     int next_w_bits = ((1 << hash_w) - 1) & (input >> hash_w);
     uint64_t output = ((1 << 20) - 1) & (next_w_bits ^ input);
     if (this->debug) {
@@ -301,7 +300,7 @@ RecentRequestsTable::hash(uint64_t input) {
     return output;
 }
 
-BestOffsetLearning::BestOffsetLearning(int blocks_in_page) : blocks_in_page(blocks_in_page) {
+BestOffsetPrefetcher::BestOffsetLearning::BestOffsetLearning(int blocks_in_page) : blocks_in_page(blocks_in_page) {
     /* Useful offset values depend on the memory page size, as the BO prefetcher does not prefetch across page
         * boundaries. For instance, assuming 4KB pages and 64B lines, a page contains 64 lines, and there is no point
         * in considering offset values greater than 63. However, it may be useful to consider offsets greater than 63
@@ -325,7 +324,7 @@ BestOffsetLearning::BestOffsetLearning(int blocks_in_page) : blocks_in_page(bloc
     * @return The current best offset.
     */
 int 
-BestOffsetLearning::test_offset(uint64_t block_number, RecentRequestsTable &recent_requests_table) {
+BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, RecentRequestsTable &recent_requests_table) {
     int page_offset = block_number % this->blocks_in_page;
     Entry &entry = this->offset_list[this->index_to_test];
     bool found =
@@ -371,7 +370,7 @@ BestOffsetLearning::test_offset(uint64_t block_number, RecentRequestsTable &rece
 }
 
 string 
-BestOffsetLearning::log() {
+BestOffsetPrefetcher::BestOffsetLearning::log() {
     Table table(2, offset_list.size() + 1);
     table.set_row(0, {"Offset", "Score"});
     for (unsigned i = 0; i < offset_list.size(); i += 1) {
@@ -382,7 +381,7 @@ BestOffsetLearning::log() {
 }
 
 void 
-BestOffsetLearning::set_debug_mode(bool enable) { this->debug = enable; }
+BestOffsetPrefetcher::BestOffsetLearning::set_debug_mode(bool enable) { this->debug = enable; }
 
 bool 
-BestOffsetLearning::is_inside_page(int page_offset) { return (0 <= page_offset && page_offset < this->blocks_in_page); }
+BestOffsetPrefetcher::BestOffsetLearning::is_inside_page(int page_offset) { return (0 <= page_offset && page_offset < this->blocks_in_page); }

@@ -169,43 +169,51 @@ BingoPrefetcherParams::create()
     return new BingoPrefetcher(this);
 }
 
-Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}
+BingoPrefetcher::Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}
 
-void Table::set_row(int row, const vector<string> &data, int start_col/* = 0*/) {
+void 
+BingoPrefetcher::Table::set_row(int row, const vector<string> &data, int start_col/* = 0*/) {
     assert(data.size() + start_col == this->width);
     for (unsigned col = start_col; col < this->width; col += 1)
         this->set_cell(row, col, data[col]);
 }
 
-void Table::set_col(int col, const vector<string> &data, int start_row/* = 0*/) {
+void 
+BingoPrefetcher::Table::set_col(int col, const vector<string> &data, int start_row/* = 0*/) {
     assert(data.size() + start_row == this->height);
     for (unsigned row = start_row; row < this->height; row += 1)
         this->set_cell(row, col, data[row]);
 }
 
-void Table::set_cell(int row, int col, string data) {
+void 
+BingoPrefetcher::Table::set_cell(int row, int col, string data) {
     assert(0 <= row && row < (int)this->height);
     assert(0 <= col && col < (int)this->width);
     this->cells[row][col] = data;
 }
 
-void Table::set_cell(int row, int col, double data) {
+void 
+BingoPrefetcher::Table::set_cell(int row, int col, double data) {
     this->oss.str("");
     this->oss << setw(11) << fixed << setprecision(8) << data;
     this->set_cell(row, col, this->oss.str());
 }
 
-void Table::set_cell(int row, int col, int64_t data) {
+void 
+BingoPrefetcher::Table::set_cell(int row, int col, int64_t data) {
     this->oss.str("");
     this->oss << setw(11) << std::left << data;
     this->set_cell(row, col, this->oss.str());
 }
 
-void Table::set_cell(int row, int col, int data) { this->set_cell(row, col, (int64_t)data); }
+void 
+BingoPrefetcher::Table::set_cell(int row, int col, int data) { this->set_cell(row, col, (int64_t)data); }
 
-void Table::set_cell(int row, int col, uint64_t data) { this->set_cell(row, col, (int64_t)data); }
+void 
+BingoPrefetcher::Table::set_cell(int row, int col, uint64_t data) { this->set_cell(row, col, (int64_t)data); }
 
-string Table::to_string() {
+string 
+BingoPrefetcher::Table::to_string() {
     vector<int> widths;
     for (unsigned i = 0; i < this->width; i += 1) {
         int max_width = 0;
@@ -224,7 +232,8 @@ string Table::to_string() {
     return out;
 }
 
-string Table::data_row(int row, const vector<int> &widths) {
+string 
+BingoPrefetcher::Table::data_row(int row, const vector<int> &widths) {
     string out;
     for (unsigned i = 0; i < this->width; i += 1) {
         string data = this->cells[row][i];
@@ -235,13 +244,17 @@ string Table::data_row(int row, const vector<int> &widths) {
     return out;
 }
 
-string Table::top_line(const vector<int> &widths) { return Table::line(widths, "┌", "┬", "┐"); }
+string 
+BingoPrefetcher::Table::top_line(const vector<int> &widths) { return Table::line(widths, "┌", "┬", "┐"); }
 
-string Table::mid_line(const vector<int> &widths) { return Table::line(widths, "├", "┼", "┤"); }
+string 
+BingoPrefetcher::Table::mid_line(const vector<int> &widths) { return Table::line(widths, "├", "┼", "┤"); }
 
-string Table::bot_line(const vector<int> &widths) { return Table::line(widths, "└", "┴", "┘"); }
+string 
+BingoPrefetcher::Table::bot_line(const vector<int> &widths) { return Table::line(widths, "└", "┴", "┘"); }
 
-string Table::line(const vector<int> &widths, string left, string mid, string right) {
+string 
+BingoPrefetcher::Table::line(const vector<int> &widths, string left, string mid, string right) {
     string out = " " + left;
     for (unsigned i = 0; i < widths.size(); i += 1) {
         int w = widths[i];
@@ -255,9 +268,10 @@ string Table::line(const vector<int> &widths, string left, string mid, string ri
     return out + "\n";
 }
 
-FilterTable::FilterTable(int size) : Super(size) { assert(__builtin_popcount(size) == 1); }
+BingoPrefetcher::FilterTable::FilterTable(int size) : Super(size) { assert(__builtin_popcount(size) == 1); }
 
-FilterTable::Entry * FilterTable::find(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */) {
+BingoPrefetcher::FilterTable::Entry * 
+BingoPrefetcher::FilterTable::find(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */) {
     Entry *entry = Super::find(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     if (!entry)
         return nullptr;
@@ -265,13 +279,14 @@ FilterTable::Entry * FilterTable::find(uint64_t region_number/* MJL_Begin */, bo
     return entry;
 }
 
-void FilterTable::insert(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */, uint64_t pc, int offset) {
+void 
+BingoPrefetcher::FilterTable::insert(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */, uint64_t pc, int offset) {
     assert(!this->find(region_number/* MJL_Begin */, is_secure/* MJL_End */));
     Super::insert(region_number/* MJL_Begin */, is_secure/* MJL_End */, {pc, offset});
     this->set_mru(region_number/* MJL_Begin */, is_secure/* MJL_End */);
 }
 
-AccumulationTable::AccumulationTable(int size, int pattern_len) : Super(size), pattern_len(pattern_len) {
+BingoPrefetcher::AccumulationTable::AccumulationTable(int size, int pattern_len) : Super(size), pattern_len(pattern_len) {
     assert(__builtin_popcount(size) == 1);
     assert(__builtin_popcount(pattern_len) == 1);
 }
@@ -279,7 +294,8 @@ AccumulationTable::AccumulationTable(int size, int pattern_len) : Super(size), p
 /**
     * @return A return value of false means that the tag wasn't found in the table and true means success.
     */
-bool AccumulationTable::set_pattern(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */, int offset) {
+bool 
+BingoPrefetcher::AccumulationTable::set_pattern(uint64_t region_number/* MJL_Begin */, bool is_secure/* MJL_End */, int offset) {
     Entry *entry = Super::find(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     if (!entry)
         return false;
@@ -288,7 +304,8 @@ bool AccumulationTable::set_pattern(uint64_t region_number/* MJL_Begin */, bool 
     return true;
 }
 
-AccumulationTable::Entry AccumulationTable::insert(FilterTable::Entry &entry) {
+BingoPrefetcher::AccumulationTable::Entry 
+BingoPrefetcher::AccumulationTable::insert(FilterTable::Entry &entry) {
     assert(!this->find(entry.key/* MJL_Begin */, entry.is_secure/* MJL_End */));
     vector<bool> pattern(this->pattern_len, false);
     pattern[entry.data.offset] = true;
@@ -297,7 +314,7 @@ AccumulationTable::Entry AccumulationTable::insert(FilterTable::Entry &entry) {
     return old_entry;
 }
 
-PatternHistoryTable::PatternHistoryTable(
+BingoPrefetcher::PatternHistoryTable::PatternHistoryTable(
     int size, int pattern_len, int min_addr_width, int max_addr_width, int pc_width, int num_ways/* = 16*/)
     : Super(size, num_ways), pattern_len(pattern_len), min_addr_width(min_addr_width),
         max_addr_width(max_addr_width), pc_width(pc_width) {
@@ -311,7 +328,8 @@ PatternHistoryTable::PatternHistoryTable(
 }
 
 /* address is actually block number */
-void PatternHistoryTable::insert(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */, vector<bool> pattern) {
+void 
+BingoPrefetcher::PatternHistoryTable::insert(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */, vector<bool> pattern) {
     assert((int)pattern.size() == this->pattern_len);
     int offset = address % this->pattern_len;
     pattern = my_rotate(pattern, -offset);
@@ -332,7 +350,8 @@ void PatternHistoryTable::insert(uint64_t pc, uint64_t address/* MJL_Begin */, b
     * @return An un-rotated pattern if match was found, otherwise an empty vector.
     * Finds best match and in case of ties, uses the MRU entry.
     */
-vector<bool> PatternHistoryTable::find(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */) {
+vector<bool> 
+BingoPrefetcher::PatternHistoryTable::find(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */) {
     uint64_t key = this->build_key(pc, address);
     uint64_t index = key % this->num_sets;
     uint64_t tag = key / this->num_sets;
@@ -371,7 +390,8 @@ vector<bool> PatternHistoryTable::find(uint64_t pc, uint64_t address/* MJL_Begin
     return ret;
 }
 
-uint64_t PatternHistoryTable::build_key(uint64_t pc, uint64_t address) {
+uint64_t 
+BingoPrefetcher::PatternHistoryTable::build_key(uint64_t pc, uint64_t address) {
     pc &= (1 << this->pc_width) - 1;            /* use [pc_width] bits from pc */
     address &= (1 << this->max_addr_width) - 1; /* use [addr_width] bits from address */
     uint64_t offset = address & ((1 << this->min_addr_width) - 1);
@@ -387,7 +407,8 @@ uint64_t PatternHistoryTable::build_key(uint64_t pc, uint64_t address) {
     return key;
 }
 
-vector<bool> PatternHistoryTable::vote(const vector<vector<SC2>> &x, float thresh/* = THRESH*/) {
+vector<bool> 
+BingoPrefetcher::PatternHistoryTable::vote(const vector<vector<SC2>> &x, float thresh/* = THRESH*/) {
     int n = x.size();
     vector<bool> ret(this->pattern_len, false);
     for (int i = 0; i < n; i += 1)
