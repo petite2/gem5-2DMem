@@ -115,6 +115,20 @@ class BestOffsetPrefetcher(QueuedPrefetcher):
 
     degree = Param.Int(4, "Number of prefetches to generate")
 
+class VLDPrefetcher(QueuedPrefetcher):
+    type = 'VLDPrefetcher'
+    cxx_class = 'VLDPrefetcher'
+    cxx_header = "mem/cache/prefetch/vldp.hh"
+
+    page_size = Param.Int(2 * 1024 * 1024 / 64, "Number of cache lines per page")
+    delta_history_buffer_size = Param.Int(16, "Number of entries in the delta history buffer")
+    offset_prediction_table_size = Param.Int(64, "Number of entries in the offset prediction table")
+    delta_prediction_table_size = Param.Int(64, "Number of entries in the delta prediction table")
+
+    use_master_id = Param.Bool(True, "Use master id based history")
+
+    degree = Param.Int(4, "Number of prefetches to generate")
+
 class TaggedPrefetcher(QueuedPrefetcher):
     type = 'TaggedPrefetcher'
     cxx_class = 'TaggedPrefetcher'

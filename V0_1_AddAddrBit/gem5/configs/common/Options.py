@@ -122,6 +122,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_Prefetcher", action="store_true", help="Set Prefetcher")
     parser.add_option("--MJL_BingoPrefetcher", action="store_true", help="Set Prefetcher")
     parser.add_option("--MJL_BOPrefetcher", action="store_true", help="Set Prefetcher")
+    parser.add_option("--MJL_VLDPrefetcher", action="store_true", help="Set Prefetcher")
     parser.add_option("--MJL_2DL2Cache", action="store_true", help="Set L2 cache to physically 2D")
     parser.add_option("--MJL_timeStep", action="store", type="int", default=0, help="Set the time step for intermediate outputs, default no intermediate output")
     parser.add_option("--MJL_2DL2TransferType", action="store", type="int", default=0, help="Set the type of transfer method from memory to L2 cache in physically 2D cache, 0 for per line on demand, 1 for whole tile")
