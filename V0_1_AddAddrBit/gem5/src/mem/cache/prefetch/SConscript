@@ -38,4 +38,5 @@ Source('stride.cc')
 Source('tagged.cc')
 Source('bingo.cc')
 Source('bo.cc')
+Source('vldp.cc')
 

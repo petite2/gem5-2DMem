@@ -63,6 +63,7 @@ VLDPrefetcher::VLDPrefetcher(const VLDPrefetcherParams *p)
 {
     // Don't consult stride prefetcher on instruction accesses
     onInst = false;
+    std::cout << "MJL_VLDPrefetcher" << std::endl;
 }
 
 void
@@ -261,7 +262,7 @@ VLDPrefetcher::ShiftRegister::insert(int x) {
     */
 uint64_t 
 VLDPrefetcher::ShiftRegister::get_code(unsigned le, unsigned ri) {
-    assert(0 <= le && le < this->size);
+    assert(le < this->size);
     assert(le < ri && ri <= this->size);
     uint64_t mask = (1ull << (this->width * (ri - le))) - 1ull;
     return (this->reg >> (le * this->width)) & mask;
@@ -308,7 +309,10 @@ VLDPrefetcher::DeltaPredictionTables::update(uint64_t page_number, VLDPrefetcher
             if (last_predictor != 2 && deltas.get_value(last_predictor + 2) != 0) {
                 uint64_t new_key = deltas.get_code(1, last_predictor + 3);
                 /* NOTE: promoted entries are assigned an accuracy of zero */
-                delta_prediction_table[last_predictor + 1].insert(new_key, { deltas.get_value(0) });
+                /* MJL_Begin 
+                SaturatingCounter tempCounter(deltas.get_value(0));
+                 MJL_End */
+                delta_prediction_table[last_predictor + 1].insert(new_key, /* MJL_Begin tempCounter MJL_End *//* MJL_Comment */{ deltas.get_value(0) }/* */);
                 delta_prediction_table[last_predictor + 1].set_mru(new_key);
             }
         }
@@ -322,7 +326,10 @@ VLDPrefetcher::DeltaPredictionTables::update(uint64_t page_number, VLDPrefetcher
         if (entry)
             return;
     }
-    delta_prediction_table[0].insert(deltas.get_code(1, 2), { deltas.get_value(0) });
+    /* MJL_Begin */
+    SaturatingCounter tempCounter(deltas.get_value(0));
+    /* MJL_End */
+    delta_prediction_table[0].insert(deltas.get_code(1, 2), /* MJL_Begin tempCounter MJL_End *//* MJL_Comment */{ deltas.get_value(0) }/* */);
     delta_prediction_table[0].set_mru(deltas.get_code(1, 2));
 }
 

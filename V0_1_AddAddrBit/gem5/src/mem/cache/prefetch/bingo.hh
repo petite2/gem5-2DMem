@@ -17,6 +17,8 @@
 #include <bits/stdc++.h>
 #include <vector>
 
+#define THRESH 0.20
+
 class BingoPrefetcher : public QueuedPrefetcher
 {
   private:
@@ -446,17 +448,6 @@ class BingoPrefetcher : public QueuedPrefetcher
         int cnt = -1;
     };
     
-    template <class T> std::vector<T> my_rotate(const std::vector<T> &x, int n) {
-        std::vector<T> y;
-        int len = x.size();
-        n = n % len;
-        for (int i = 0; i < len; i += 1)
-            y.push_back(x[(i - n + len) % len]);
-        return y;
-    }
-    
-    #define THRESH 0.20
-    
     class PatternHistoryTableData {
       public:
         std::vector<SC2> pattern;
@@ -479,6 +470,15 @@ class BingoPrefetcher : public QueuedPrefetcher
         std::vector<bool> find(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */);
     
       private:
+        template <class T> std::vector<T> my_rotate(const std::vector<T> &x, int n) {
+            std::vector<T> y;
+            int len = x.size();
+            n = n % len;
+            for (int i = 0; i < len; i += 1)
+                y.push_back(x[(i - n + len) % len]);
+            return y;
+        }
+
         uint64_t build_key(uint64_t pc, uint64_t address);
     
         std::vector<bool> vote(const std::vector<std::vector<SC2>> &x, float thresh = THRESH);

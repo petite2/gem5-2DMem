@@ -487,6 +487,8 @@ class VLDPrefetcher : public QueuedPrefetcher
          * the values. Also, each DPT entry has a 2-bit accuracy counter, and a 1-bit nMRU value. */
         /* Each entry in the table consists of 4 basic elements: a delta history (delta), a delta prediction (pred), a 2-bit
          * accuracy counter, and a single nMRU bit. */
+        DeltaPredictionTableData() {}
+        DeltaPredictionTableData(int input):pred(input) {}
     };
     
     class DeltaPredictionTable : public NMRUFullyAssociativeCache<DeltaPredictionTableData> {
