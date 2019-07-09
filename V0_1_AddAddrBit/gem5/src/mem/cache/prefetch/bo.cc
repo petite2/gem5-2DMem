@@ -55,8 +55,9 @@ using namespace std;
 BestOffsetPrefetcher::BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p)
     : QueuedPrefetcher(p),
       blocks_in_page(p->blocks_in_page), 
-      best_offset_learning(p->blocks_in_page),
-      recent_requests_table(p->recent_requests_table_size),
+      prefetch_offset(2, 0),
+      best_offset_learning(2, {p->blocks_in_page}),
+      recent_requests_table(2, {p->recent_requests_table_size}),
       useMasterId(p->use_master_id),
       degree(p->degree)
 {
@@ -90,6 +91,10 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     bool is_secure = pkt->isSecure();
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
      */
+    int MJL_triggerDir_type = 0;
+    if (pkt->MJL_cmdIsColumn()) {
+        MJL_triggerDir_type = 1;
+    }
 
     uint64_t block_number = pkt_addr / blkSize;
     uint64_t page_number = block_number / this->blocks_in_page;
@@ -97,15 +102,15 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     /* ... and if X and X + D lie in the same memory page, a prefetch request for line X + D is sent to the L3
         * cache. */
     if (this->debug) {
-        cerr << "[BOP] block_number=" << block_number << endl;
-        cerr << "[BOP] page_number=" << page_number << endl;
-        cerr << "[BOP] page_offset=" << page_offset << endl;
-        cerr << "[BOP] best_offset=" << this->prefetch_offset << endl;
+        // cerr << "[BOP] block_number=" << std::hex << block_number * blkSize << std::dec << endl;
+        // cerr << "[BOP] page_number=" << std::hex << page_number << std::dec << endl;
+        // cerr << "[BOP] page_offset=" << std::hex << page_offset * blkSize << std::dec << endl;
+        cerr << "[BOP] best_offset=" << std::hex << this->prefetch_offset[MJL_triggerDir_type] * blkSize << std::dec << endl;
     }
 
     for (int i = 1; i <= this->degree; i += 1) {
-        if (this->prefetch_offset != 0 && is_inside_page(page_offset + i * this->prefetch_offset))
-            addresses.push_back(AddrPriority((block_number + i * this->prefetch_offset) * blkSize, 0));
+        if (this->prefetch_offset[MJL_triggerDir_type] != 0 && is_inside_page(page_offset + i * this->prefetch_offset[MJL_triggerDir_type]))
+            addresses.push_back(AddrPriority((block_number + i * this->prefetch_offset[MJL_triggerDir_type]) * blkSize, 0));
         else {
             if (this->debug)
                 cerr << "[BOP] X and X + " << i << " * D do not lie in the same memory page, no prefetch issued"
@@ -114,14 +119,14 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         }
     }
 
-    int old_offset = this->prefetch_offset;
+    int old_offset = this->prefetch_offset[MJL_triggerDir_type];
     /* On every eligible L2 read access (miss or prefetched hit), we test an offset di from the list. */
-    this->prefetch_offset = this->best_offset_learning.test_offset(block_number, recent_requests_table);
+    this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table[MJL_triggerDir_type]);
     if (this->debug) {
-        if (old_offset != this->prefetch_offset)
-            cerr << "[BOP] offset changed from " << old_offset << " to " << this->prefetch_offset << endl;
-        cerr << this->recent_requests_table.log();
-        cerr << this->best_offset_learning.log();
+        if (old_offset != this->prefetch_offset[MJL_triggerDir_type])
+            cerr << "[BOP] offset changed from " << std::hex << old_offset * blkSize << " to " << this->prefetch_offset[MJL_triggerDir_type] * blkSize  << std::dec << endl;
+        // cerr << this->recent_requests_table[MJL_triggerDir_type].log();
+        // cerr << this->best_offset_learning[MJL_triggerDir_type].log();
     }
     return;
 }
@@ -139,24 +144,30 @@ BestOffsetPrefetcher::is_inside_page(int page_offset) {
 }
 
 void 
-BestOffsetPrefetcher::MJL_cache_fill(Addr addr, bool prefetch) {
+BestOffsetPrefetcher::MJL_cache_fill(Addr addr, bool MJL_cmdIsColumn, bool prefetch) {
     uint64_t block_number = addr/blkSize;
+    int MJL_triggerDir_type = 0;
+    if (MJL_cmdIsColumn) {
+        MJL_triggerDir_type = 1;
+    }
     int page_offset = block_number % this->blocks_in_page;
-    if (this->prefetch_offset == 0 && prefetch)
+    if (this->prefetch_offset[MJL_triggerDir_type] == 0 && prefetch)
         return;
-    if (this->prefetch_offset != 0 && !prefetch)
+    if (this->prefetch_offset[MJL_triggerDir_type] != 0 && !prefetch)
         return;
-    if (!this->is_inside_page(page_offset - this->prefetch_offset))
+    if (!this->is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type]))
         return;
-    this->recent_requests_table.insert(block_number - this->prefetch_offset);
+    this->recent_requests_table[MJL_triggerDir_type].insert(block_number - this->prefetch_offset[MJL_triggerDir_type]);
 }
 
 void 
 BestOffsetPrefetcher::set_debug_level(int debug_level) {
     bool enable = (bool)debug_level;
     this->debug = enable;
-    this->best_offset_learning.set_debug_mode(enable);
-    this->recent_requests_table.set_debug_mode(enable);
+    this->best_offset_learning[0].set_debug_mode(enable);
+    this->recent_requests_table[0].set_debug_mode(enable);
+    this->best_offset_learning[1].set_debug_mode(enable);
+    this->recent_requests_table[1].set_debug_mode(enable);
 }
 
 BestOffsetPrefetcher::Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}

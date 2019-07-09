@@ -2474,7 +2474,7 @@ Cache::recvTimingResp(PacketPtr pkt)
         /* MJL_Begin */
         // For the Best Offset prefetcher
         if (prefetcher) {
-            prefetcher->MJL_cache_fill(pkt->getAddr(), initial_tgt->pkt->cmd == MemCmd::HardPFReq);
+            prefetcher->MJL_cache_fill(pkt->getAddr(), pkt->MJL_cmdIsColumn(), initial_tgt->pkt->cmd == MemCmd::HardPFReq);
         }
         /* MJL_End */
         blk = handleFill(pkt, blk, writebacks, mshr->allocOnFill());

@@ -55,9 +55,9 @@ using namespace std;
 VLDPrefetcher::VLDPrefetcher(const VLDPrefetcherParams *p)
     : QueuedPrefetcher(p),
       page_size(p->page_size),
-      delta_history_buffer(p->delta_history_buffer_size),
-      offset_prediction_table(p->offset_prediction_table_size),
-      delta_prediction_tables(p->delta_prediction_table_size),
+      delta_history_buffer(2, {p->delta_history_buffer_size}),
+      offset_prediction_table(2, {p->offset_prediction_table_size}),
+      delta_prediction_tables(2, {p->delta_prediction_table_size}),
       useMasterId(p->use_master_id),
       degree(p->degree)
 {
@@ -91,19 +91,23 @@ VLDPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     bool is_secure = pkt->isSecure();
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
      */
+    int MJL_triggerDir_type = 0;
+    if (pkt->MJL_cmdIsColumn()) {
+        MJL_triggerDir_type = 1;
+    }
 
     uint64_t block_number = pkt_addr/blkSize;
 
     uint64_t page_number = block_number / this->page_size;
     int page_offset = block_number % this->page_size;
-    int delta = this->delta_history_buffer.update(page_number, page_offset);
+    int delta = this->delta_history_buffer[MJL_triggerDir_type].update(page_number, page_offset);
     if (delta == 0)
         return;
-    DeltaHistoryBufferData &dhb_data = this->delta_history_buffer.find(page_number)->data;
+    DeltaHistoryBufferData &dhb_data = this->delta_history_buffer[MJL_triggerDir_type].find(page_number)->data;
     if (dhb_data.num_times_used == 1) {
         /* On the first access to a page, the OPT is looked up using the page offset, and if the accuracy bit is set
             * for this entry, a prefetch is issued with the predicted delta*/
-        OffsetPredictionTable::Entry *entry = this->offset_prediction_table.find(page_offset);
+        OffsetPredictionTable::Entry *entry = this->offset_prediction_table[MJL_triggerDir_type].find(page_offset);
         if (!entry || entry->data.accuracy == 0) {
             return;
         } else {
@@ -114,14 +118,14 @@ VLDPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     else if (dhb_data.num_times_used == 2) {
         /* On the second access to a page, a delta can be computed and compared with the contents of the OPT. */
         uint64_t first_offset = page_offset - delta;
-        this->offset_prediction_table.update(first_offset, delta);
+        this->offset_prediction_table[MJL_triggerDir_type].update(first_offset, delta);
     }
     else {
-        this->delta_prediction_tables.update(page_number, dhb_data.deltas, dhb_data.last_predictor);
+        this->delta_prediction_tables[MJL_triggerDir_type].update(page_number, dhb_data.deltas, dhb_data.last_predictor);
     }
     ShiftRegister deltas = dhb_data.deltas;
     for (int i = 0; i < this->degree; i += 1) {
-        pair<int, int> pred = this->delta_prediction_tables.get_prediction(page_number, deltas);
+        pair<int, int> pred = this->delta_prediction_tables[MJL_triggerDir_type].get_prediction(page_number, deltas);
         int delta = pred.first;
         int table_index = pred.second;
         /* Despite the fact that the DPT yields 4 separate predictions in this case, the accuracy is updated only

@@ -515,9 +515,9 @@ class VLDPrefetcher : public QueuedPrefetcher
 
   protected:
     int page_size;
-    DeltaHistoryBuffer delta_history_buffer;
-    OffsetPredictionTable offset_prediction_table;
-    DeltaPredictionTables delta_prediction_tables;
+    std::vector<DeltaHistoryBuffer> delta_history_buffer;
+    std::vector<OffsetPredictionTable> offset_prediction_table;
+    std::vector<DeltaPredictionTables> delta_prediction_tables;
 
     const bool useMasterId;
 

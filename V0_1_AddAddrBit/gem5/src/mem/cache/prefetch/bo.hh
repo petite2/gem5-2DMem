@@ -423,12 +423,12 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
 
   protected:
     int blocks_in_page;
-    int prefetch_offset = 0;
+    std::vector<int> prefetch_offset;
 
-    BestOffsetLearning best_offset_learning;
-    RecentRequestsTable recent_requests_table;
+    std::vector<BestOffsetLearning> best_offset_learning;
+    std::vector<RecentRequestsTable> recent_requests_table;
 
-    bool debug = false;
+    bool debug = true;
 
     const bool useMasterId;
 
@@ -446,7 +446,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
                            std::vector<AddrPriority> &addresses, 
                            MemCmd::MJL_DirAttribute &MJL_cmdDir);
     /* MJL_End */
-    void MJL_cache_fill(Addr addr, bool prefetch);
+    void MJL_cache_fill(Addr addr, bool MJL_cmdIsColumn, bool prefetch);
 
     void set_debug_level(int debug_level);
 };
