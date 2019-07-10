@@ -488,14 +488,14 @@ class BingoPrefetcher : public QueuedPrefetcher
     };
   private:
     int pattern_len;
-    FilterTable filter_table;
-    AccumulationTable accumulation_table;
-    PatternHistoryTable pht;
+    std::vector<FilterTable> filter_table;
+    std::vector<AccumulationTable> accumulation_table;
+    std::vector<PatternHistoryTable> pht;
     int debug_level = 0;
     const bool useMasterId;
 
-    std::vector<bool> find_in_phts(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */);
-    void insert_in_phts(const AccumulationTable::Entry &entry);
+    std::vector<bool> find_in_phts(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure, int MJL_triggerDir_type/* MJL_End */);
+    void insert_in_phts(const AccumulationTable::Entry &entry, int MJL_triggerDir_type);
 
   public:
 
@@ -507,7 +507,7 @@ class BingoPrefetcher : public QueuedPrefetcher
     void MJL_calculatePrefetch(const PacketPtr &pkt,
                            std::vector<AddrPriority> &addresses, 
                            MemCmd::MJL_DirAttribute &MJL_cmdDir);
-    void MJL_eviction(Addr addr/* MJL_Begin */, bool is_secure/* MJL_End */) override;
+    void MJL_eviction(Addr addr/* MJL_Begin */, bool is_secure, MemCmd::MJL_DirAttribute MJL_cmdDir/* MJL_End */) override;
          
 };
 

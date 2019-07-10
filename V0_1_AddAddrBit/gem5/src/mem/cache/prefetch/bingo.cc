@@ -54,9 +54,9 @@ using namespace std;
 
 BingoPrefetcher::BingoPrefetcher(const BingoPrefetcherParams *p)
     : QueuedPrefetcher(p),
-    pattern_len(p->pattern_len), filter_table(p->filter_table_size),
-    accumulation_table(p->accumulation_table_size, p->pattern_len),
-    pht(p->pattern_history_table_size, p->pattern_len, p->min_addr_width, p->max_addr_width, p->pc_width),
+    pattern_len(p->pattern_len), filter_table(2, {p->filter_table_size}),
+    accumulation_table(2, {p->accumulation_table_size, p->pattern_len}),
+    pht(2, {p->pattern_history_table_size, p->pattern_len, p->min_addr_width, p->max_addr_width, p->pc_width}),
     useMasterId(p->use_master_id)
 {
     // Don't consult stride prefetcher on instruction accesses
@@ -90,6 +90,10 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     /* MJL_TODO: commenting these now, but would need to deal with them in the future
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
     */
+    int MJL_triggerDir_type = 0;
+    if (pkt->MJL_cmdIsColumn()) {
+        MJL_triggerDir_type = 1;
+    }
 
     uint64_t block_number = pkt_addr/blkSize;
 
@@ -98,14 +102,14 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     }
     uint64_t region_number = block_number / this->pattern_len;
     int region_offset = block_number % this->pattern_len;
-    bool success = this->accumulation_table.set_pattern(region_number/* MJL_Begin */, is_secure/* MJL_End */, region_offset);
+    bool success = this->accumulation_table[MJL_triggerDir_type].set_pattern(region_number/* MJL_Begin */, is_secure/* MJL_End */, region_offset);
     if (success)
         return;
-    FilterTable::Entry *entry = this->filter_table.find(region_number/* MJL_Begin */, is_secure/* MJL_End */);
+    FilterTable::Entry *entry = this->filter_table[MJL_triggerDir_type].find(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     if (!entry) {
         /* trigger access */
-        this->filter_table.insert(region_number/* MJL_Begin */, is_secure/* MJL_End */, pc, region_offset);
-        vector<bool> pattern = this->find_in_phts(pc, block_number/* MJL_Begin */, is_secure/* MJL_End */);
+        this->filter_table[MJL_triggerDir_type].insert(region_number/* MJL_Begin */, is_secure/* MJL_End */, pc, region_offset);
+        vector<bool> pattern = this->find_in_phts(pc, block_number/* MJL_Begin */, is_secure/* MJL_End */, MJL_triggerDir_type);
         if (pattern.empty())
             return;
         for (int i = 0; i < this->pattern_len; i += 1)
@@ -119,48 +123,52 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     }
     if (entry->data.offset != region_offset) {
         /* move from filter table to accumulation table */
-        AccumulationTable::Entry victim = this->accumulation_table.insert(*entry);
-        this->accumulation_table.set_pattern(region_number/* MJL_Begin */, is_secure/* MJL_End */, region_offset);
-        this->filter_table.erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
+        AccumulationTable::Entry victim = this->accumulation_table[MJL_triggerDir_type].insert(*entry);
+        this->accumulation_table[MJL_triggerDir_type].set_pattern(region_number/* MJL_Begin */, is_secure/* MJL_End */, region_offset);
+        this->filter_table[MJL_triggerDir_type].erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
         if (victim.valid) {
             /* move from accumulation table to pattern history table */
-            this->insert_in_phts(victim);
+            this->insert_in_phts(victim, MJL_triggerDir_type);
         }
     }
     return;
 }
 /* MJL_End */
 
-void BingoPrefetcher::MJL_eviction(Addr addr/* MJL_Begin */, bool is_secure/* MJL_End */) {
+void BingoPrefetcher::MJL_eviction(Addr addr/* MJL_Begin */, bool is_secure, MemCmd::MJL_DirAttribute MJL_cmdDir/* MJL_End */) {
     uint64_t block_number = addr/blkSize;
+    int MJL_triggerDir_type = 0;
+    if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        MJL_triggerDir_type = 1;
+    }
     if (this->debug_level >= 1) {
         cerr << "[Bingo] eviction(block_number=" << std::hex << block_number * blkSize << std::dec << ")" << endl;
     }
     /* end of generation */
     uint64_t region_number = block_number / this->pattern_len;
-    this->filter_table.erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
-    AccumulationTable::Entry *entry = this->accumulation_table.erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
+    this->filter_table[MJL_triggerDir_type].erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
+    AccumulationTable::Entry *entry = this->accumulation_table[MJL_triggerDir_type].erase(region_number/* MJL_Begin */, is_secure/* MJL_End */);
     if (entry) {
         /* move from accumulation table to pattern history table */
-        this->insert_in_phts(*entry);
+        this->insert_in_phts(*entry, MJL_triggerDir_type);
     }
 }
 
-vector<bool> BingoPrefetcher::find_in_phts(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure/* MJL_End */) {
+vector<bool> BingoPrefetcher::find_in_phts(uint64_t pc, uint64_t address/* MJL_Begin */, bool is_secure, int MJL_triggerDir_type/* MJL_End */) {
     if (this->debug_level >= 1) {
         cerr << "[Bingo] find_in_phts(pc=" << std::hex << pc << ", address=" << address * blkSize << std::dec << ")" << endl;
     }
-    return this->pht.find(pc, address/* MJL_Begin */, is_secure/* MJL_End */);
+    return this->pht[MJL_triggerDir_type].find(pc, address/* MJL_Begin */, is_secure/* MJL_End */);
 }
 
-void BingoPrefetcher::insert_in_phts(const BingoPrefetcher::AccumulationTable::Entry &entry) {
+void BingoPrefetcher::insert_in_phts(const BingoPrefetcher::AccumulationTable::Entry &entry, int MJL_triggerDir_type) {
     if (this->debug_level >= 1) {
         cerr << "[Bingo] insert_in_phts(...)" << endl;
     }
     uint64_t pc = entry.data.pc;
     uint64_t address = entry.key * this->pattern_len + entry.data.offset;
     const vector<bool> &pattern = entry.data.pattern;
-    this->pht.insert(pc, address/* MJL_Begin */, entry.is_secure/* MJL_End */, pattern);
+    this->pht[MJL_triggerDir_type].insert(pc, address/* MJL_Begin */, entry.is_secure/* MJL_End */, pattern);
 }
 
 BingoPrefetcher*
