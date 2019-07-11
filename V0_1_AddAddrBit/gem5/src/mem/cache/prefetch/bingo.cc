@@ -90,15 +90,19 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     /* MJL_TODO: commenting these now, but would need to deal with them in the future
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
     */
+    uint64_t block_number = MJL_movColRight(pkt_addr)/blkSize;
     int MJL_triggerDir_type = 0;
     if (pkt->MJL_cmdIsColumn()) {
         MJL_triggerDir_type = 1;
+        block_number = MJL_movColRight(MJL_swapRowColBits(pkt_addr))/blkSize;
     }
 
-    uint64_t block_number = pkt_addr/blkSize;
-
     if (this->debug_level >= 1) {
-        cerr << "[Bingo] access(block_number=" << std::hex << block_number * blkSize << ", pc=" << pc << std::dec << ")" << endl;
+        Addr restore_addr = MJL_movColLeft(block_number * blkSize);
+        if (pkt->MJL_cmdIsColumn()) {
+            restore_addr = MJL_swapRowColBits(restore_addr);
+        }
+        cerr << "[Bingo] access(block_number=" << std::hex << restore_addr << ", pc=" << pc << std::dec << ")" << endl;
     }
     uint64_t region_number = block_number / this->pattern_len;
     int region_offset = block_number % this->pattern_len;
@@ -114,10 +118,14 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             return;
         for (int i = 0; i < this->pattern_len; i += 1)
             if (pattern[i]) {
-                if (this->debug_level >= 1) {
-                    cerr << "[Bingo] access(prefetch_addr=" << std::hex << (region_number * this->pattern_len + i) * blkSize << std::dec << ")" << endl;
+                Addr pf_addr = MJL_movColLeft((region_number * this->pattern_len + i) * blkSize);
+                if (pkt->MJL_cmdIsColumn()) {
+                    pf_addr = MJL_swapRowColBits(pf_addr);
                 }
-                addresses.push_back(AddrPriority((region_number * this->pattern_len + i) * blkSize, 0));
+                if (this->debug_level >= 1) {
+                    cerr << "[Bingo] access(prefetch_addr=" << std::hex << pf_addr << std::dec << ")" << endl;
+                }
+                addresses.push_back(AddrPriority(pf_addr, 0));
             }
         return;
     }
@@ -136,13 +144,14 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
 /* MJL_End */
 
 void BingoPrefetcher::MJL_eviction(Addr addr/* MJL_Begin */, bool is_secure, MemCmd::MJL_DirAttribute MJL_cmdDir/* MJL_End */) {
-    uint64_t block_number = addr/blkSize;
+    uint64_t block_number = MJL_movColRight(addr)/blkSize;
     int MJL_triggerDir_type = 0;
     if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
         MJL_triggerDir_type = 1;
+        block_number = MJL_movColRight(MJL_swapRowColBits(addr))/blkSize;
     }
     if (this->debug_level >= 1) {
-        cerr << "[Bingo] eviction(block_number=" << std::hex << block_number * blkSize << std::dec << ")" << endl;
+        cerr << "[Bingo] eviction(block_number=" << std::hex << addr << std::dec << ")" << endl;
     }
     /* end of generation */
     uint64_t region_number = block_number / this->pattern_len;

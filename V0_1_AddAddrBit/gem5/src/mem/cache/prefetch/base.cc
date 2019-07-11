@@ -226,6 +226,51 @@ BasePrefetcher::MJL_colSamePage(Addr a, Addr b) const
 {
     return roundDown(a, MJL_colPageSize) == roundDown(b, MJL_colPageSize);
 }
+
+Addr MJL_movColRight(Addr addr) const 
+{
+    int MJL_rowShift = floorLog2(sizeof(uint64_t));
+    int MJL_colShift = floorLog2(MJL_getRowWidth()) + floorLog2(blkSize);
+    int MJL_wordShift = floorLog2(blkSize/sizeof(uint64_t));
+    uint64_t MJL_highMask = ~((1 << (MJL_colShift + MJL_wordShift)) - 1);
+    uint64_t MJL_middleMask = (MJL_getRowWidth() - 1) << floorLog2(blkSize);;
+    uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+    uint64_t MJL_offsetMask = sizeof(uint64_t) - 1;
+
+    Addr same = addr & ((Addr)MJL_highMask | (Addr)MJL_offsetMask);
+    Addr middle = addr & (Addr)MJL_middleMask;
+    Addr col = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
+    Addr row = (addr >> MJL_rowShift) & (Addr)MJL_wordMask;
+    return (same | (middle << MJL_wordShift) | (col << (MJL_wordShift + MJL_rowShift)) | (row << MJL_rowShift));
+}
+
+Addr MJL_movColLeft(Addr addr) const 
+{
+    int MJL_rowShift = floorLog2(sizeof(uint64_t));
+    int MJL_colShift = floorLog2(MJL_getRowWidth()) + floorLog2(blkSize);
+    int MJL_wordShift = floorLog2(blkSize/sizeof(uint64_t));
+    uint64_t MJL_highMask = ~((1 << (MJL_colShift + MJL_wordShift)) - 1);
+    uint64_t MJL_middleMask = (MJL_getRowWidth() - 1) << floorLog2(blkSize);;
+    uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+    uint64_t MJL_offsetMask = sizeof(uint64_t) - 1;
+
+    Addr same = addr & ((Addr)MJL_highMask | (Addr)MJL_offsetMask);
+    Addr middle = addr & ((Addr)MJL_middleMask << MJL_wordShift);
+    Addr row = (addr >> MJL_rowShift) & (Addr)MJL_wordMask;
+    Addr col = (addr >> (MJL_rowShift + MJL_wordShift)) & (Addr)MJL_wordMask;
+    return (same | (col << MJL_colShift) | (middle >> MJL_wordShift) | (row << MJL_rowShift));
+}
+
+Addr MJL_swapRowColBits(Addr addr) const 
+{
+    int MJL_rowShift = floorLog2(sizeof(uint64_t));
+    uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+    int MJL_colShift = floorLog2(MJL_getRowWidth()) + floorLog2(blkSize);
+
+    Addr new_row = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
+    Addr new_col = (addr >> MJL_rowShift) & (Addr)MJL_wordMask;
+    return ((addr & ~(((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift))) | (new_row << MJL_rowShift) | (new_col << MJL_colShift));
+}
 /* MJL_End */
 
 bool

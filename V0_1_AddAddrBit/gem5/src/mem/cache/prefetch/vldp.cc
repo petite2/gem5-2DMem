@@ -92,11 +92,11 @@ VLDPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
      */
     int MJL_triggerDir_type = 0;
+    uint64_t block_number = pkt_addr/blkSize;
     if (pkt->MJL_cmdIsColumn()) {
         MJL_triggerDir_type = 1;
+        block_number = MJL_movColRight(MJL_swapRowColBits(pkt_addr)) / blkSize;
     }
-
-    uint64_t block_number = pkt_addr/blkSize;
 
     uint64_t page_number = block_number / this->page_size;
     int page_offset = block_number % this->page_size;
@@ -111,7 +111,11 @@ VLDPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         if (!entry || entry->data.accuracy == 0) {
             return;
         } else {
-            addresses.push_back(AddrPriority((entry->data.pred + page_number * this->page_size)*blkSize,0));
+            Addr pf_addr = (entry->data.pred + page_number * this->page_size)*blkSize;
+            if (pkt->MJL_cmdIsColumn()) {
+                pf_addr = MJL_swapRowColBits(MJL_movColLeft(pf_addr));
+            }
+            addresses.push_back(AddrPriority(pf_addr,0));
             return;
         }
     }
@@ -139,7 +143,11 @@ VLDPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         block_number += delta;
         /* do not prefetch beyond page boundaries */
         if (block_number / this->page_size == page_number) {
-            addresses.push_back(AddrPriority(block_number*blkSize,0));
+            Addr pf_addr = block_number*blkSize;
+            if (pkt->MJL_cmdIsColumn()) {
+                pf_addr = MJL_swapRowColBits(MJL_movColLeft(pf_addr));
+            }
+            addresses.push_back(AddrPriority(pf_addr,0));
         }
         deltas.insert(delta);
     }

@@ -121,6 +121,9 @@ class BasePrefetcher : public ClockedObject
     bool MJL_is2DCache() const;
     unsigned MJL_getRowWidth() const;
     bool MJL_colSamePage(Addr a, Addr b) const;
+    Addr MJL_movColRight(Addr addr) const;
+    Addr MJL_movColLeft(Addr addr) const;
+    Addr MJL_swapRowColBits(Addr addr) const;
     /* MJL_End */
 
     /** Determine if addresses are on the same page */
