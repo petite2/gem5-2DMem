@@ -227,7 +227,8 @@ BasePrefetcher::MJL_colSamePage(Addr a, Addr b) const
     return roundDown(a, MJL_colPageSize) == roundDown(b, MJL_colPageSize);
 }
 
-Addr MJL_movColRight(Addr addr) const 
+Addr 
+BasePrefetcher::MJL_movColRight(Addr addr) const 
 {
     int MJL_rowShift = floorLog2(sizeof(uint64_t));
     int MJL_colShift = floorLog2(MJL_getRowWidth()) + floorLog2(blkSize);
@@ -244,7 +245,8 @@ Addr MJL_movColRight(Addr addr) const
     return (same | (middle << MJL_wordShift) | (col << (MJL_wordShift + MJL_rowShift)) | (row << MJL_rowShift));
 }
 
-Addr MJL_movColLeft(Addr addr) const 
+Addr 
+BasePrefetcher::MJL_movColLeft(Addr addr) const 
 {
     int MJL_rowShift = floorLog2(sizeof(uint64_t));
     int MJL_colShift = floorLog2(MJL_getRowWidth()) + floorLog2(blkSize);
@@ -261,7 +263,8 @@ Addr MJL_movColLeft(Addr addr) const
     return (same | (col << MJL_colShift) | (middle >> MJL_wordShift) | (row << MJL_rowShift));
 }
 
-Addr MJL_swapRowColBits(Addr addr) const 
+Addr 
+BasePrefetcher::MJL_swapRowColBits(Addr addr) const 
 {
     int MJL_rowShift = floorLog2(sizeof(uint64_t));
     uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
@@ -270,6 +273,19 @@ Addr MJL_swapRowColBits(Addr addr) const
     Addr new_row = (addr >> MJL_colShift) & (Addr)MJL_wordMask;
     Addr new_col = (addr >> MJL_rowShift) & (Addr)MJL_wordMask;
     return ((addr & ~(((Addr)MJL_wordMask << MJL_colShift) | ((Addr)MJL_wordMask << MJL_rowShift))) | (new_row << MJL_rowShift) | (new_col << MJL_colShift));
+}
+
+Addr 
+BasePrefetcher::MJL_swapRowColSegments(Addr addr) const
+{
+    int MJL_rowShift = floorLog2(sizeof(uint64_t));
+    uint64_t MJL_segMask = MJL_getRowWidth()*blkSize/sizeof(uint64_t) - 1;
+    int MJL_colShift = floorLog2(MJL_getRowWidth()) + floorLog2(blkSize);
+
+    Addr same = addr & ~((MJL_segMask << MJL_rowShift) | (MJL_segMask << MJL_colShift));
+    Addr new_row = (addr >> MJL_colShift) & (Addr)MJL_segMask;
+    Addr new_col = (addr >> MJL_rowShift) & (Addr)MJL_segMask;
+    return (same | (new_col << MJL_colShift) | (new_row << MJL_rowShift));
 }
 /* MJL_End */
 

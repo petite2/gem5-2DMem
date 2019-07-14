@@ -113,7 +113,7 @@ class BestOffsetPrefetcher(QueuedPrefetcher):
 
     use_master_id = Param.Bool(True, "Use master id based history")
 
-    degree = Param.Int(4, "Number of prefetches to generate")
+    degree = Param.Int(1, "Number of prefetches to generate")
 
 class VLDPrefetcher(QueuedPrefetcher):
     type = 'VLDPrefetcher'

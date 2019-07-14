@@ -94,6 +94,9 @@ QueuedPrefetcher::notify(/* MJL_Comment const */ PacketPtr &pkt)
          */
         /* MJL_Begin */
         MemCmd::MJL_DirAttribute MJL_predCmdDir = MemCmd::MJL_DirAttribute::MJL_IsInvalid;
+        /* MJL_Test */
+        std::cerr << "MJL_Prefetcher::notify() trigger: " << pkt->print() << std::endl;
+        /* */
         if (MJL_pfBasedPredictDir) {
             // Get prefetch based predicted direction
             MJL_calculatePrefetch(pkt, addresses, MJL_predCmdDir);
@@ -115,6 +118,9 @@ QueuedPrefetcher::notify(/* MJL_Comment const */ PacketPtr &pkt)
                 pf_info.first &= ~(Addr)(blkSize - 1);
             }
             /* MJL_End */
+            /* MJL_Test */
+            std::cerr << "MJL_Prefetcher::notify() prefetch addr: " << std::hex << pf_info.first << std::dec << std::endl;
+            /* */
             /* MJL_Comment
             pf_info.first &= ~(Addr)(blkSize - 1);
             */
@@ -147,6 +153,9 @@ QueuedPrefetcher::notify(/* MJL_Comment const */ PacketPtr &pkt)
                     // Tag prefetch packet with  accessing pc
                     pf_pkt->req->setPC(pkt->req->getPC());
                 }
+                /* MJL_Test 
+                std::cerr << "MJL_Prefetcher::notify() inserted pf: " << pf_pkt->print() << std::endl;
+                 */
             }
         }
     }

@@ -1254,7 +1254,7 @@ Cache::doWritebacks(PacketList& writebacks, Tick forward_time)
         /* MJL_Begin */
         // For Bingo prefetcher, do the eviction 
         if (prefetcher && !wbPkt->isBlockCached()) {
-            prefetcher->MJL_eviction(wbPkt->getAddr(), wbPkt->isSecure());
+            prefetcher->MJL_eviction(wbPkt->getAddr(), wbPkt->isSecure(), wbPkt->MJL_getCmdDir());
         }
         /* MJL_End */
         // We use forwardLatency here because we are copying writebacks to
@@ -2927,7 +2927,7 @@ endl;
             /* MJL_Begin */
             // For Bingo prefetcher, do the eviction 
             if (prefetcher && !wbPkt->isBlockCached()) {
-                prefetcher->MJL_eviction(wbPkt->getAddr(), wbPkt->isSecure());
+                prefetcher->MJL_eviction(wbPkt->getAddr(), wbPkt->isSecure(), wbPkt->MJL_getCmdDir());
             }
             /* MJL_End */
             allocateWriteBuffer(wbPkt, forward_time);
@@ -2939,7 +2939,7 @@ endl;
             /* MJL_Begin */
             // For Bingo prefetcher, do the eviction 
             if (prefetcher && !wcPkt->isBlockCached()) {
-                prefetcher->MJL_eviction(wcPkt->getAddr(), wcPkt->isSecure());
+                prefetcher->MJL_eviction(wcPkt->getAddr(), wcPkt->isSecure(), wcPkt->MJL_getCmdDir());
             }
             /* MJL_End */
             // Check to see if block is cached above. If not allocate
@@ -3510,6 +3510,9 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
 
                 if (blk->wasPrefetched()) {
                     unusedPrefetches++;
+                    /* MJL_test */
+                    std::cerr << "MJL_Prefetcher::MJL_allocateBlock(): unusedPrefetches: " << blk->MJL_blkDir << ":" << std::hex << repl_addr << std::dec << std::endl;
+                    /* */
                 }
                 // Will send up Writeback/CleanEvict snoops via isCachedAbove
                 // when pushing this writeback list into the write buffer.
@@ -4732,6 +4735,9 @@ Cache::getNextQueueEntry()
                     MJL_footPrint->MJL_addFootPrint(tags->MJL_extractTag(pkt->getAddr(), pkt->MJL_getCmdDir()), tags->MJL_extractSet(pkt->getAddr(), pkt->MJL_getCmdDir()), pkt->MJL_getCmdDir());
                 }
                 /* MJL_End */
+                /* MJL_Test 
+                std::cerr << "MJL_Prefetcher::getNextQueueEntry(): add to mshr:" << pkt->print() << std::endl;
+                 */
                 return allocateMissBuffer(pkt, curTick(), false);
             } else {
                 // free the request and packet

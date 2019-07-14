@@ -90,17 +90,22 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     /* MJL_TODO: commenting these now, but would need to deal with them in the future
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
     */
+    // uint64_t block_number = pkt_addr/blkSize;
     uint64_t block_number = MJL_movColRight(pkt_addr)/blkSize;
     int MJL_triggerDir_type = 0;
     if (pkt->MJL_cmdIsColumn()) {
         MJL_triggerDir_type = 1;
         block_number = MJL_movColRight(MJL_swapRowColBits(pkt_addr))/blkSize;
+        // block_number = MJL_swapRowColSegments(pkt_addr)/blkSize;
     }
 
     if (this->debug_level >= 1) {
+        // Addr restore_addr = block_number * blkSize;
         Addr restore_addr = MJL_movColLeft(block_number * blkSize);
         if (pkt->MJL_cmdIsColumn()) {
             restore_addr = MJL_swapRowColBits(restore_addr);
+            // restore_addr = MJL_swapRowColBits(MJL_movColLeft(restore_addr));
+            // restore_addr = MJL_swapRowColSegments(restore_addr);
         }
         cerr << "[Bingo] access(block_number=" << std::hex << restore_addr << ", pc=" << pc << std::dec << ")" << endl;
     }
@@ -118,9 +123,12 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             return;
         for (int i = 0; i < this->pattern_len; i += 1)
             if (pattern[i]) {
+                // Addr pf_addr = (region_number * this->pattern_len + i) * blkSize;
                 Addr pf_addr = MJL_movColLeft((region_number * this->pattern_len + i) * blkSize);
                 if (pkt->MJL_cmdIsColumn()) {
+                    // pf_addr = MJL_swapRowColBits(MJL_movColLeft(pf_addr));
                     pf_addr = MJL_swapRowColBits(pf_addr);
+                    // pf_addr = MJL_swapRowColSegments(pf_addr);
                 }
                 if (this->debug_level >= 1) {
                     cerr << "[Bingo] access(prefetch_addr=" << std::hex << pf_addr << std::dec << ")" << endl;
@@ -144,11 +152,13 @@ BingoPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
 /* MJL_End */
 
 void BingoPrefetcher::MJL_eviction(Addr addr/* MJL_Begin */, bool is_secure, MemCmd::MJL_DirAttribute MJL_cmdDir/* MJL_End */) {
+    // uint64_t block_number = addr/blkSize;
     uint64_t block_number = MJL_movColRight(addr)/blkSize;
     int MJL_triggerDir_type = 0;
     if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
         MJL_triggerDir_type = 1;
         block_number = MJL_movColRight(MJL_swapRowColBits(addr))/blkSize;
+        // block_number = MJL_swapRowColSegments(addr)/blkSize;
     }
     if (this->debug_level >= 1) {
         cerr << "[Bingo] eviction(block_number=" << std::hex << addr << std::dec << ")" << endl;

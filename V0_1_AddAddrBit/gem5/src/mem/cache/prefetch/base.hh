@@ -124,6 +124,7 @@ class BasePrefetcher : public ClockedObject
     Addr MJL_movColRight(Addr addr) const;
     Addr MJL_movColLeft(Addr addr) const;
     Addr MJL_swapRowColBits(Addr addr) const;
+    Addr MJL_swapRowColSegments(Addr addr) const;
     /* MJL_End */
 
     /** Determine if addresses are on the same page */

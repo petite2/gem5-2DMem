@@ -428,7 +428,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
     std::vector<BestOffsetLearning> best_offset_learning;
     std::vector<RecentRequestsTable> recent_requests_table;
 
-    bool debug = true;
+    bool debug = false;
 
     const bool useMasterId;
 

@@ -93,9 +93,11 @@ VLDPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
      */
     int MJL_triggerDir_type = 0;
     uint64_t block_number = pkt_addr/blkSize;
+    // uint64_t block_number = MJL_movColRight(pkt_addr)/blkSize;
     if (pkt->MJL_cmdIsColumn()) {
         MJL_triggerDir_type = 1;
         block_number = MJL_movColRight(MJL_swapRowColBits(pkt_addr)) / blkSize;
+        // block_number = MJL_swapRowColSegments(pkt_addr)/blkSize;
     }
 
     uint64_t page_number = block_number / this->page_size;
@@ -112,8 +114,11 @@ VLDPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             return;
         } else {
             Addr pf_addr = (entry->data.pred + page_number * this->page_size)*blkSize;
+            // Addr pf_addr = MJL_movColLeft((entry->data.pred + page_number * this->page_size)*blkSize);
             if (pkt->MJL_cmdIsColumn()) {
                 pf_addr = MJL_swapRowColBits(MJL_movColLeft(pf_addr));
+                // pf_addr = MJL_swapRowColBits(pf_addr);
+                // pf_addr = MJL_swapRowColSegments(pf_addr);
             }
             addresses.push_back(AddrPriority(pf_addr,0));
             return;
@@ -144,8 +149,11 @@ VLDPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         /* do not prefetch beyond page boundaries */
         if (block_number / this->page_size == page_number) {
             Addr pf_addr = block_number*blkSize;
+            // Addr pf_addr = MJL_movColLeft(block_number * blkSize);
             if (pkt->MJL_cmdIsColumn()) {
                 pf_addr = MJL_swapRowColBits(MJL_movColLeft(pf_addr));
+                // pf_addr = MJL_swapRowColBits(pf_addr);
+                // pf_addr = MJL_swapRowColSegments(pf_addr);
             }
             addresses.push_back(AddrPriority(pf_addr,0));
         }
