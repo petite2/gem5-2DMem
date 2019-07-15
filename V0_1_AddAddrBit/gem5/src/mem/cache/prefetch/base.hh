@@ -165,7 +165,7 @@ class BasePrefetcher : public ClockedObject
     virtual void regStats();
     /* MJL_Begin */
     virtual void MJL_eviction(Addr addr, bool is_secure, MemCmd::MJL_DirAttribute MJL_cmdDir) {};
-    virtual void MJL_cache_fill(Addr addr, bool MJL_cmdIsColumn, bool prefetch) {};
+    virtual void MJL_cache_fill(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool prefetch) {};
     /* MJL_End */
 };
 #endif //__MEM_CACHE_PREFETCH_BASE_HH__

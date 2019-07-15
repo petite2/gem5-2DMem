@@ -57,7 +57,7 @@ BestOffsetPrefetcher::BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p)
       blocks_in_page(p->blocks_in_page), 
       prefetch_offset(2, 0),
       best_offset_learning(2, {p->blocks_in_page}),
-      recent_requests_table(2, {p->recent_requests_table_size}),
+      recent_requests_table(p->recent_requests_table_size),
       useMasterId(p->use_master_id),
       degree(p->degree)
 {
@@ -138,7 +138,7 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
 
     int old_offset = this->prefetch_offset[MJL_triggerDir_type];
     /* On every eligible L2 read access (miss or prefetched hit), we test an offset di from the list. */
-    this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table[MJL_triggerDir_type]);
+    this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table, pkt->MJL_getCmdDir());
     if (this->debug) {
         if (old_offset != this->prefetch_offset[MJL_triggerDir_type]) {
             // Addr old_offset_addr = old_offset * blkSize;
@@ -172,9 +172,13 @@ BestOffsetPrefetcher::is_inside_page(int page_offset) {
 }
 
 void 
-BestOffsetPrefetcher::MJL_cache_fill(Addr addr, bool MJL_cmdIsColumn, bool prefetch) {
+BestOffsetPrefetcher::MJL_cache_fill(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool prefetch) {
     // uint64_t block_number = addr/blkSize;
     uint64_t block_number = MJL_movColRight(addr)/blkSize;
+    bool MJL_cmdIsColumn = false;
+    if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        MJL_cmdIsColumn = true;
+    }
     int MJL_triggerDir_type = 0;
     if (MJL_cmdIsColumn) {
         MJL_triggerDir_type = 1;
@@ -188,7 +192,7 @@ BestOffsetPrefetcher::MJL_cache_fill(Addr addr, bool MJL_cmdIsColumn, bool prefe
         return;
     if (!this->is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type]))
         return;
-    this->recent_requests_table[MJL_triggerDir_type].insert(block_number - this->prefetch_offset[MJL_triggerDir_type]);
+    this->recent_requests_table.insert(block_number - this->prefetch_offset[MJL_triggerDir_type], MJL_cmdDir);
 }
 
 void 
@@ -196,9 +200,8 @@ BestOffsetPrefetcher::set_debug_level(int debug_level) {
     bool enable = (bool)debug_level;
     this->debug = enable;
     this->best_offset_learning[0].set_debug_mode(enable);
-    this->recent_requests_table[0].set_debug_mode(enable);
     this->best_offset_learning[1].set_debug_mode(enable);
-    this->recent_requests_table[1].set_debug_mode(enable);
+    this->recent_requests_table.set_debug_mode(enable);
 }
 
 BestOffsetPrefetcher::Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}
@@ -306,15 +309,15 @@ BestOffsetPrefetcher::RecentRequestsTable::RecentRequestsTable(int size) : Super
 }
 
 BestOffsetPrefetcher::RecentRequestsTable::Entry 
-BestOffsetPrefetcher::RecentRequestsTable::insert(uint64_t base_address) {
+BestOffsetPrefetcher::RecentRequestsTable::insert(uint64_t base_address, MemCmd::MJL_DirAttribute MJL_cmdDir) {
     uint64_t key = this->hash(base_address);
-    return Super::insert(key, {base_address});
+    return Super::insert(key, {base_address, MJL_cmdDir});
 }
 
 bool 
-BestOffsetPrefetcher::RecentRequestsTable::find(uint64_t base_address) {
+BestOffsetPrefetcher::RecentRequestsTable::find(uint64_t base_address, MemCmd::MJL_DirAttribute MJL_cmdDir) {
     uint64_t key = this->hash(base_address);
-    return (Super::find(key) != nullptr);
+    return (Super::find(key) != nullptr && Super::find(key)->data.MJL_cmdDir == MJL_cmdDir);
 }
 
 string 
@@ -366,11 +369,11 @@ BestOffsetPrefetcher::BestOffsetLearning::BestOffsetLearning(int blocks_in_page)
     * @return The current best offset.
     */
 int 
-BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, BestOffsetPrefetcher::RecentRequestsTable &recent_requests_table) {
+BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, BestOffsetPrefetcher::RecentRequestsTable &recent_requests_table, MemCmd::MJL_DirAttribute MJL_cmdDir) {
     int page_offset = block_number % this->blocks_in_page;
     Entry &entry = this->offset_list[this->index_to_test];
     bool found =
-        is_inside_page(page_offset - entry.offset) && recent_requests_table.find(block_number - entry.offset);
+        is_inside_page(page_offset - entry.offset) && recent_requests_table.find(block_number - entry.offset, MJL_cmdDir);
     if (this->debug) {
         cerr << "[BOL] testing offset=" << entry.offset << " with score=" << entry.score << endl;
         cerr << "[BOL] match=" << found << endl;

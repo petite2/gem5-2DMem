@@ -358,6 +358,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
     class RecentRequestsTableData {
       public:
         uint64_t base_address;
+        MemCmd::MJL_DirAttribute MJL_cmdDir;
     };
     
     class RecentRequestsTable : public DirectMappedCache<RecentRequestsTableData> {
@@ -366,9 +367,9 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
       public:
         RecentRequestsTable(int size);
     
-        Entry insert(uint64_t base_address);
+        Entry insert(uint64_t base_address, MemCmd::MJL_DirAttribute MJL_cmdDir);
     
-        bool find(uint64_t base_address);
+        bool find(uint64_t base_address, MemCmd::MJL_DirAttribute MJL_cmdDir);
     
         std::string log();
     
@@ -390,7 +391,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
         /**
          * @return The current best offset.
          */
-        int test_offset(uint64_t block_number, RecentRequestsTable &recent_requests_table);
+        int test_offset(uint64_t block_number, RecentRequestsTable &recent_requests_table, MemCmd::MJL_DirAttribute MJL_cmdDir);
     
         std::string log();
     
@@ -426,7 +427,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
     std::vector<int> prefetch_offset;
 
     std::vector<BestOffsetLearning> best_offset_learning;
-    std::vector<RecentRequestsTable> recent_requests_table;
+    RecentRequestsTable recent_requests_table;
 
     bool debug = false;
 
@@ -446,7 +447,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
                            std::vector<AddrPriority> &addresses, 
                            MemCmd::MJL_DirAttribute &MJL_cmdDir);
     /* MJL_End */
-    void MJL_cache_fill(Addr addr, bool MJL_cmdIsColumn, bool prefetch);
+    void MJL_cache_fill(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool prefetch);
 
     void set_debug_level(int debug_level);
 };
