@@ -156,6 +156,7 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         // cerr << this->recent_requests_table[MJL_triggerDir_type].log();
         // cerr << this->best_offset_learning[MJL_triggerDir_type].log();
     }
+    MJL_cmdDir = MJL_predictDir(block_number, pkt->MJL_getCmdDir());
     return;
 }
 /* MJL_End */
@@ -169,6 +170,23 @@ BestOffsetPrefetcherParams::create()
 bool 
 BestOffsetPrefetcher::is_inside_page(int page_offset) {
     return (0 <= page_offset && page_offset < this->blocks_in_page); 
+}
+
+MemCmd::MJL_DirAttribute 
+BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttribute MJL_cmdDir) {
+    MemCmd::MJL_DirAttribute MJL_predDir = MJL_cmdDir;
+    int page_offset = block_number % this->blocks_in_page;
+    int crossDirEnablingOffset = 1;
+    bool found =
+        is_inside_page(page_offset - crossDirEnablingOffset) && recent_requests_table.find(block_number - crossDirEnablingOffset, MJL_cmdDir);
+    if (found) {
+        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+            MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+        } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+            MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+        }
+    }
+    return MJL_predDir;
 }
 
 void 

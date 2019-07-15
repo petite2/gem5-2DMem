@@ -436,6 +436,8 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
     const int degree;
 
     bool is_inside_page(int page_offset);
+
+    MemCmd::MJL_DirAttribute MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttribute MJL_cmdDir);
   public:
 
     BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p);

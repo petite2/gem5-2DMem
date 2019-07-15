@@ -1086,7 +1086,17 @@ class Cache : public BaseCache
             StrideEntry *entry;
 
             if (pcTableHit(pc, is_secure, master_id, entry)) {
-                entry->lastPredDir = predictedDir;
+                if (entry->lastPredDir == predictedDir && entry->confidence < maxConf) {
+                    entry->confidence++;
+                } else if (entry->lastPredDir != predictedDir && entry->confidence > minConf) {
+                    entry->confidence--;
+                }
+                if (entry->confidence < threshConf) {
+                    entry->lastPredDir = predictedDir;
+                }
+                if (entry->confidence == minConf) {
+                    entry->lastPredDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                }
             } else {
                 StrideEntry* entry = pcTableVictim(pc, master_id);
                 entry->instAddr = pc;
