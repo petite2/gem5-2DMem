@@ -135,6 +135,7 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
             break;
         }
     }
+    MJL_cmdDir = MJL_predictDir(block_number, pkt->MJL_getCmdDir());
 
     int old_offset = this->prefetch_offset[MJL_triggerDir_type];
     /* On every eligible L2 read access (miss or prefetched hit), we test an offset di from the list. */
@@ -156,7 +157,6 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         // cerr << this->recent_requests_table[MJL_triggerDir_type].log();
         // cerr << this->best_offset_learning[MJL_triggerDir_type].log();
     }
-    MJL_cmdDir = MJL_predictDir(block_number, pkt->MJL_getCmdDir());
     return;
 }
 /* MJL_End */
@@ -177,15 +177,27 @@ BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttri
     MemCmd::MJL_DirAttribute MJL_predDir = MJL_cmdDir;
     int page_offset = block_number % this->blocks_in_page;
     int crossDirEnablingOffset = 1;
+    int MJL_triggerDir_type = 0;
+    if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        MJL_triggerDir_type = 1;
+    }
+    
     bool found =
-        is_inside_page(page_offset - crossDirEnablingOffset) && recent_requests_table.find(block_number - crossDirEnablingOffset, MJL_cmdDir);
+        is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset) && recent_requests_table.find(block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset, MJL_cmdDir);
     if (found) {
-        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
+        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow && MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize) % (MJL_getRowWidth() * blkSize) == 0) {
             MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-        } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize)) % (MJL_getRowWidth() * blkSize) != 0) {
             MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
         }
     }
+    /* MJL_Test */
+    Addr test_addr = MJL_movColLeft((block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset)*blkSize);
+    if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        test_addr = MJL_swapRowColBits(test_addr);
+    }
+    std::cerr << "MJL_Prefetcher::MJL_predictDir() predict: " << MJL_predDir << ":" << found << ", " << MJL_cmdDir << ":" << std::hex << test_addr << std::dec << std::endl;
+    /* */
     return MJL_predDir;
 }
 
