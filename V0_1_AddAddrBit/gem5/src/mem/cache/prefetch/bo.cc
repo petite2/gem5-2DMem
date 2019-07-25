@@ -94,7 +94,7 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     int MJL_triggerDir_type = 0;
     // uint64_t block_number = pkt_addr / blkSize;
     uint64_t block_number = MJL_movColRight(pkt_addr)/blkSize;
-    if (pkt->MJL_cmdIsColumn()) {
+    if (pkt->MJL_cmdIsColumn() && MJL_colPf) {
         MJL_triggerDir_type = 1;
         block_number = MJL_movColRight(MJL_swapRowColBits(pkt_addr)) / blkSize;
         // block_number = MJL_swapRowColSegments(pkt_addr)/blkSize;
@@ -107,7 +107,7 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     if (this->debug) {
         // Addr restore_prefetch_offset = this->prefetch_offset[MJL_triggerDir_type] * blkSize;
         Addr restore_prefetch_offset = MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize);
-        if (pkt->MJL_cmdIsColumn()) {
+        if (pkt->MJL_cmdIsColumn() && MJL_colPf) {
             restore_prefetch_offset = MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize));
             // restore_prefetch_offset = MJL_swapRowColBits(this->prefetch_offset[MJL_triggerDir_type] * blkSize);
             // restore_prefetch_offset = MJL_swapRowColSegments(restore_prefetch_offset);
@@ -121,7 +121,7 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     for (int i = 1; i <= this->degree; i += 1) {
         // Addr pf_addr = (block_number + i * this->prefetch_offset[MJL_triggerDir_type]) * blkSize;
         Addr pf_addr = MJL_movColLeft((block_number + i * this->prefetch_offset[MJL_triggerDir_type]) * blkSize);
-        if (pkt->MJL_cmdIsColumn()) {
+        if (pkt->MJL_cmdIsColumn() && MJL_colPf) {
             // pf_addr = MJL_swapRowColBits(MJL_movColLeft(pf_addr));
             pf_addr = MJL_swapRowColBits(pf_addr);
             // pf_addr = MJL_swapRowColSegments(pf_addr);
@@ -139,14 +139,18 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
 
     int old_offset = this->prefetch_offset[MJL_triggerDir_type];
     /* On every eligible L2 read access (miss or prefetched hit), we test an offset di from the list. */
-    this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table, pkt->MJL_getCmdDir());
+    if (MJL_colPf) {
+        this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table, pkt->MJL_getCmdDir());
+    } else {
+        this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table, MemCmd::MJL_DirAttribute::MJL_IsRow);
+    }
     if (this->debug) {
         if (old_offset != this->prefetch_offset[MJL_triggerDir_type]) {
             // Addr old_offset_addr = old_offset * blkSize;
             // Addr new_offset_addr = this->prefetch_offset[MJL_triggerDir_type] * blkSize;
             Addr old_offset_addr = MJL_movColLeft(old_offset * blkSize);
             Addr new_offset_addr = MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize);
-            if (pkt->MJL_cmdIsColumn()) {
+            if (pkt->MJL_cmdIsColumn() && MJL_colPf) {
                 old_offset_addr = MJL_swapRowColBits(MJL_movColLeft(old_offset * blkSize));
                 new_offset_addr = MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize));
                 // old_offset_addr = MJL_swapRowColSegments(old_offset_addr);
@@ -206,7 +210,7 @@ BestOffsetPrefetcher::MJL_cache_fill(Addr addr, MemCmd::MJL_DirAttribute MJL_cmd
     // uint64_t block_number = addr/blkSize;
     uint64_t block_number = MJL_movColRight(addr)/blkSize;
     bool MJL_cmdIsColumn = false;
-    if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+    if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colPf) {
         MJL_cmdIsColumn = true;
     }
     int MJL_triggerDir_type = 0;
@@ -222,7 +226,11 @@ BestOffsetPrefetcher::MJL_cache_fill(Addr addr, MemCmd::MJL_DirAttribute MJL_cmd
         return;
     if (!this->is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type]))
         return;
-    this->recent_requests_table.insert(block_number - this->prefetch_offset[MJL_triggerDir_type], MJL_cmdDir);
+    if (MJL_colPf) {
+        this->recent_requests_table.insert(block_number - this->prefetch_offset[MJL_triggerDir_type], MJL_cmdDir);
+    } else {
+        this->recent_requests_table.insert(block_number - this->prefetch_offset[MJL_triggerDir_type], MemCmd::MJL_DirAttribute::MJL_IsRow);
+    }
 }
 
 void 
