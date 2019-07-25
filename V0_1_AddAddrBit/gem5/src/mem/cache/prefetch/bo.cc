@@ -184,20 +184,20 @@ BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttri
     
     bool found =
         is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset) && recent_requests_table.find(block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset, MJL_cmdDir);
-    if (found) {
-        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow && MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize) % (MJL_getRowWidth() * blkSize) == 0) {
+    if (found && this->best_offset_learning[MJL_triggerDir_type].is_warmed_up() && this->prefetch_offset[MJL_triggerDir_type] != 0) {
+        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow && MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize) % (MJL_getRowWidth() * blkSize/2) == 0) {
             MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-        } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize)) % (MJL_getRowWidth() * blkSize) != 0) {
+        } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize)) % (MJL_getRowWidth() * blkSize)/2 != 0) {
             MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
         }
     }
-    /* MJL_Test */
+    /* MJL_Test 
     Addr test_addr = MJL_movColLeft((block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset)*blkSize);
     if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
         test_addr = MJL_swapRowColBits(test_addr);
     }
     std::cerr << "MJL_Prefetcher::MJL_predictDir() predict: " << MJL_predDir << ":" << found << ", " << MJL_cmdDir << ":" << std::hex << test_addr << std::dec << std::endl;
-    /* */
+     */
     return MJL_predDir;
 }
 
@@ -433,6 +433,7 @@ BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, Bes
                 cerr << "[BOL] learning phase finished, winner=" << this->global_best_offset << endl;
                 cerr << this->log();
             }
+            this->warmedUp = true;
             /* reset all internal state */
             for (auto &entry : this->offset_list)
                 entry.score = 0;
@@ -457,6 +458,9 @@ BestOffsetPrefetcher::BestOffsetLearning::log() {
 
 void 
 BestOffsetPrefetcher::BestOffsetLearning::set_debug_mode(bool enable) { this->debug = enable; }
+
+bool 
+BestOffsetPrefetcher::BestOffsetLearning::is_warmed_up() const { return this->warmedUp; }
 
 bool 
 BestOffsetPrefetcher::BestOffsetLearning::is_inside_page(int page_offset) { return (0 <= page_offset && page_offset < this->blocks_in_page); }

@@ -396,6 +396,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
         std::string log();
     
         void set_debug_mode(bool enable);
+        bool is_warmed_up() const;
     
       private:
         bool is_inside_page(int page_offset);
@@ -420,6 +421,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
         const int BAD_SCORE = 1;
     
         bool debug = false;
+        bool warmedUp = false;
     };
 
   protected:

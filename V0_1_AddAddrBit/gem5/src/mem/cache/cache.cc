@@ -3510,9 +3510,9 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
 
                 if (blk->wasPrefetched()) {
                     unusedPrefetches++;
-                    /* MJL_test */
+                    /* MJL_test 
                     std::cerr << "MJL_Prefetcher::MJL_allocateBlock(): unusedPrefetches: " << blk->MJL_blkDir << ":" << std::hex << repl_addr << std::dec << std::endl;
-                    /* */
+                     */
                 }
                 // Will send up Writeback/CleanEvict snoops via isCachedAbove
                 // when pushing this writeback list into the write buffer.
@@ -5372,6 +5372,12 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         && (this->name().find("dcache") != std::string::npos) && cache->MJL_oracleProxy) {
         std::cout << "MJL_traceOut: " << std::hex << pkt->req->getPC() << " " << pkt->getAddr() << std::dec << " " << pkt->getSize() << std::endl;
     }
+    
+    /* Test output for align-htap alignment
+    if ((pkt->req->hasPC())
+        && (this->name().find("dcache") != std::string::npos) && (pkt->req->getPC() == 0x402401 || pkt->req->getPC() == 0x40280f)) {
+        std::cout << "MJL_align: " << std::hex << pkt->req->getPC() << " " << pkt->getAddr() << std::dec << std::endl;
+    }*/
 
     /* MJL_Test: Request packet information output  
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
