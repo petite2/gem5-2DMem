@@ -442,6 +442,9 @@ BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, Bes
                 cerr << this->log();
             }
             this->warmedUp = true;
+            /* MJL_Test */
+            std::clog << "[BOL]" << MJL_cmdDir << ": BO " << this->global_best_offset << ", score " << this->best_score << ", round " << this->round << std::endl;
+            /* */
             /* reset all internal state */
             for (auto &entry : this->offset_list)
                 entry.score = 0;

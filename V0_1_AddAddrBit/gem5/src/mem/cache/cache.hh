@@ -994,14 +994,14 @@ class Cache : public BaseCache
                         }
                     }
                     // If there isn't an entry for this packet, create one
-                    if (entry_found == copyPredictMshrQueue.end()) {
+                    // if (entry_found == copyPredictMshrQueue.end()) {
                         copyPredictMshrQueue.emplace_back(pkt, mshr, blkSize);
                         /* MJL_Test */ 
                         if (MJL_Debug_Out) {
                             std::clog << "MJL_predDebug: MJL_mshrPredictDir create mshr " << pkt->print() << std::endl;
                         }
                         /* */
-                    }
+                    // }
                     // If the copyPredictMshrQueue is full, remove the least recently created entry (technically should happen before the insertion, but this reordering shouldn't change anything)
                     if (copyPredictMshrQueue.size() > MJL_predMshrSize) {
                         std::list<PredictMshrEntry>::iterator front_entry = copyPredictMshrQueue.begin();
