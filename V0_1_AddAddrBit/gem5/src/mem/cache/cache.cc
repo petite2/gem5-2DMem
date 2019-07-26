@@ -3511,6 +3511,13 @@ Cache::MJL_allocateBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, b
 
                 if (blk->wasPrefetched()) {
                     unusedPrefetches++;
+                    /* MJL_Begin */
+                    if (blk->MJL_isRow()) {
+                        MJL_unusedRowPrefetches++;
+                    } else if (blk->MJL_isColumn()) {
+                        MJL_unusedColumnPrefetches++;
+                    }
+                    /* MJL_End */
                     /* MJL_test 
                     std::cerr << "MJL_Prefetcher::MJL_allocateBlock(): unusedPrefetches: " << blk->MJL_blkDir << ":" << std::hex << repl_addr << std::dec << std::endl;
                      */

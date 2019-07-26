@@ -1068,6 +1068,17 @@ BaseCache::regStats()
         .flags(nozero | nonan)
         ;
     
+    MJL_unusedRowPrefetches
+        .name(name() + ".MJL_unusedRowPrefetches")
+        .desc("number of HardPF row blocks evicted w/o reference")
+        .flags(nozero)
+        ;
+
+    MJL_unusedColumnPrefetches
+        .name(name() + ".MJL_unusedColumnPrefetches")
+        .desc("number of HardPF column blocks evicted w/o reference")
+        .flags(nozero)
+        ;
     /* MJL_End */
 
 }

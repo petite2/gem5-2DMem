@@ -655,7 +655,7 @@ class Cache : public BaseCache
             MemCmd::MJL_DirAttribute crossBlkDir;
             bool isSecure;
             Addr accessAddr;
-            MSHR* mshr;
+            const MSHR* mshr;
             MasterID masterId;
             bool wasUpgrade;
             bool blkHits[8];
@@ -1099,7 +1099,6 @@ class Cache : public BaseCache
                     break;
                 }
             }
-            assert(entry_found != copyPredictMshrQueue.end());
             // If the predMshrQueue is not linked to MSHR, just record the upgrade status, remove the pointer to mshr, and do nothing else. (Technically could have detected the upgrade status when inserting entry into the copyPredictMshrQueue, hence no need for pointer to mshr, but making this change here should not change anything logically and requires less changes to the existing code)
             if (!MJL_linkMshr) {
                 if (entry_found != copyPredictMshrQueue.end()) {
@@ -1108,6 +1107,7 @@ class Cache : public BaseCache
                 }
                 return;
             }
+            assert(entry_found != copyPredictMshrQueue.end());
             // Add predict direction to pc table
             master_id = useMasterId ? entry_found->masterId : 0;
             if (pcTableHit(entry_found->pc, entry_found->isSecure, master_id, pcTable_entry)) {

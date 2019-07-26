@@ -187,42 +187,56 @@ AbstractMemory::regStats()
 
     /* MJL_Begin */
     MJL_bytesWrittenRow
+        .init(system()->maxMasters())
         .name(name() + ".MJL_bytes_written_row")
         .desc("Number of bytes written to this memory in row")
-        .flags(nozero)
+        .flags(total | nozero | nonan)
         ;
+    for (int i = 0; i < system()->maxMasters(); i++) {
+        MJL_bytesWrittenRow.subname(i, system()->getMasterName(i));
+    }
     
     MJL_bytesWrittenColumn
+        .init(system()->maxMasters())
         .name(name() + ".MJL_bytes_written_column")
         .desc("Number of bytes written to this memory in column")
-        .flags(nozero)
+        .flags(total | nozero | nonan)
         ;
+    for (int i = 0; i < system()->maxMasters(); i++) {
+        MJL_bytesWrittenColumn.subname(i, system()->getMasterName(i));
+    }
     
     MJL_bytesReadRow
+        .init(system()->maxMasters())
         .name(name() + ".MJL_bytes_read_row")
         .desc("Number of bytes read from this memory in row")
-        .flags(nozero)
+        .flags(total | nozero | nonan)
         ;
+    for (int i = 0; i < system()->maxMasters(); i++) {
+        MJL_bytesReadRow.subname(i, system()->getMasterName(i));
+    }
     
     MJL_bytesReadColumn
+        .init(system()->maxMasters())
         .name(name() + ".MJL_bytes_read_column")
         .desc("Number of bytes read from this memory in column")
-        .flags(nozero)
+        .flags(total | nozero | nonan)
         ;
+    for (int i = 0; i < system()->maxMasters(); i++) {
+        MJL_bytesReadColumn.subname(i, system()->getMasterName(i));
+    }
 
     MJL_bytesTotalRow
         .name(name() + ".MJL_bytes_total_row")
         .desc("Total number of bytes transferred to/from this memory in row")
-        .flags(total | nozero)
+        .flags(nozero)
         ;
-    MJL_bytesTotalRow = MJL_bytesReadRow + MJL_bytesWrittenRow;
 
     MJL_bytesTotalColumn
         .name(name() + ".MJL_bytes_total_column")
         .desc("Total number of bytes transferred to/from this memory in column")
-        .flags(total | nozero)
+        .flags(nozero)
         ;
-    MJL_bytesTotalColumn = MJL_bytesReadColumn + MJL_bytesWrittenColumn;
     /* MJL_End */
 }
 
@@ -542,9 +556,11 @@ AbstractMemory::access(PacketPtr pkt)
         bytesRead[pkt->req->masterId()] += pkt->getSize();
         /* MJL_Begin */
         if (pkt->MJL_dataIsRow()) {
-            MJL_bytesReadRow += pkt->getSize();
+            MJL_bytesReadRow[pkt->req->masterId()] += pkt->getSize();
+            MJL_bytesTotalRow += pkt->getSize();
         } else if (pkt->MJL_dataIsColumn()) {
-            MJL_bytesReadColumn += pkt->getSize();
+            MJL_bytesReadColumn[pkt->req->masterId()] += pkt->getSize();
+            MJL_bytesTotalColumn += pkt->getSize();
         }
         /* MJL_End */
         if (pkt->req->isInstFetch())
@@ -585,9 +601,11 @@ AbstractMemory::access(PacketPtr pkt)
             bytesWritten[pkt->req->masterId()] += pkt->getSize();
             /* MJL_Begin */
             if (pkt->MJL_dataIsRow()) {
-                MJL_bytesWrittenRow += pkt->getSize();
+                MJL_bytesWrittenRow[pkt->req->masterId()] += pkt->getSize();
+                MJL_bytesTotalRow += pkt->getSize();
             } else if (pkt->MJL_dataIsColumn()) {
-                MJL_bytesWrittenColumn += pkt->getSize();
+                MJL_bytesWrittenColumn[pkt->req->masterId()] += pkt->getSize();
+                MJL_bytesTotalColumn += pkt->getSize();
             }
             /* MJL_End */
         }

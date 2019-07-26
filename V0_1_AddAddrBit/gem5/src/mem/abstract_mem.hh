@@ -175,12 +175,12 @@ class AbstractMemory : public MemObject
     /** Total bandwidth from this memory */
     Stats::Formula bwTotal;
     /* MJL_Begin */
-    Stats::Scalar MJL_bytesWrittenRow;
-    Stats::Scalar MJL_bytesWrittenColumn;
-    Stats::Scalar MJL_bytesReadRow;
-    Stats::Scalar MJL_bytesReadColumn;
-    Stats::Formula MJL_bytesTotalRow;
-    Stats::Formula MJL_bytesTotalColumn;
+    Stats::Vector MJL_bytesWrittenRow;
+    Stats::Vector MJL_bytesWrittenColumn;
+    Stats::Vector MJL_bytesReadRow;
+    Stats::Vector MJL_bytesReadColumn;
+    Stats::Scalar MJL_bytesTotalRow;
+    Stats::Scalar MJL_bytesTotalColumn;
     bool MJL_Debug_Out;
     /* MJL_End */
 
