@@ -92,12 +92,12 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
      */
     int MJL_triggerDir_type = 0;
-    // uint64_t block_number = pkt_addr / blkSize;
-    uint64_t block_number = MJL_movColRight(pkt_addr)/blkSize;
+    uint64_t block_number = pkt_addr / blkSize;
+    // uint64_t block_number = MJL_movColRight(pkt_addr)/blkSize;
     if (pkt->MJL_cmdIsColumn() && MJL_colPf) {
         MJL_triggerDir_type = 1;
-        block_number = MJL_movColRight(MJL_swapRowColBits(pkt_addr)) / blkSize;
-        // block_number = MJL_swapRowColSegments(pkt_addr)/blkSize;
+        // block_number = MJL_movColRight(MJL_swapRowColBits(pkt_addr)) / blkSize;
+        block_number = MJL_swapRowColSegments(pkt_addr)/blkSize;
     }
 
     // uint64_t page_number = block_number / this->blocks_in_page; // Only used in debug output that's been commented
@@ -105,12 +105,12 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     /* ... and if X and X + D lie in the same memory page, a prefetch request for line X + D is sent to the L3
         * cache. */
     if (this->debug) {
-        // Addr restore_prefetch_offset = this->prefetch_offset[MJL_triggerDir_type] * blkSize;
-        Addr restore_prefetch_offset = MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize);
+        Addr restore_prefetch_offset = this->prefetch_offset[MJL_triggerDir_type] * blkSize;
+        // Addr restore_prefetch_offset = MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize);
         if (pkt->MJL_cmdIsColumn() && MJL_colPf) {
-            restore_prefetch_offset = MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize));
+            // restore_prefetch_offset = MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize));
             // restore_prefetch_offset = MJL_swapRowColBits(this->prefetch_offset[MJL_triggerDir_type] * blkSize);
-            // restore_prefetch_offset = MJL_swapRowColSegments(restore_prefetch_offset);
+            restore_prefetch_offset = MJL_swapRowColSegments(restore_prefetch_offset);
         }
         // cerr << "[BOP] block_number=" << std::hex << block_number * blkSize << std::dec << endl;
         // cerr << "[BOP] page_number=" << std::hex << page_number << std::dec << endl;
@@ -119,12 +119,12 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     }
 
     for (int i = 1; i <= this->degree; i += 1) {
-        // Addr pf_addr = (block_number + i * this->prefetch_offset[MJL_triggerDir_type]) * blkSize;
-        Addr pf_addr = MJL_movColLeft((block_number + i * this->prefetch_offset[MJL_triggerDir_type]) * blkSize);
+        Addr pf_addr = (block_number + i * this->prefetch_offset[MJL_triggerDir_type]) * blkSize;
+        // Addr pf_addr = MJL_movColLeft((block_number + i * this->prefetch_offset[MJL_triggerDir_type]) * blkSize);
         if (pkt->MJL_cmdIsColumn() && MJL_colPf) {
             // pf_addr = MJL_swapRowColBits(MJL_movColLeft(pf_addr));
-            pf_addr = MJL_swapRowColBits(pf_addr);
-            // pf_addr = MJL_swapRowColSegments(pf_addr);
+            // pf_addr = MJL_swapRowColBits(pf_addr);
+            pf_addr = MJL_swapRowColSegments(pf_addr);
         }
         if (this->prefetch_offset[MJL_triggerDir_type] != 0 && is_inside_page(page_offset + i * this->prefetch_offset[MJL_triggerDir_type]))
             addresses.push_back(AddrPriority(pf_addr, 0));
@@ -146,15 +146,15 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
     }
     if (this->debug) {
         if (old_offset != this->prefetch_offset[MJL_triggerDir_type]) {
-            // Addr old_offset_addr = old_offset * blkSize;
-            // Addr new_offset_addr = this->prefetch_offset[MJL_triggerDir_type] * blkSize;
-            Addr old_offset_addr = MJL_movColLeft(old_offset * blkSize);
-            Addr new_offset_addr = MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize);
+            Addr old_offset_addr = old_offset * blkSize;
+            Addr new_offset_addr = this->prefetch_offset[MJL_triggerDir_type] * blkSize;
+            // Addr old_offset_addr = MJL_movColLeft(old_offset * blkSize);
+            // Addr new_offset_addr = MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize);
             if (pkt->MJL_cmdIsColumn() && MJL_colPf) {
-                old_offset_addr = MJL_swapRowColBits(MJL_movColLeft(old_offset * blkSize));
-                new_offset_addr = MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize));
-                // old_offset_addr = MJL_swapRowColSegments(old_offset_addr);
-                // new_offset_addr = MJL_swapRowColSegments(new_offset_addr);
+                // old_offset_addr = MJL_swapRowColBits(MJL_movColLeft(old_offset * blkSize));
+                // new_offset_addr = MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type] * blkSize));
+                old_offset_addr = MJL_swapRowColSegments(old_offset_addr);
+                new_offset_addr = MJL_swapRowColSegments(new_offset_addr);
             }
             cerr << "[BOP] offset changed from " << std::hex << old_offset_addr << " to " << new_offset_addr << std::dec << endl;
         }
@@ -180,18 +180,22 @@ MemCmd::MJL_DirAttribute
 BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttribute MJL_cmdDir) {
     MemCmd::MJL_DirAttribute MJL_predDir = MJL_cmdDir;
     int page_offset = block_number % this->blocks_in_page;
-    int crossDirEnablingOffset = 1;
+    int crossDirEnablingOffset = 64;
     int MJL_triggerDir_type = 0;
+    // int currentOffset = MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize);
+    int currentOffset = this->prefetch_offset[MJL_triggerDir_type]*blkSize;
     if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
         MJL_triggerDir_type = 1;
+        // currentOffset= MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize));
+        currentOffset = MJL_swapRowColSegments(this->prefetch_offset[MJL_triggerDir_type]*blkSize);
     }
     
     bool found =
         is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset) && recent_requests_table.find(block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset, MJL_cmdDir);
     if (found && this->best_offset_learning[MJL_triggerDir_type].is_warmed_up() && this->prefetch_offset[MJL_triggerDir_type] != 0) {
-        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow && MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize) % (MJL_getRowWidth() * blkSize/2) == 0) {
+        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow && currentOffset % (MJL_getRowWidth() * blkSize/2) == 0) {
             MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-        } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_swapRowColBits(MJL_movColLeft(this->prefetch_offset[MJL_triggerDir_type]*blkSize)) % (MJL_getRowWidth() * blkSize)/2 != 0) {
+        } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && currentOffset % (MJL_getRowWidth() * blkSize)/2 != 0) {
             MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
         }
     }
@@ -207,8 +211,8 @@ BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttri
 
 void 
 BestOffsetPrefetcher::MJL_cache_fill(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool prefetch) {
-    // uint64_t block_number = addr/blkSize;
-    uint64_t block_number = MJL_movColRight(addr)/blkSize;
+    uint64_t block_number = addr/blkSize;
+    // uint64_t block_number = MJL_movColRight(addr)/blkSize;
     bool MJL_cmdIsColumn = false;
     if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && MJL_colPf) {
         MJL_cmdIsColumn = true;
@@ -216,8 +220,8 @@ BestOffsetPrefetcher::MJL_cache_fill(Addr addr, MemCmd::MJL_DirAttribute MJL_cmd
     int MJL_triggerDir_type = 0;
     if (MJL_cmdIsColumn) {
         MJL_triggerDir_type = 1;
-        block_number = MJL_movColRight(MJL_swapRowColBits(addr)) / blkSize;
-        // block_number = MJL_swapRowColSegments(addr)/blkSize;
+        // block_number = MJL_movColRight(MJL_swapRowColBits(addr)) / blkSize;
+        block_number = MJL_swapRowColSegments(addr)/blkSize;
     }
     int page_offset = block_number % this->blocks_in_page;
     if (this->prefetch_offset[MJL_triggerDir_type] == 0 && prefetch)
