@@ -555,6 +555,7 @@ class Cache : public BaseCache
 
         const int startPredLevel;
         const int maxPredLevel;
+        const int maxResetLevel;
 
         const int pcTableAssoc;
         const int pcTableSets;
@@ -569,7 +570,7 @@ class Cache : public BaseCache
                             confidence(0), lastPredDir(MemCmd::MJL_DirAttribute::MJL_IsRow), 
                             blkHits{false, false, false, false, false, false, false, false}, 
                             crossBlkHits{false, false, false, false, false, false, false, false}, 
-                            lastRowOff(0), lastColOff(0), predictLevel(0)
+                            lastRowOff(0), lastColOff(0), predictLevel(0), resetLevel(0)
             { }
 
             Addr instAddr;
@@ -583,6 +584,7 @@ class Cache : public BaseCache
             int lastRowOff;
             int lastColOff;
             int predictLevel;
+            int resetLevel;
 
             MemCmd::MJL_DirAttribute MJL_getCrossLastPredDir() {
                 if (lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
@@ -835,6 +837,9 @@ class Cache : public BaseCache
             }
             bool changeDir = false;
             // assert((entry->predictLevel > 1 && entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) || (entry->predictLevel <= 1 && entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow));
+            if (!((entry->predictLevel == 0 && entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) || (entry->predictLevel == maxPredLevel && entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) || (entry->predictLevel > 0 && entry->predictLevel < maxPredLevel))) {
+                std::cerr << "MJL_mshrPred: lastPredDir " << entry->lastPredDir << ", predLevel " << entry->predictLevel << std::endl;
+            }
             assert((entry->predictLevel == 0 && entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) || (entry->predictLevel == maxPredLevel && entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) || (entry->predictLevel > 0 && entry->predictLevel < maxPredLevel));
             if (blkHitCount == 1 && crossBlkHitCount == 1) {
                 // if (entry->predictLevel == 2) {
@@ -845,8 +850,15 @@ class Cache : public BaseCache
                 // } else if (entry->predictLevel == 0) {
                 //     entry->predictLevel++;
                 // }
-                if (entry->predictLevel > 0) {
-                    entry->predictLevel--;
+                if (entry->resetLevel < maxResetLevel) {
+                    entry->resetLevel++;
+                }
+                if (entry->resetLevel == maxResetLevel) {
+                    entry->resetLevel = 0;
+                    if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                        changeDir = true;
+                        entry->predictLevel = 0;
+                    }
                 }
             } else if (blkHitCount >= crossBlkHitCount) {
                 // if (entry->predictLevel == 2) {
@@ -856,11 +868,14 @@ class Cache : public BaseCache
                 //     assert( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow );
                 //     entry->predictLevel--;
                 // }
-                if ( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && entry->predictLevel < maxPredLevel) {
-                    entry->predictLevel++;
-                } else if if ( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow && entry->predictLevel > 0) {
-                    entry->predictLevel--;
+                if (blkHitCount > crossBlkHitCount) { 
+                    if ( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && entry->predictLevel < maxPredLevel) {
+                        entry->predictLevel++;
+                    } else if ( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow && entry->predictLevel > 0) {
+                        entry->predictLevel--;
+                    }
                 }
+                entry->resetLevel = 0;
             } else {
                 // changeDir = true;
                 // if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
@@ -870,13 +885,27 @@ class Cache : public BaseCache
                 // }
                 if ( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn ) {
                     entry->predictLevel--;
-                } else if if ( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow ) {
+                } else if ( entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow ) {
                     entry->predictLevel++;
                 }
                 if (entry->predictLevel == 0 || entry->predictLevel == maxPredLevel) {
                     changeDir = true;
                 }
+                entry->resetLevel = 0;
             }
+            /* MJL_Test */
+            if (MJL_Debug_Out) {
+                std::clog << ", predLevel " << entry->predictLevel << ", resetLevel " << entry->resetLevel << ", blk/crossHits ";
+                for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    std::clog << entry->blkHits[i];
+                }
+                std::clog << "(" << blkHitCount << ")/";
+                for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    std::clog << entry->crossBlkHits[i];
+                }
+                std::clog << "(" << crossBlkHitCount << ")/";
+            }
+            /* */
 
             if (changeDir) {
                 entry->lastPredDir = entry->MJL_getCrossLastPredDir();
@@ -922,11 +951,11 @@ class Cache : public BaseCache
             if (entry->confidence >= threshConf) {
                 if (new_stride % (MJL_rowWidth * blkSize) == 0) {
                     predictedDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
-                    /* MJL_Test 
+                    /* MJL_Test  
                     if (MJL_Debug_Out) {
                         std::clog << "MJL_predDebug: MJL_predictDir " << pkt->print() << " predicted column" << std::endl;
                     }
-                     */
+                    */
                 } else {
                     predictedDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
                 }
@@ -938,7 +967,7 @@ class Cache : public BaseCache
       public:
         MJL_DirPredictor(unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir/*, bool _MJL_combinePredictDir*/, bool _MJL_linkMshr)
             : blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir)/*, MJL_combinePredictDir(_MJL_combinePredictDir)*/, MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
-              threshConf(2), minConf(0), startConf(2), startPredLevel(3), maxPredLevel(7), pcTableAssoc(4), 
+              threshConf(2), minConf(0), startConf(2), startPredLevel(7), maxPredLevel(15), maxResetLevel(7), pcTableAssoc(4), 
               pcTableSets(8), MJL_predMshrSize(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
             {}
         virtual ~MJL_DirPredictor() {}
@@ -1003,6 +1032,22 @@ class Cache : public BaseCache
                     std::clog << "MJL_predDebug: MJL_mshrPredictDir create mshr " << pkt->print() << std::endl;
                 }
                 /* */
+                // If there is already a copy of the same PC recording for the same dir, and we land in the same cache line as it's cross dir, inherit it's crossBlkHits[] to avoid row biasing (this instruction loading in cross dir would have been able to bring all the crossBlkHits[])
+                for (std::list<PredictMshrEntry>::iterator it = copyPredictMshrQueue.begin(); it != --copyPredictMshrQueue.end(); it++) {
+                    if (it->pc == copyPredictMshrQueue.back().pc) {
+                        if (it->crossBlkAddr == copyPredictMshrQueue.back().crossBlkAddr && it->isSecure == copyPredictMshrQueue.back().isSecure) {
+                            for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                                copyPredictMshrQueue.back().crossBlkHits[i] |= it->crossBlkHits[i];
+                            }
+                            break;
+                        }
+                    }
+                }
+                for (std::list<PredictMshrEntry>::iterator it = copyPredictMshrQueue.begin(); it != --copyPredictMshrQueue.end(); it++) {
+                    if (it->blkAddr == copyPredictMshrQueue.back().blkAddr && it->isSecure == copyPredictMshrQueue.back().isSecure) {
+                        std::clog << "MJL_Warning: An existing copyPredictMshrQueue entry has the same block address as the one being created " << pkt->print() << std::endl;
+                    }
+                }
                 if (!MJL_linkMshr) {
                     // If the copyPredictMshrQueue is full, remove the least recently created entry (technically should happen before the insertion, but this reordering shouldn't change anything)
                     if (copyPredictMshrQueue.size() > MJL_predMshrSize) {
@@ -1056,6 +1101,7 @@ class Cache : public BaseCache
                                 victim_entry->predictLevel = startPredLevel;
                             }
                             victim_entry->lastPredDir = front_entry->blkDir;
+                            victim_entry->resetLevel = 0;
                             for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                                 victim_entry->blkHits[i] = front_entry->blkHits[i];
                                 victim_entry->crossBlkHits[i] = front_entry->crossBlkHits[i];
@@ -1159,6 +1205,7 @@ class Cache : public BaseCache
                     victim_entry->predictLevel = startPredLevel;
                 }
                 victim_entry->lastPredDir = entry_found->blkDir;
+                victim_entry->resetLevel = 0;
                 for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
                     victim_entry->blkHits[i] = entry_found->blkHits[i];
                     victim_entry->crossBlkHits[i] = entry_found->crossBlkHits[i];
@@ -1206,6 +1253,7 @@ class Cache : public BaseCache
                 entry->confidence = startConf;
                 entry->lastPredDir = predictedDir;
                 entry->predictLevel = startPredLevel;
+                entry->resetLevel = 0;
             }
         }
 
@@ -1255,6 +1303,7 @@ class Cache : public BaseCache
                         entry->stride = 0;
                         entry->confidence = startConf;
                         entry->predictLevel = startPredLevel;
+                        entry->resetLevel = 0;
                         entry->lastPredDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
                     }
                 }
