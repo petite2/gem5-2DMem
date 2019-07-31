@@ -537,7 +537,8 @@ class Cache : public BaseCache
     /* MJL_Begin */
     class MJL_DirPredictor {
       protected:
-
+        
+        Cache * cache; // Used to get access to stats
         /** The block size of the parent cache. */
         unsigned blkSize;
         const bool MJL_Debug_Out;
@@ -935,13 +936,18 @@ class Cache : public BaseCache
             int pf_predLevel = entry->pfPredictLevel;
 
             int unstable_thresh = (maxPredLevel + 1)/4;
-            bool mshr_unstable = ((mshr_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && mshr_predLevel < unstable_thresh) || (mshr_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow && mshr_predLevel > maxPredLevel-unstable_thresh));
-            bool pf_unstable = ((pf_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && pf_predLevel < unstable_thresh) || (pf_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow && pf_predLevel > maxPredLevel-unstable_thresh);
+            bool mshr_unstable = (mshr_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsInvalid || (mshr_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && mshr_predLevel < unstable_thresh) || (mshr_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow && mshr_predLevel > maxPredLevel-unstable_thresh));
+            bool pf_unstable = (pf_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsInvalid || (pf_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && pf_predLevel < unstable_thresh) || (pf_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow && pf_predLevel > maxPredLevel-unstable_thresh));
 
             MemCmd::MJL_DirAttribute predictDir = mshr_lastPredDir;
+            cache->MJL_numOfPredicts++;
             if (mshr_unstable && !pf_unstable) {
                 predictDir = pf_lastPredDir;
+                cache->MJL_numOfPfPredicts++;
+            } else {
+                cache->MJL_numOfMSHRPredicts++;
             }
+            assert(predictDir != MemCmd::MJL_DirAttribute::MJL_IsInvalid);
             return predictDir;
         }
 
@@ -989,8 +995,8 @@ class Cache : public BaseCache
         }
 
       public:
-        MJL_DirPredictor(unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir, bool _MJL_combinePredictDir, bool _MJL_linkMshr)
-            : blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), MJL_combinePredictDir(_MJL_combinePredictDir), MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
+        MJL_DirPredictor(Cache * _cache, unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir, bool _MJL_combinePredictDir, bool _MJL_linkMshr)
+            : cache(_cache), blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), MJL_combinePredictDir(_MJL_combinePredictDir), MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
               threshConf(2), minConf(0), startConf(2), startPredLevel(7), maxPredLevel(15), maxResetLevel(7), pcTableAssoc(4), 
               pcTableSets(8), MJL_predMshrSize(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
             {}
@@ -1374,7 +1380,7 @@ class Cache : public BaseCache
                         /* */
                     } else if (MJL_pfBasedPredictDir) {
                         predictedDir = MJL_pfPredict(entry);
-                    } else if (MJL_combinePredictDir)
+                    } else if (MJL_combinePredictDir) {
                         predictedDir = MJL_combinePredict(pkt_addr, entry, pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsRow)/sizeof(uint64_t), pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsColumn)/sizeof(uint64_t), pkt->isWrite());
                     } else {
                         predictedDir = MJL_stridePredict(pkt_addr, entry, pkt->MJL_getCmdDir());

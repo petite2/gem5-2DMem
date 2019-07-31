@@ -1079,6 +1079,25 @@ BaseCache::regStats()
         .desc("number of HardPF column blocks evicted w/o reference")
         .flags(nozero)
         ;
+
+    MJL_numOfPredicts
+        .name(name() + ".MJL_numOfPredicts")
+        .desc("number of orientation predictions")
+        .flags(nozero)
+        ;
+
+    MJL_numOfMSHRPredicts
+        .name(name() + ".MJL_numOfMSHRPredicts")
+        .desc("number of mshr based orientation predictions")
+        .flags(nozero)
+        ;
+
+    MJL_numOfPfPredicts
+        .name(name() + ".MJL_numOfPfPredicts")
+        .desc("number of prefetcher based orientation predictions")
+        .flags(nozero)
+        ;
+
     /* MJL_End */
 
 }

@@ -124,7 +124,7 @@ Cache::Cache(const CacheParams *p)
     */
     MJL_perPCAddrAccessCount = nullptr;
     if (MJL_predictDir) {
-        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir, MJL_combinePredictDir, MJL_linkMshr);
+        MJL_dirPredictor = new MJL_DirPredictor(this, blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir, MJL_combinePredictDir, MJL_linkMshr);
         if (this->name().find("dcache") != std::string::npos) {
             MJL_perPCAddrAccessCount = new std::map < Addr, std::map < Addr, std::map< MemCmd::MJL_DirAttribute, uint64_t > > > ();
             registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printPCAddrAccess>(this));

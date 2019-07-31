@@ -1075,6 +1075,9 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_predFalse;
     Stats::Scalar MJL_unusedRowPrefetches;
     Stats::Scalar MJL_unusedColumnPrefetches;
+    Stats::Scalar MJL_numOfPredicts;
+    Stats::Scalar MJL_numOfMSHRPredicts;
+    Stats::Scalar MJL_numOfPfPredicts;
     bool MJL_Debug_Out;
     /* MJL_End */
 
