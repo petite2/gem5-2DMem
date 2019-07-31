@@ -76,6 +76,7 @@ Cache::Cache(const CacheParams *p)
       MJL_predictDir(p->MJL_predictDir), 
       MJL_mshrPredictDir(p->MJL_mshrPredictDir), 
       MJL_pfBasedPredictDir(p->MJL_pfBasedPredictDir),
+      MJL_combinePredictDir(p->MJL_combinePredictDir),
       MJL_linkMshr(p->MJL_linkMshr),
       MJL_ignoreExtraTagCheckLatency(p->MJL_ignoreExtraTagCheckLatency), /* MJL_End */
       doFastWrites(true),
@@ -123,7 +124,7 @@ Cache::Cache(const CacheParams *p)
     */
     MJL_perPCAddrAccessCount = nullptr;
     if (MJL_predictDir) {
-        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir, MJL_linkMshr);
+        MJL_dirPredictor = new MJL_DirPredictor(blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir, MJL_combinePredictDir, MJL_linkMshr);
         if (this->name().find("dcache") != std::string::npos) {
             MJL_perPCAddrAccessCount = new std::map < Addr, std::map < Addr, std::map< MemCmd::MJL_DirAttribute, uint64_t > > > ();
             registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printPCAddrAccess>(this));
@@ -655,7 +656,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         blk = tags->accessBlock(pkt->getAddr(), pkt->isSecure(), lat, id);
     }
     // MJL_TODO: may need to change lat if vector load/store is not possible
-    if (MJL_predictDir && MJL_mshrPredictDir) {
+    if (MJL_predictDir && (MJL_mshrPredictDir || MJL_combinePredictDir)) {
         MJL_dirPredictor->MJL_updatePredictMshrQueue(pkt);
     }
     /* MJL_End */
@@ -1851,7 +1852,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                 /* MJL_Begin */
                 MSHR* MJL_newMshr = /* MJL_End */allocateMissBuffer(pkt, forward_time);
                 /* MJL_Begin */
-                if (MJL_predictDir && MJL_mshrPredictDir) {
+                if (MJL_predictDir && (MJL_mshrPredictDir || MJL_combinePredictDir)) {
                     MJL_dirPredictor->MJL_addToPredictMshrQueue(pkt, MJL_newMshr);
                 }
                 if (MJL_2DCache && MJL_2DTransferType == 1) {
@@ -2508,7 +2509,7 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (pkt->MJL_getPfPredDir() != MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
         initial_tgt->pkt->MJL_setPfPredDir(pkt->MJL_getPfPredDir());
         // If this is the L1 dcache, then the predicted direction should be added to the prediction hardware
-        if (this->name().find("dcache") != std::string::npos && MJL_predictDir && MJL_pfBasedPredictDir) {
+        if (this->name().find("dcache") != std::string::npos && MJL_predictDir && (MJL_pfBasedPredictDir || MJL_combinePredictDir)) {
             MJL_dirPredictor->MJL_updatePfPredictEntry(pkt, pkt->MJL_getPfPredDir());
         }
     }
@@ -2834,7 +2835,7 @@ Cache::recvTimingResp(PacketPtr pkt)
         schedMemSideSendEvent(clockEdge() + pkt->payloadDelay);
     } else {
         /* MJL_Begin */
-        if (MJL_predictDir && MJL_mshrPredictDir) {
+        if (MJL_predictDir && (MJL_mshrPredictDir || MJL_combinePredictDir)) {
             MJL_dirPredictor->MJL_removeFromPredictMshrQueue(mshr, MJL_targetHasPC, pkt->isUpgrade());
         }
         /* MJL_End */

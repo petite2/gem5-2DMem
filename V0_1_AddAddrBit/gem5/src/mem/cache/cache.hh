@@ -545,7 +545,7 @@ class Cache : public BaseCache
         const unsigned MJL_rowWidth;
         const bool MJL_mshrPredictDir;
         const bool MJL_pfBasedPredictDir;
-        // const bool MJL_combinePredictDir;
+        const bool MJL_combinePredictDir;
         const bool MJL_linkMshr;
 
         const int maxConf;
@@ -928,6 +928,23 @@ class Cache : public BaseCache
             return entry->pfLastPredDir;
         }
 
+        MemCmd::MJL_DirAttribute MJL_combinePredict(Addr pkt_addr, StrideEntry* entry, int pkt_rowOff, int pkt_colOff, bool isWrite) {
+            MemCmd::MJL_DirAttribute mshr_lastPredDir = MJL_mshrPredict(pkt_addr, entry, pkt_rowOff, pkt_colOff, isWrite);
+            int mshr_predLevel = entry->predictLevel;
+            MemCmd::MJL_DirAttribute pf_lastPredDir = MJL_pfPredict(entry);
+            int pf_predLevel = entry->pfPredictLevel;
+
+            int unstable_thresh = (maxPredLevel + 1)/4;
+            bool mshr_unstable = ((mshr_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && mshr_predLevel < unstable_thresh) || (mshr_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow && mshr_predLevel > maxPredLevel-unstable_thresh));
+            bool pf_unstable = ((pf_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && pf_predLevel < unstable_thresh) || (pf_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow && pf_predLevel > maxPredLevel-unstable_thresh);
+
+            MemCmd::MJL_DirAttribute predictDir = mshr_lastPredDir;
+            if (mshr_unstable && !pf_unstable) {
+                predictDir = pf_lastPredDir;
+            }
+            return predictDir;
+        }
+
         MemCmd::MJL_DirAttribute MJL_stridePredict(Addr pkt_addr, StrideEntry* entry, MemCmd::MJL_DirAttribute pkt_dir) {
             MemCmd::MJL_DirAttribute predictedDir = pkt_dir;
             int new_stride = pkt_addr - entry->lastAddr;
@@ -972,8 +989,8 @@ class Cache : public BaseCache
         }
 
       public:
-        MJL_DirPredictor(unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir/*, bool _MJL_combinePredictDir*/, bool _MJL_linkMshr)
-            : blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir)/*, MJL_combinePredictDir(_MJL_combinePredictDir)*/, MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
+        MJL_DirPredictor(unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir, bool _MJL_combinePredictDir, bool _MJL_linkMshr)
+            : blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), MJL_combinePredictDir(_MJL_combinePredictDir), MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
               threshConf(2), minConf(0), startConf(2), startPredLevel(7), maxPredLevel(15), maxResetLevel(7), pcTableAssoc(4), 
               pcTableSets(8), MJL_predMshrSize(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
             {}
@@ -981,6 +998,7 @@ class Cache : public BaseCache
 
         // Update counters on access
         void MJL_updatePredictMshrQueue(const PacketPtr pkt) {
+            assert(MJL_mshrPredictDir || MJL_combinePredictDir);
             Addr pkt_blkAddr = pkt->getBlockAddr(blkSize);
             Addr pkt_crossBlkAddr = pkt->MJL_getCrossBlockAddr(blkSize);
             bool pkt_isSecure = pkt->isSecure();
@@ -1032,6 +1050,7 @@ class Cache : public BaseCache
         }
         // Add entry to both predict queue
         void MJL_addToPredictMshrQueue(const PacketPtr pkt, const MSHR* mshr) {
+            assert(MJL_mshrPredictDir || MJL_combinePredictDir);
             if (pkt->req->hasPC()) {
                 copyPredictMshrQueue.emplace_back(pkt, mshr, blkSize);
                 /* MJL_Test */ 
@@ -1061,7 +1080,24 @@ class Cache : public BaseCache
                         std::list<PredictMshrEntry>::iterator front_entry = copyPredictMshrQueue.begin();
                         MasterID master_id = useMasterId ? front_entry->masterId : 0;
                         StrideEntry *pcTable_entry;
-                        if (pcTableHit(front_entry->pc, front_entry->isSecure, master_id, pcTable_entry)) {
+                        if (MJL_combinePredictDir && pcTableHit(front_entry->pc, front_entry->isSecure, master_id, pcTable_entry) && pcTable_entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+                            pcTable_entry->lastAddr = front_entry->accessAddr;
+                            pcTable_entry->stride = 0;
+                            pcTable_entry->confidence = startConf;
+                            if (front_entry->blkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                                pcTable_entry->predictLevel = startPredLevel + 1;
+                            } else {
+                                pcTable_entry->predictLevel = startPredLevel;
+                            }
+                            pcTable_entry->lastPredDir = front_entry->blkDir;
+                            pcTable_entry->resetLevel = 0;
+                            for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                                pcTable_entry->blkHits[i] = front_entry->blkHits[i];
+                                pcTable_entry->crossBlkHits[i] = front_entry->crossBlkHits[i];
+                            }
+                            pcTable_entry->lastRowOff = front_entry->lastRowOff;
+                            pcTable_entry->lastColOff = front_entry->lastColOff;
+                        } else if (pcTableHit(front_entry->pc, front_entry->isSecure, master_id, pcTable_entry)) {
                             pcTable_entry->lastAddr = front_entry->accessAddr;
                             // Take upgrade miss direction change into account
                             if (front_entry->wasUpgrade) {
@@ -1115,6 +1151,10 @@ class Cache : public BaseCache
                             }
                             victim_entry->lastRowOff = front_entry->lastRowOff;
                             victim_entry->lastColOff = front_entry->lastColOff;
+                            if (MJL_combinePredictDir) {
+                                victim_entry->pfLastPredDir = MemCmd::MJL_DirAttribute::MJL_IsInvalid;
+                                victim_entry->pfPredictLevel = startPredLevel;
+                            }
                         }
                         /* MJL_Test */
                         if (MJL_Debug_Out) {
@@ -1138,6 +1178,7 @@ class Cache : public BaseCache
         }
         // Remove entry from both predict queues and get predict direction
         void MJL_removeFromPredictMshrQueue(const MSHR* mshr, bool targetHasPC, bool isUpgrade) {
+            assert(MJL_mshrPredictDir || MJL_combinePredictDir);
             // software prefetch actually happened and does not have a pc... need to bypass this case since prediction cannot be made without a pc
             if (!targetHasPC) {
                 return;
@@ -1165,7 +1206,24 @@ class Cache : public BaseCache
             assert(entry_found != copyPredictMshrQueue.end());
             // Add predict direction to pc table
             master_id = useMasterId ? entry_found->masterId : 0;
-            if (pcTableHit(entry_found->pc, entry_found->isSecure, master_id, pcTable_entry)) {
+            if (MJL_combinePredictDir && pcTableHit(entry_found->pc, entry_found->isSecure, master_id, pcTable_entry) && pcTable_entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+                pcTable_entry->lastAddr = entry_found->accessAddr;
+                pcTable_entry->stride = 0;
+                pcTable_entry->confidence = startConf;
+                if (entry_found->blkDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    pcTable_entry->predictLevel = startPredLevel + 1;
+                } else {
+                    pcTable_entry->predictLevel = startPredLevel;
+                }
+                pcTable_entry->lastPredDir = entry_found->blkDir;
+                pcTable_entry->resetLevel = 0;
+                for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                    pcTable_entry->blkHits[i] = entry_found->blkHits[i];
+                    pcTable_entry->crossBlkHits[i] = entry_found->crossBlkHits[i];
+                }
+                pcTable_entry->lastRowOff = entry_found->lastRowOff;
+                pcTable_entry->lastColOff = entry_found->lastColOff;
+            } else if (pcTableHit(entry_found->pc, entry_found->isSecure, master_id, pcTable_entry)) {
                 pcTable_entry->lastAddr = entry_found->accessAddr;
                 // Take upgrade miss direction change into account
                 if (isUpgrade) {
@@ -1219,6 +1277,10 @@ class Cache : public BaseCache
                 }
                 victim_entry->lastRowOff = entry_found->lastRowOff;
                 victim_entry->lastColOff = entry_found->lastColOff;
+                if (MJL_combinePredictDir) {
+                    victim_entry->pfLastPredDir = MemCmd::MJL_DirAttribute::MJL_IsInvalid;
+                    victim_entry->pfPredictLevel = startPredLevel;
+                }
             }
 
             /* MJL_Test */
@@ -1230,7 +1292,7 @@ class Cache : public BaseCache
         }
         // Update prediction for prefetch based scheme
         void MJL_updatePfPredictEntry(const PacketPtr pkt, MemCmd::MJL_DirAttribute predictedDir) {
-            assert(MJL_pfBasedPredictDir);
+            assert(MJL_pfBasedPredictDir || MJL_combinePredictDir);
             // Get required packet info
             Addr pc = pkt->req->getPC();
             bool is_secure = pkt->isSecure();
@@ -1239,7 +1301,14 @@ class Cache : public BaseCache
             // Lookup pc-based information
             StrideEntry *entry;
 
-            if (pcTableHit(pc, is_secure, master_id, entry)) {
+            if (MJL_combinePredictDir && pcTableHit(pc, is_secure, master_id, entry) && entry->pfLastPredDir == MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+                entry->pfLastPredDir = predictedDir;
+                if (predictedDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    entry->pfPredictLevel = startPredLevel + 1;
+                } else {
+                    entry->pfPredictLevel = startPredLevel;
+                }
+            } else if (pcTableHit(pc, is_secure, master_id, entry)) {
                 if ( predictedDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && entry->pfPredictLevel < maxPredLevel) {
                     entry->pfPredictLevel++;
                 } else if ( predictedDir == MemCmd::MJL_DirAttribute::MJL_IsRow && entry->pfPredictLevel > 0) {
@@ -1262,6 +1331,17 @@ class Cache : public BaseCache
                     entry->pfPredictLevel = startPredLevel + 1;
                 } else {
                     entry->pfPredictLevel = startPredLevel;
+                }
+                if (MJL_combinePredictDir) {
+                    entry->lastPredDir = MemCmd::MJL_DirAttribute::MJL_IsInvalid;
+                    for (unsigned i = 0; i < blkSize/sizeof(uint64_t); ++i) {
+                        entry->blkHits[i] = 0;
+                        entry->crossBlkHits[i] = 0;
+                    }
+                    entry->lastRowOff = 0;
+                    entry->lastColOff = 0;
+                    entry->predictLevel = startPredLevel;
+                    entry->resetLevel = 0;
                 }
             }
         }
@@ -1294,6 +1374,8 @@ class Cache : public BaseCache
                         /* */
                     } else if (MJL_pfBasedPredictDir) {
                         predictedDir = MJL_pfPredict(entry);
+                    } else if (MJL_combinePredictDir)
+                        predictedDir = MJL_combinePredict(pkt_addr, entry, pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsRow)/sizeof(uint64_t), pkt->MJL_getDirOffset(blkSize, MemCmd::MJL_DirAttribute::MJL_IsColumn)/sizeof(uint64_t), pkt->isWrite());
                     } else {
                         predictedDir = MJL_stridePredict(pkt_addr, entry, pkt->MJL_getCmdDir());
                     }
@@ -1304,7 +1386,7 @@ class Cache : public BaseCache
                             is_secure ? "s" : "ns");
                      */
 
-                    if (!MJL_mshrPredictDir && !MJL_pfBasedPredictDir) {
+                    if (!MJL_mshrPredictDir && !MJL_pfBasedPredictDir && !MJL_combinePredictDir) {
                         StrideEntry* entry = pcTableVictim(pc, master_id);
                         entry->instAddr = pc;
                         entry->lastAddr = pkt_addr;
@@ -1325,7 +1407,7 @@ class Cache : public BaseCache
     bool MJL_predictDir;
     bool MJL_mshrPredictDir;
     bool MJL_pfBasedPredictDir;
-    // bool MJL_combinePredictDir;
+    bool MJL_combinePredictDir;
     bool MJL_linkMshr;
 
     bool MJL_ignoreExtraTagCheckLatency;

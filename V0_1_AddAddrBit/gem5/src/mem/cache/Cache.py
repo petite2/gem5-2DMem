@@ -131,6 +131,7 @@ class Cache(BaseCache):
     MJL_predictDir = Param.Bool(False, "Let direction predictor decide whether to generate miss in column or row")
     MJL_mshrPredictDir = Param.Bool(False, "Use the mshr scheme for direction predictor")
     MJL_pfBasedPredictDir = Param.Bool(False, "Use the prefetch scheme for direction predictor")
+    MJL_combinePredictDir = Param.Bool(False, "Use the combine scheme for direction predictor")
     MJL_linkMshr = Param.Bool(False, "When using mshr scheme for direction predictor, whether the observable history is linked to the MSHR's behavior")
     MJL_ignoreExtraTagCheckLatency = Param.Bool(False, "Used for debug")
     # MJL_End
