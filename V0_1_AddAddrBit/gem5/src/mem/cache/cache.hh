@@ -570,7 +570,8 @@ class Cache : public BaseCache
                             confidence(0), lastPredDir(MemCmd::MJL_DirAttribute::MJL_IsRow), 
                             blkHits{false, false, false, false, false, false, false, false}, 
                             crossBlkHits{false, false, false, false, false, false, false, false}, 
-                            lastRowOff(0), lastColOff(0), predictLevel(0), resetLevel(0)
+                            lastRowOff(0), lastColOff(0), predictLevel(0), resetLevel(0), pfLastPredDir(MemCmd::MJL_DirAttribute::MJL_IsRow),
+                            pfPredictLevel(0)
             { }
 
             Addr instAddr;
@@ -585,6 +586,8 @@ class Cache : public BaseCache
             int lastColOff;
             int predictLevel;
             int resetLevel;
+            MemCmd::MJL_DirAttribute pfLastPredDir;
+            int pfPredictLevel;
 
             MemCmd::MJL_DirAttribute MJL_getCrossLastPredDir() {
                 if (lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
@@ -921,6 +924,10 @@ class Cache : public BaseCache
             return entry->lastPredDir;
         }
 
+        MemCmd::MJL_DirAttribute MJL_pfPredict(const StrideEntry* entry) {
+            return entry->pfLastPredDir;
+        }
+
         MemCmd::MJL_DirAttribute MJL_stridePredict(Addr pkt_addr, StrideEntry* entry, MemCmd::MJL_DirAttribute pkt_dir) {
             MemCmd::MJL_DirAttribute predictedDir = pkt_dir;
             int new_stride = pkt_addr - entry->lastAddr;
@@ -1233,16 +1240,15 @@ class Cache : public BaseCache
             StrideEntry *entry;
 
             if (pcTableHit(pc, is_secure, master_id, entry)) {
-                if (entry->lastPredDir == predictedDir && entry->confidence < maxConf) {
-                    entry->confidence++;
-                } else if (entry->lastPredDir != predictedDir && entry->confidence > minConf) {
-                    entry->confidence--;
+                if ( predictedDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && entry->pfPredictLevel < maxPredLevel) {
+                    entry->pfPredictLevel++;
+                } else if ( predictedDir == MemCmd::MJL_DirAttribute::MJL_IsRow && entry->pfPredictLevel > 0) {
+                    entry->pfPredictLevel--;
                 }
-                if (entry->confidence < threshConf) {
-                    entry->lastPredDir = predictedDir;
-                }
-                if (entry->confidence == minConf) {
-                    entry->lastPredDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                if (entry->pfPredictLevel == 0) {
+                    entry->pfLastPredDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                } else if (entry->pfPredictLevel == maxPredLevel) {
+                    entry->pfLastPredDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
                 }
             } else {
                 StrideEntry* entry = pcTableVictim(pc, master_id);
@@ -1251,9 +1257,12 @@ class Cache : public BaseCache
                 entry->isSecure= is_secure;
                 entry->stride = 0;
                 entry->confidence = startConf;
-                entry->lastPredDir = predictedDir;
-                entry->predictLevel = startPredLevel;
-                entry->resetLevel = 0;
+                entry->pfLastPredDir = predictedDir;
+                if (predictedDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+                    entry->pfPredictLevel = startPredLevel + 1;
+                } else {
+                    entry->pfPredictLevel = startPredLevel;
+                }
             }
         }
 
@@ -1284,7 +1293,7 @@ class Cache : public BaseCache
                         }
                         /* */
                     } else if (MJL_pfBasedPredictDir) {
-                        predictedDir = entry->lastPredDir;
+                        predictedDir = MJL_pfPredict(entry);
                     } else {
                         predictedDir = MJL_stridePredict(pkt_addr, entry, pkt->MJL_getCmdDir());
                     }
