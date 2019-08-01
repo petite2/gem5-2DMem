@@ -129,20 +129,21 @@ BestOffsetPrefetcher::MJL_calculatePrefetch(const PacketPtr &pkt,
         if (this->prefetch_offset[MJL_triggerDir_type] != 0 && is_inside_page(page_offset + i * this->prefetch_offset[MJL_triggerDir_type]))
             addresses.push_back(AddrPriority(pf_addr, 0));
         else {
+            pfSpanPage += this->degree - i + 1;
             if (this->debug)
                 cerr << "[BOP] X and X + " << i << " * D do not lie in the same memory page, no prefetch issued"
                         << endl;
             break;
         }
     }
-    MJL_cmdDir = MJL_predictDir(block_number, pkt->MJL_getCmdDir());
+    MJL_cmdDir = MJL_predictDir(block_number, pkt->MJL_getCmdDir(), pkt->isSecure());
 
     int old_offset = this->prefetch_offset[MJL_triggerDir_type];
     /* On every eligible L2 read access (miss or prefetched hit), we test an offset di from the list. */
     if (MJL_colPf) {
-        this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table, pkt->MJL_getCmdDir());
+        this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table, pkt->MJL_getCmdDir(), pkt->isSecure());
     } else {
-        this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table, MemCmd::MJL_DirAttribute::MJL_IsRow);
+        this->prefetch_offset[MJL_triggerDir_type] = this->best_offset_learning[MJL_triggerDir_type].test_offset(block_number, recent_requests_table, MemCmd::MJL_DirAttribute::MJL_IsRow, pkt->isSecure());
     }
     if (this->debug) {
         if (old_offset != this->prefetch_offset[MJL_triggerDir_type]) {
@@ -177,7 +178,7 @@ BestOffsetPrefetcher::is_inside_page(int page_offset) {
 }
 
 MemCmd::MJL_DirAttribute 
-BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttribute MJL_cmdDir) {
+BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure) {
     MemCmd::MJL_DirAttribute MJL_predDir = MJL_cmdDir;
     int page_offset = block_number % this->blocks_in_page;
     int crossDirEnablingOffset = 64;
@@ -198,6 +199,17 @@ BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttri
         } else if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && currentOffset % (MJL_getRowWidth() * blkSize)/2 != 0) {
             MJL_predDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
         }
+    }
+
+    Addr test_addr = (block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset) * blkSize;
+    if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+        test_addr = MJL_swapRowColSegments(test_addr);
+    }
+    if (MJL_cmdDir != MJL_predDir && !MJL_inCache(test_addr, MJL_cmdDir, is_secure)) {
+        predInRRNotInCache++;
+    }
+    if (recent_requests_table.find(block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset, MJL_cmdDir) && this->best_offset_learning[MJL_triggerDir_type].is_warmed_up() && this->prefetch_offset[MJL_triggerDir_type] != 0 && ( MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow && currentOffset % (MJL_getRowWidth() * blkSize/2) == 0 || MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && currentOffset % (MJL_getRowWidth() * blkSize)/2 != 0 ) && !is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset)) {
+        predSpanPage++;
     }
     /* MJL_Test 
     Addr test_addr = MJL_movColLeft((block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset)*blkSize);
@@ -244,6 +256,25 @@ BestOffsetPrefetcher::set_debug_level(int debug_level) {
     this->best_offset_learning[0].set_debug_mode(enable);
     this->best_offset_learning[1].set_debug_mode(enable);
     this->recent_requests_table.set_debug_mode(enable);
+}
+
+void 
+BestOffsetPrefetcher::regStats() {
+    BasePrefetcher::regStats();
+
+    testInRRNotInCache
+        .name(name() + ".testInRRNotInCache")
+        .desc("number offset tests where the tested cache line is in the RR table but not in the cache")
+        ;
+    
+    predInRRNotInCache
+        .name(name() + ".predInRRNotInCache")
+        .desc("number prediction tests where the tested cache line is in the RR table but not in the cache")
+        ;
+
+    predSpanPage
+        .name(name() + ".predSpanPage")
+        .desc("number of predictions not generated due to page crossing");
 }
 
 BestOffsetPrefetcher::Table::Table(int width, int height) : width(width), height(height), cells(height, vector<string>(width)) {}
@@ -411,7 +442,7 @@ BestOffsetPrefetcher::BestOffsetLearning::BestOffsetLearning(int blocks_in_page)
     * @return The current best offset.
     */
 int 
-BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, BestOffsetPrefetcher::RecentRequestsTable &recent_requests_table, MemCmd::MJL_DirAttribute MJL_cmdDir) {
+BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, BestOffsetPrefetcher::RecentRequestsTable &recent_requests_table, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure) {
     int page_offset = block_number % this->blocks_in_page;
     Entry &entry = this->offset_list[this->index_to_test];
     bool found =
@@ -425,6 +456,13 @@ BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, Bes
         if (entry.score > this->best_score) {
             this->best_score = entry.score;
             this->local_best_offset = entry.offset;
+        }
+        Addr test_addr = (block_number - entry.offset) * blkSize;
+        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+            test_addr = MJL_swapRowColSegments(test_addr);
+        }
+        if (!MJL_inCache(test_addr, MJL_cmdDir, is_secure)) {
+            testInRRNotInCache++;
         }
     }
     this->index_to_test = (this->index_to_test + 1) % this->offset_list.size();

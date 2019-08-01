@@ -391,7 +391,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
         /**
          * @return The current best offset.
          */
-        int test_offset(uint64_t block_number, RecentRequestsTable &recent_requests_table, MemCmd::MJL_DirAttribute MJL_cmdDir);
+        int test_offset(uint64_t block_number, RecentRequestsTable &recent_requests_table, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure);
     
         std::string log();
     
@@ -439,7 +439,12 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
 
     bool is_inside_page(int page_offset);
 
-    MemCmd::MJL_DirAttribute MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttribute MJL_cmdDir);
+    MemCmd::MJL_DirAttribute MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure);
+
+    Stats::Scalar testInRRNotInCache;
+    Stats::Scalar predInRRNotInCache;
+    Stats::Scalar predSpanPage;
+
   public:
 
     BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p);
@@ -454,6 +459,8 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
     void MJL_cache_fill(Addr addr, MemCmd::MJL_DirAttribute MJL_cmdDir, bool prefetch);
 
     void set_debug_level(int debug_level);
+
+    void regStats() override;
 };
 
 #endif // __MEM_CACHE_PREFETCH_BO_HH__
