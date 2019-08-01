@@ -1097,6 +1097,24 @@ BaseCache::regStats()
         .desc("number of prefetcher based orientation predictions")
         .flags(nozero)
         ;
+    
+    MJL_numOfDiffPredicts
+        .name(name() + ".MJL_numOfDiffPredicts")
+        .desc("number of times where mshr based and prefetcher based orientation predictions differ")
+        .flags(nozero)
+        ;
+
+    MJL_numOfWarmupPredicts_MSHR
+        .name(name() + ".MJL_numOfWarmupPredicts_MSHR")
+        .desc("number of times where mshr based orientation prediction is still invalid")
+        .flags(nozero)
+        ;
+
+    MJL_numOfWarmupPredicts_Pf
+        .name(name() + ".MJL_numOfWarmupPredicts_Pf")
+        .desc("number of times where prefetcher based orientation prediction is still invalid")
+        .flags(nozero)
+        ;
 
     /* MJL_End */
 

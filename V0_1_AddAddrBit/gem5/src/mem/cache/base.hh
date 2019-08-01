@@ -1078,6 +1078,9 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_numOfPredicts;
     Stats::Scalar MJL_numOfMSHRPredicts;
     Stats::Scalar MJL_numOfPfPredicts;
+    Stats::Scalar MJL_numOfDiffPredicts;
+    Stats::Scalar MJL_numOfWarmupPredicts_MSHR;
+    Stats::Scalar MJL_numOfWarmupPredicts_Pf;
     bool MJL_Debug_Out;
     /* MJL_End */
 

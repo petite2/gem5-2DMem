@@ -947,6 +947,13 @@ class Cache : public BaseCache
             } else {
                 cache->MJL_numOfMSHRPredicts++;
             }
+            if (mshr_lastPredDir != pf_lastPredDir && mshr_lastPredDir != MemCmd::MJL_DirAttribute::MJL_IsInvalid && pf_lastPredDir != MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+                cache->MJL_numOfDiffPredicts++;
+            } else if (mshr_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+                cache->MJL_numOfWarmupPredicts_MSHR++;
+            } else if (pf_lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+                cache->MJL_numOfWarmupPredicts_Pf++;
+            }
             assert(predictDir != MemCmd::MJL_DirAttribute::MJL_IsInvalid);
             return predictDir;
         }
