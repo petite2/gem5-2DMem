@@ -208,7 +208,7 @@ BestOffsetPrefetcher::MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttri
     if (MJL_cmdDir != MJL_predDir && !MJL_inCache(test_addr, MJL_cmdDir, is_secure)) {
         predInRRNotInCache++;
     }
-    if (recent_requests_table.find(block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset, MJL_cmdDir) && this->best_offset_learning[MJL_triggerDir_type].is_warmed_up() && this->prefetch_offset[MJL_triggerDir_type] != 0 && ( MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow && currentOffset % (MJL_getRowWidth() * blkSize/2) == 0 || MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && currentOffset % (MJL_getRowWidth() * blkSize)/2 != 0 ) && !is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset)) {
+    if (recent_requests_table.find(block_number - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset, MJL_cmdDir) && this->best_offset_learning[MJL_triggerDir_type].is_warmed_up() && this->prefetch_offset[MJL_triggerDir_type] != 0 && ( (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsRow && currentOffset % (MJL_getRowWidth() * blkSize/2) == 0) || (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && currentOffset % (MJL_getRowWidth() * blkSize)/2 != 0) ) && !is_inside_page(page_offset - this->prefetch_offset[MJL_triggerDir_type] - crossDirEnablingOffset)) {
         predSpanPage++;
     }
     /* MJL_Test 

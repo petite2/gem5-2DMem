@@ -1091,6 +1091,9 @@ class Cache : public BaseCache
                     // If the copyPredictMshrQueue is full, remove the least recently created entry (technically should happen before the insertion, but this reordering shouldn't change anything)
                     if (copyPredictMshrQueue.size() > MJL_predMshrSize) {
                         std::list<PredictMshrEntry>::iterator front_entry = copyPredictMshrQueue.begin();
+                        if (front_entry->mshr != nullptr) {
+                            cache->MJL_numOfCopyMSHRQueueEvictNonResolved++;
+                        }
                         MasterID master_id = useMasterId ? front_entry->masterId : 0;
                         StrideEntry *pcTable_entry;
                         if (MJL_combinePredictDir && pcTableHit(front_entry->pc, front_entry->isSecure, master_id, pcTable_entry) && pcTable_entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsInvalid) {

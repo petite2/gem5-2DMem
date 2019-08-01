@@ -1116,6 +1116,11 @@ BaseCache::regStats()
         .flags(nozero)
         ;
 
+    MJL_numOfCopyMSHRQueueEvictNonResolved
+        .name(name() + ".MJL_numOfCopyMSHRQueueEvictNonResolved")
+        .desc("number of evictions from copyMSHRQueue where the corresponding MSHR entry hasn't been released yet")
+        .flags(nozero)
+        ;
     /* MJL_End */
 
 }
