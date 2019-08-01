@@ -386,7 +386,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
     
     class BestOffsetLearning {
       public:
-        BestOffsetLearning(int blocks_in_page);
+        BestOffsetLearning(BestOffsetPrefetcher * _pf, int blocks_in_page);
     
         /**
          * @return The current best offset.
@@ -407,6 +407,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
             int score;
         };
     
+        BestOffsetPrefetcher * pf;
         int blocks_in_page;
         std::vector<Entry> offset_list;
     

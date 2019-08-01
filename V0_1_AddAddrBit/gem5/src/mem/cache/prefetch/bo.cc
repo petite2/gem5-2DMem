@@ -54,7 +54,7 @@ using namespace std;
 
 BestOffsetPrefetcher::BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p)
     : QueuedPrefetcher(p),
-      blocks_in_page(p->blocks_in_page), 
+      blocks_in_page(this, p->blocks_in_page), 
       prefetch_offset(2, 0),
       best_offset_learning(2, {p->blocks_in_page}),
       recent_requests_table(p->recent_requests_table_size),
@@ -457,12 +457,12 @@ BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, Bes
             this->best_score = entry.score;
             this->local_best_offset = entry.offset;
         }
-        Addr test_addr = (block_number - entry.offset) * blkSize;
+        Addr test_addr = (block_number - entry.offset) * pf->blkSize;
         if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
-            test_addr = MJL_swapRowColSegments(test_addr);
+            test_addr = pf->MJL_swapRowColSegments(test_addr);
         }
-        if (!MJL_inCache(test_addr, MJL_cmdDir, is_secure)) {
-            testInRRNotInCache++;
+        if (!pf->MJL_inCache(test_addr, MJL_cmdDir, is_secure)) {
+            pf->testInRRNotInCache++;
         }
     }
     this->index_to_test = (this->index_to_test + 1) % this->offset_list.size();
