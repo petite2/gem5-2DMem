@@ -264,9 +264,19 @@ void
 BestOffsetPrefetcher::regStats() {
     QueuedPrefetcher::regStats();
 
+    testInRRTotal
+        .name(name() + ".MJL_testInRRTotal")
+        .desc("number offset tests where the tested cache line is in the RR table")
+        ;
+
     testInRRNotInCache
         .name(name() + ".MJL_testInRRNotInCache")
         .desc("number offset tests where the tested cache line is in the RR table but not in the cache")
+        ;
+    
+    accInRRNotInCache
+        .name(name() + ".MJL_accInRRNotInCache")
+        .desc("number offset tests where the tested cache line is in the RR table but the triggering access is not in the cache")
         ;
     
     predInRRNotInCache
@@ -460,11 +470,17 @@ BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, Bes
             this->local_best_offset = entry.offset;
         }
         Addr test_addr = (block_number - entry.offset) * pf->blkSize;
+        Addr acc_addr = block_number * * pf->blkSize;
         if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
             test_addr = pf->MJL_swapRowColSegments(test_addr);
+            acc_addr = pf->MJL_swapRowColSegments(test_addr);
         }
+        pf->testInRRTotal++;
         if (!pf->MJL_inCache(test_addr, MJL_cmdDir, is_secure)) {
             pf->testInRRNotInCache++;
+        }
+        if (!pf->MJL_inCache(acc_addr, MJL_cmdDir, is_secure)) {
+            pf->accInRRNotInCache++;
         }
     }
     this->index_to_test = (this->index_to_test + 1) % this->offset_list.size();

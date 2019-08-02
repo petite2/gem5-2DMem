@@ -443,7 +443,9 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
 
     MemCmd::MJL_DirAttribute MJL_predictDir(uint64_t block_number, MemCmd::MJL_DirAttribute MJL_cmdDir, bool is_secure);
 
+    Stats::Scalar testInRRTotal;
     Stats::Scalar testInRRNotInCache;
+    Stats::Scalar accInRRNotInCache;
     Stats::Scalar predInRRNotInCache;
     Stats::Scalar predSpanPage;
 
