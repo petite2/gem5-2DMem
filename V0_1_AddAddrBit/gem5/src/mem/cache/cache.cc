@@ -4725,29 +4725,31 @@ Cache::getNextQueueEntry()
                 if (tags->MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
                     MJL_pfDropped[1]++;
                 }
-                if (tags->MJL_hasCrossingDirtyOrWritable(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
+                if (tags->MJL_hasCrossingDirty(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
                     MJL_pfDropped[2]++;
                 }
-                if (mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
+                if (tags->MJL_hasCrossingDirtyOrWritable(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
                     MJL_pfDropped[3]++;
                 }
-                if (mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) {
+                if (mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
                     MJL_pfDropped[4]++;
                 }
-                if (writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
+                if (mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) {
                     MJL_pfDropped[5]++;
                 }
-                if (writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) {
+                if (writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
                     MJL_pfDropped[6]++;
                 }
-                if (tags->MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && !(tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))) || writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) ) {
+                if (writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) {
                     MJL_pfDropped[7]++;
                 }
-                if (!(tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || tags->MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) ) && (mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))) ||writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) ) {
+                if (tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) ) {
                     MJL_pfDropped[8]++;
+                } else if (tags->MJL_hasCrossingDirty(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))) ||writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) ) {
+                    MJL_pfDropped[9]++;
                 }
             }
-            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !tags->MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) &&
+            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !tags->MJL_hasCrossingDirty(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) &&
                 !mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) &&
                 !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))))) 
                || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos) && (!tags->findBlock(pf_addr, pkt->isSecure()) &&
@@ -4760,6 +4762,10 @@ Cache::getNextQueueEntry()
                 !mshrQueue.findMatch(pf_addr, pkt->isSecure()) &&
                 !writeBuffer.findMatch(pf_addr, pkt->isSecure())) {
             */
+                // Revoke writable of crossing lines
+                if (tags->MJL_hasCrossingWritableRevoked(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
+                    MJL_pfDropped[10]++;
+                }
                 // Update statistic on number of prefetches issued
                 // (hwpf_mshr_misses)
                 assert(pkt->req->masterId() < system->maxMasters());

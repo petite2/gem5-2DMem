@@ -248,6 +248,12 @@ public:
     {
         return false;
     }
+    bool MJL_hasCrossingDirty(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override {
+        return false;
+    }
+    bool MJL_hasCrossingWritableRevoked(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) override {
+        return false;
+    }
     /* MJL_End */
 
     /**

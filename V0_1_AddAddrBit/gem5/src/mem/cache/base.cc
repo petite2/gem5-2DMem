@@ -1123,20 +1123,22 @@ BaseCache::regStats()
         ;
 
     MJL_pfDropped
-        .init(9)
+        .init(11)
         .name(name() + ".MJL_pfDropped")
         .desc("Number of prefetches dropped due to coherence complications")
         .flags(total | nozero | nonan)
         ;
     MJL_pfDropped.subname(0, "inCache");
     MJL_pfDropped.subname(1, "crossInCache");
-    MJL_pfDropped.subname(2, "crossDirtyOrWritableInCache");
-    MJL_pfDropped.subname(3, "inMSHR");
-    MJL_pfDropped.subname(4, "crossInMSHR");
-    MJL_pfDropped.subname(5, "inWriteBuffer");
-    MJL_pfDropped.subname(6, "crossInWriteBuffer");
-    MJL_pfDropped.subname(7, "MDACoherenceInCache");
-    MJL_pfDropped.subname(8, "MDACoherenceInMSHRWB");
+    MJL_pfDropped.subname(2, "crossDirtyInCache");
+    MJL_pfDropped.subname(3, "crossDirtyOrWritableInCache");
+    MJL_pfDropped.subname(4, "inMSHR");
+    MJL_pfDropped.subname(5, "crossInMSHR");
+    MJL_pfDropped.subname(6, "inWriteBuffer");
+    MJL_pfDropped.subname(7, "crossInWriteBuffer");
+    MJL_pfDropped.subname(8, "1DCoherence");
+    MJL_pfDropped.subname(9, "MDACoherence");
+    MJL_pfDropped.subname(10, "hasCrossWritableRevoked");
     /* MJL_End */
 
 }

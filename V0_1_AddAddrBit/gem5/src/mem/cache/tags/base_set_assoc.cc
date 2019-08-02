@@ -221,6 +221,38 @@ BaseSetAssoc::MJL_hasCrossingDirtyOrWritable(Addr addr, CacheBlk::MJL_CacheBlkDi
             Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
             unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
             BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
+            if (blk && (blk->isDirty() || blk->MJL_wasDirty || blk->isWritable() || !blk->isReadable())) {
+                return true;
+            }
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            blkaddr = (addr & tileMask) | ((Addr)offset << MJL_colShift);
+            Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+            unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+            BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, is_secure);
+            if (blk && (blk->isDirty() || blk->MJL_wasDirty || blk->isWritable() || !blk->isReadable())) {
+                return true;
+            }
+        } else {
+            assert(MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow || MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+        }
+    } 
+    return false;
+}
+
+bool 
+BaseSetAssoc::MJL_hasCrossingDirty(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const
+{
+    assert(this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos);
+    uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+    int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+    Addr tileMask = ~((Addr)(blkSize-1) | (MJL_wordMask << MJL_colShift));
+    Addr blkaddr = addr;
+    for (unsigned offset = 0; offset < blkSize/sizeof(uint64_t); ++offset) {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            blkaddr = (addr & tileMask) | ((Addr)offset*sizeof(uint64_t)) ;
+            Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+            unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+            BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
             if (blk && (blk->isDirty() || blk->MJL_wasDirty || !blk->isReadable())) {
                 return true;
             }
@@ -237,6 +269,43 @@ BaseSetAssoc::MJL_hasCrossingDirtyOrWritable(Addr addr, CacheBlk::MJL_CacheBlkDi
         }
     } 
     return false;
+}
+
+bool 
+BaseSetAssoc::MJL_hasCrossingWritableRevoked(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure)
+{
+    assert(this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos);
+    uint64_t MJL_wordMask = blkSize/sizeof(uint64_t) - 1;
+    int MJL_colShift = floorLog2(MJL_rowWidth) + floorLog2(blkSize);
+    Addr tileMask = ~((Addr)(blkSize-1) | (MJL_wordMask << MJL_colShift));
+    Addr blkaddr = addr;
+    bool has_crossing_writable = false;
+    for (unsigned offset = 0; offset < blkSize/sizeof(uint64_t); ++offset) {
+        if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow) {
+            blkaddr = (addr & tileMask) | ((Addr)offset*sizeof(uint64_t)) ;
+            Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+            unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+            BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
+            if (blk && blk->isWritable()) {
+                blk->status &= ~BlkWritable;
+                has_crossing_writable |= true;
+                assert(!(blk->isDirty() || blk->MJL_wasDirty || !blk->isReadable()));
+            }
+        } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
+            blkaddr = (addr & tileMask) | ((Addr)offset << MJL_colShift);
+            Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+            unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
+            BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, is_secure);
+            if (blk && blk->isWritable()) {
+                blk->status &= ~BlkWritable;
+                has_crossing_writable |= true;
+                assert(!(blk->isDirty() || blk->MJL_wasDirty || !blk->isReadable()));
+            }
+        } else {
+            assert(MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsRow || MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
+        }
+    } 
+    return has_crossing_writable;
 }
 /* MJL_End */
 
