@@ -1082,6 +1082,7 @@ class BaseCache : public MemObject
     Stats::Scalar MJL_numOfWarmupPredicts_MSHR;
     Stats::Scalar MJL_numOfWarmupPredicts_Pf;
     Stats::Scalar MJL_numOfCopyMSHRQueueEvictNonResolved;
+    Stats::Vector MJL_pfDropped;
     bool MJL_Debug_Out;
     /* MJL_End */
 

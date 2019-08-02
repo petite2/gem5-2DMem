@@ -1121,6 +1121,22 @@ BaseCache::regStats()
         .desc("number of evictions from copyMSHRQueue where the corresponding MSHR entry hasn't been released yet")
         .flags(nozero)
         ;
+
+    MJL_pfDropped
+        .init(9)
+        .name(name() + ".MJL_pfDropped")
+        .desc("Number of prefetches dropped due to coherence complications")
+        .flags(total | nozero | nonan)
+        ;
+    MJL_pfDropped.subname(0, "inCache");
+    MJL_pfDropped.subname(1, "crossInCache");
+    MJL_pfDropped.subname(2, "crossDirtyOrWritableInCache");
+    MJL_pfDropped.subname(3, "inMSHR");
+    MJL_pfDropped.subname(4, "crossInMSHR");
+    MJL_pfDropped.subname(5, "inWriteBuffer");
+    MJL_pfDropped.subname(6, "crossInWriteBuffer");
+    MJL_pfDropped.subname(7, "MDACoherenceInCache");
+    MJL_pfDropped.subname(8, "MDACoherenceInMSHRWB");
     /* MJL_End */
 
 }
