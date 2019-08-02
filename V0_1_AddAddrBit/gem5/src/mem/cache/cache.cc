@@ -4718,7 +4718,7 @@ Cache::getNextQueueEntry()
             } else {
                 pf_addr = blockAlign(pkt->getAddr());
             }
-            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !tags->MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) &&
+            if (((this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) && !tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !tags->MJL_hasCrossingDirtyOrWritable(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) &&
                 !mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) &&
                 !writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) && (MJL_2DCache || !writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))))) 
                || ((this->name().find("dcache") == std::string::npos && this->name().find("l2") == std::string::npos && this->name().find("l3") == std::string::npos) && (!tags->findBlock(pf_addr, pkt->isSecure()) &&

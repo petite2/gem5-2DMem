@@ -207,6 +207,7 @@ class BaseTags : public ClockedObject
     virtual CacheBlk * MJL_findBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const = 0;
     virtual CacheBlk * MJL_findCrossBlock(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure, unsigned MJL_offset) const = 0;
     virtual bool MJL_hasCrossing(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const = 0;
+    virtual bool MJL_hasCrossingDirtyOrWritable(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const = 0;
     /* MJL_End */
 
     /**

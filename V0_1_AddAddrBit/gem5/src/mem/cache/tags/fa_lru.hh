@@ -244,6 +244,10 @@ public:
     {
         return false;
     }
+    bool MJL_hasCrossingDirtyOrWritable(Addr addr, CacheBlk::MJL_CacheBlkDir MJL_cacheBlkDir, bool is_secure) const override
+    {
+        return false;
+    }
     /* MJL_End */
 
     /**
