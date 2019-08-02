@@ -386,7 +386,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
     
     class BestOffsetLearning {
       public:
-        BestOffsetLearning(BestOffsetPrefetcher * _pf, int blocks_in_page);
+        BestOffsetLearning(int blocks_in_page);
     
         /**
          * @return The current best offset.
@@ -397,6 +397,7 @@ class BestOffsetPrefetcher : public QueuedPrefetcher
     
         void set_debug_mode(bool enable);
         bool is_warmed_up() const;
+        void set_pf(BestOffsetPrefetcher * _pf);
     
       private:
         bool is_inside_page(int page_offset);

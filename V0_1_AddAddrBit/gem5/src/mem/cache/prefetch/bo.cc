@@ -54,7 +54,7 @@ using namespace std;
 
 BestOffsetPrefetcher::BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p)
     : QueuedPrefetcher(p),
-      blocks_in_page(this, p->blocks_in_page), 
+      blocks_in_page(p->blocks_in_page), 
       prefetch_offset(2, 0),
       best_offset_learning(2, {p->blocks_in_page}),
       recent_requests_table(p->recent_requests_table_size),
@@ -64,6 +64,8 @@ BestOffsetPrefetcher::BestOffsetPrefetcher(const BestOffsetPrefetcherParams *p)
     // Don't consult stride prefetcher on instruction accesses
     onInst = false;
     std::cout << "MJL_BestOffsetPrefetcher" << std::endl;
+    best_offset_learning[0].set_pf(this);
+    best_offset_learning[1].set_pf(this);
 }
 
 void
@@ -260,20 +262,20 @@ BestOffsetPrefetcher::set_debug_level(int debug_level) {
 
 void 
 BestOffsetPrefetcher::regStats() {
-    BasePrefetcher::regStats();
+    QueuedPrefetcher::regStats();
 
     testInRRNotInCache
-        .name(name() + ".testInRRNotInCache")
+        .name(name() + ".MJL_testInRRNotInCache")
         .desc("number offset tests where the tested cache line is in the RR table but not in the cache")
         ;
     
     predInRRNotInCache
-        .name(name() + ".predInRRNotInCache")
+        .name(name() + ".MJL_predInRRNotInCache")
         .desc("number prediction tests where the tested cache line is in the RR table but not in the cache")
         ;
 
     predSpanPage
-        .name(name() + ".predSpanPage")
+        .name(name() + ".MJL_predSpanPage")
         .desc("number of predictions not generated due to page crossing");
 }
 
@@ -517,3 +519,6 @@ BestOffsetPrefetcher::BestOffsetLearning::is_warmed_up() const { return this->wa
 
 bool 
 BestOffsetPrefetcher::BestOffsetLearning::is_inside_page(int page_offset) { return (0 <= page_offset && page_offset < this->blocks_in_page); }
+
+void 
+BestOffsetPrefetcher::BestOffsetLearning::set_pf(BestOffsetPrefetcher * _pf) { this->pf = _pf;}
