@@ -470,7 +470,7 @@ BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, Bes
             this->local_best_offset = entry.offset;
         }
         Addr test_addr = (block_number - entry.offset) * pf->blkSize;
-        Addr acc_addr = block_number * * pf->blkSize;
+        Addr acc_addr = block_number * pf->blkSize;
         if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
             test_addr = pf->MJL_swapRowColSegments(test_addr);
             acc_addr = pf->MJL_swapRowColSegments(test_addr);

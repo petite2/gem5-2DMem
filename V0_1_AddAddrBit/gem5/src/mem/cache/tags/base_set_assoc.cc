@@ -221,7 +221,7 @@ BaseSetAssoc::MJL_hasCrossingDirtyOrWritable(Addr addr, CacheBlk::MJL_CacheBlkDi
             Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
             unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn);
             BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsColumn, is_secure);
-            if (blk && (blk->isDirty() || blk->MJL_wasDirty || blk->isWritable() || !blk->isReadable())) {
+            if (blk && (blk->isDirty() || blk->MJL_wasDirty || !blk->isReadable())) {
                 return true;
             }
         } else if (MJL_cacheBlkDir == CacheBlk::MJL_CacheBlkDir::MJL_IsColumn) {
@@ -229,7 +229,7 @@ BaseSetAssoc::MJL_hasCrossingDirtyOrWritable(Addr addr, CacheBlk::MJL_CacheBlkDi
             Addr tag = MJL_extractTag(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
             unsigned set = MJL_extractSet(blkaddr, CacheBlk::MJL_CacheBlkDir::MJL_IsRow);
             BlkType *blk = sets[set].MJL_findBlk(tag, CacheBlk::MJL_CacheBlkDir::MJL_IsRow, is_secure);
-            if (blk && (blk->isDirty() || blk->MJL_wasDirty || blk->isWritable() || !blk->isReadable())) {
+            if (blk && (blk->isDirty() || blk->MJL_wasDirty || !blk->isReadable())) {
                 return true;
             }
         } else {
