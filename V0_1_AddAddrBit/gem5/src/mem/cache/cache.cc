@@ -4745,7 +4745,7 @@ Cache::getNextQueueEntry()
                 }
                 if (tags->MJL_findBlock(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || mshrQueue.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || writeBuffer.MJL_findMatch(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) ) {
                     MJL_pfDropped[8]++;
-                } else if (tags->MJL_hasCrossingDirty(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))) ||writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth))))) ) {
+                } else if (tags->MJL_hasCrossingDirty(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure()) || mshrQueue.MJL_hasBlockingCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), blkSize, ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))) || writeBuffer.MJL_hasCrossing(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure(), ~(Addr(blkSize - 1) | Addr(pkt->MJL_blkMaskColumn(blkSize, pkt->req->MJL_rowWidth)))) ) {
                     MJL_pfDropped[9]++;
                 }
             }
@@ -4764,6 +4764,7 @@ Cache::getNextQueueEntry()
             */
                 // Revoke writable of crossing lines
                 if (tags->MJL_hasCrossingWritableRevoked(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
+                // if (tags->MJL_hasCrossingDirtyOrWritable(pf_addr, pkt->MJL_getCmdDir(), pkt->isSecure())) {
                     MJL_pfDropped[10]++;
                 }
                 // Update statistic on number of prefetches issued
