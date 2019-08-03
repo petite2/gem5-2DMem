@@ -470,14 +470,18 @@ BestOffsetPrefetcher::BestOffsetLearning::test_offset(uint64_t block_number, Bes
             this->local_best_offset = entry.offset;
         }
         Addr test_addr = (block_number - entry.offset) * pf->blkSize;
-        Addr acc_addr = block_number * pf->blkSize;
         if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
             test_addr = pf->MJL_swapRowColSegments(test_addr);
-            acc_addr = pf->MJL_swapRowColSegments(test_addr);
         }
         pf->testInRRTotal++;
         if (!pf->MJL_inCache(test_addr, MJL_cmdDir, is_secure)) {
             pf->testInRRNotInCache++;
+        }
+    }
+    if (is_inside_page(page_offset - this->global_best_offset) && recent_requests_table.find(block_number - this->global_best_offset, MJL_cmdDir)) {
+        Addr acc_addr = block_number * pf->blkSize;
+        if (MJL_cmdDir == MemCmd::MJL_DirAttribute::MJL_IsColumn) {
+            acc_addr = pf->MJL_swapRowColSegments(acc_addr);
         }
         if (!pf->MJL_inCache(acc_addr, MJL_cmdDir, is_secure)) {
             pf->accInRRNotInCache++;

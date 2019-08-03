@@ -5418,11 +5418,11 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         std::cout << "MJL_traceOut: " << std::hex << pkt->req->getPC() << " " << pkt->getAddr() << std::dec << " " << pkt->getSize() << std::endl;
     }
     
-    /* Test output for align-htap alignment
+    /* Test output for indirection alignment 
     if ((pkt->req->hasPC())
-        && (this->name().find("dcache") != std::string::npos) && (pkt->req->getPC() == 0x402401 || pkt->req->getPC() == 0x40280f)) {
+        && (this->name().find("dcache") != std::string::npos) && (pkt->req->getPC() >= 0x400732 && pkt->req->getPC() <= 0x400744)) {
         std::cout << "MJL_align: " << std::hex << pkt->req->getPC() << " " << pkt->getAddr() << std::dec << std::endl;
-    }*/
+    } */
 
     /* MJL_Test: Request packet information output  
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
