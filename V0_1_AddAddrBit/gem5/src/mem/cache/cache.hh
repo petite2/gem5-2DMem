@@ -1005,7 +1005,7 @@ class Cache : public BaseCache
         MJL_DirPredictor(Cache * _cache, unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir, bool _MJL_combinePredictDir, bool _MJL_linkMshr)
             : cache(_cache), blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), MJL_combinePredictDir(_MJL_combinePredictDir), MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
               threshConf(2), minConf(0), startConf(2), startPredLevel(7), maxPredLevel(15), maxResetLevel(7), pcTableAssoc(4), 
-              pcTableSets(8), MJL_predMshrSize(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
+              pcTableSets(16), MJL_predMshrSize(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
             {}
         virtual ~MJL_DirPredictor() {}
 
