@@ -987,7 +987,7 @@ class Cache : public BaseCache
 
             // Only generation if above confidence threshold
             if (entry->confidence >= threshConf) {
-                if (new_stride % ((MJL_rowWidth * blkSize) / (1 + floorLog2(entry->confidence))) == 0) {
+                if (new_stride % ((MJL_rowWidth * blkSize) / (1 + floorLog2(entry->confidence))) == 0 && (new_stride < (MJL_rowWidth * blkSize * blkSize/sizeof(uint64_t)) || pkt_dir == MemCmd::MJL_DirAttribute::MJL_IsColumn)) {
                 // if (new_stride % (MJL_rowWidth * blkSize) == 0) {
                     predictedDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
                     /* MJL_Test  
