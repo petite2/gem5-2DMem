@@ -321,9 +321,10 @@ def config_cache(options, system):
                                   , MJL_timeStep=options.MJL_timeStep\
                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
                                   , MJL_predictDir=options.MJL_predictDir\
+                                  , MJL_utilPredictDir=options.MJL_utilPredictDir\
                                   , MJL_mshrPredictDir=options.MJL_mshrPredictDir\
-                                  , MJL_pfBasedPredictDir=options.MJL_pfBasedPredictDir\
-                                  , MJL_combinePredictDir=options.MJL_combinePredictDir\
+                                  , MJL_pfBasedPredictDir=(options.MJL_pfBasedPredictDir or options.MJL_L1DpfBasedPredictDir)\
+                                  , MJL_combinePredictDir=(options.MJL_combinePredictDir or options.MJL_L1DcombinePredictDir)\
                                   , MJL_sameSetMapping=options.MJL_L1sameSetMapping\
                                   , MJL_oracleProxy=options.MJL_oracleProxy\
                                   , MJL_oracleProxyReplay=options.MJL_oracleProxyReplay\
@@ -333,6 +334,10 @@ def config_cache(options, system):
                                   # MJL_End
                                   )
             # MJL_Begin
+            if options.MJL_L1DPrefetcher:
+                dcache.prefetcher = L1StridePrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = (options.MJL_L1DpfBasedPredictDir or options.MJL_L1DcombinePredictDir))
+            if options.MJL_utilPredictDir and not options.MJL_predictDir:
+                fatal("Cannot use utilization scheme for prediction when prediction is not enabled")
             if options.MJL_mshrPredictDir and not options.MJL_predictDir:
                 fatal("Cannot use mshr scheme for prediction when prediction is not enabled")
             if options.MJL_pfBasedPredictDir and not options.MJL_predictDir:
@@ -343,7 +348,11 @@ def config_cache(options, system):
                 fatal("Cannot use prefetch scheme for prediction when prefetcher is not enabled")
             if options.MJL_mshrPredictDir and options.MJL_pfBasedPredictDir:
                 fatal("Cannot use prefetch and mshr scheme for prediction at the same time")
-            if options.MJL_combinePredictDir and (options.MJL_mshrPredictDir or options.MJL_pfBasedPredictDir):
+            if options.MJL_utilPredictDir and options.MJL_pfBasedPredictDir:
+                fatal("Cannot use prefetch and utilization scheme for prediction at the same time")
+            if options.MJL_mshrPredictDir and options.MJL_utilPredictDir:
+                fatal("Cannot use utilization and mshr scheme for prediction at the same time")
+            if options.MJL_combinePredictDir and (options.MJL_utilPredictDir or options.MJL_mshrPredictDir or options.MJL_pfBasedPredictDir):
                 fatal("Combined prediction scheme selected, no need to add individual prediction scheme flags")
             # MJL_End
 

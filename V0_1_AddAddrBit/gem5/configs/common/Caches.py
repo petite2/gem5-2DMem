@@ -99,6 +99,9 @@ class PageTableWalkerCache(Cache):
         writeback_clean = True
 
 # MJL_Begin
+class L1StridePrefetcher(StridePrefetcher):
+    type = 'StridePrefetcher'
+
 class L2StridePrefetcher(StridePrefetcher):
     type = 'StridePrefetcher'
 # MJL_End

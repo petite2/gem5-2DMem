@@ -73,7 +73,8 @@ Cache::Cache(const CacheParams *p)
     : BaseCache(p, p->system->cacheLineSize()),
       tags(p->tags),
       prefetcher(p->prefetcher),/* MJL_Begin */
-      MJL_predictDir(p->MJL_predictDir), 
+      MJL_predictDir(p->MJL_predictDir),
+      MJL_utilPredictDir(p->MJL_utilPredictDir), 
       MJL_mshrPredictDir(p->MJL_mshrPredictDir), 
       MJL_pfBasedPredictDir(p->MJL_pfBasedPredictDir),
       MJL_combinePredictDir(p->MJL_combinePredictDir),
@@ -124,7 +125,7 @@ Cache::Cache(const CacheParams *p)
     */
     MJL_perPCAddrAccessCount = nullptr;
     if (MJL_predictDir) {
-        MJL_dirPredictor = new MJL_DirPredictor(this, blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_mshrPredictDir, MJL_pfBasedPredictDir, MJL_combinePredictDir, MJL_linkMshr);
+        MJL_dirPredictor = new MJL_DirPredictor(this, blkSize, MJL_pred_Debug_Out, MJL_rowWidth, MJL_utilPredictDir, MJL_mshrPredictDir, MJL_pfBasedPredictDir, MJL_combinePredictDir, MJL_linkMshr);
         if (this->name().find("dcache") != std::string::npos) {
             MJL_perPCAddrAccessCount = new std::map < Addr, std::map < Addr, std::map< MemCmd::MJL_DirAttribute, uint64_t > > > ();
             registerExitCallback(new MakeCallback<Cache, &Cache::MJL_printPCAddrAccess>(this));
@@ -656,7 +657,7 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
         blk = tags->accessBlock(pkt->getAddr(), pkt->isSecure(), lat, id);
     }
     // MJL_TODO: may need to change lat if vector load/store is not possible
-    if (MJL_predictDir && (MJL_mshrPredictDir || MJL_combinePredictDir)) {
+    if (MJL_predictDir && (MJL_utilPredictDir || MJL_mshrPredictDir || MJL_combinePredictDir)) {
         MJL_dirPredictor->MJL_updatePredictMshrQueue(pkt);
     }
     /* MJL_End */
@@ -1852,7 +1853,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                 /* MJL_Begin */
                 MSHR* MJL_newMshr = /* MJL_End */allocateMissBuffer(pkt, forward_time);
                 /* MJL_Begin */
-                if (MJL_predictDir && (MJL_mshrPredictDir || MJL_combinePredictDir)) {
+                if (MJL_predictDir && (MJL_utilPredictDir || MJL_mshrPredictDir || MJL_combinePredictDir)) {
                     MJL_dirPredictor->MJL_addToPredictMshrQueue(pkt, MJL_newMshr);
                 }
                 if (MJL_2DCache && MJL_2DTransferType == 1) {
@@ -2508,10 +2509,10 @@ Cache::recvTimingResp(PacketPtr pkt)
     // If the prefetch directed prediction mode is active, then the predicted direction should be passed to the initial target to be passed up the cache hierarchy. But since the caches other than L1 dcache has no idea about this, just passing the direction anyway as long as it's not invalid
     if (pkt->MJL_getPfPredDir() != MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
         initial_tgt->pkt->MJL_setPfPredDir(pkt->MJL_getPfPredDir());
-        // If this is the L1 dcache, then the predicted direction should be added to the prediction hardware
-        if (this->name().find("dcache") != std::string::npos && MJL_predictDir && (MJL_pfBasedPredictDir || MJL_combinePredictDir)) {
-            MJL_dirPredictor->MJL_updatePfPredictEntry(pkt, pkt->MJL_getPfPredDir());
-        }
+    }
+    // If this is the L1 dcache, then the predicted direction should be added to the prediction hardware
+    if (this->name().find("dcache") != std::string::npos && MJL_predictDir && (MJL_pfBasedPredictDir || MJL_combinePredictDir) && initial_tgt->pkt->MJL_getPfPredDir() != MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
+        MJL_dirPredictor->MJL_updatePfPredictEntry(pkt, initial_tgt->pkt->MJL_getPfPredDir());
     }
     /* MJL_End */
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
@@ -2835,7 +2836,7 @@ Cache::recvTimingResp(PacketPtr pkt)
         schedMemSideSendEvent(clockEdge() + pkt->payloadDelay);
     } else {
         /* MJL_Begin */
-        if (MJL_predictDir && (MJL_mshrPredictDir || MJL_combinePredictDir)) {
+        if (MJL_predictDir && (MJL_utilPredictDir || MJL_mshrPredictDir || MJL_combinePredictDir)) {
             MJL_dirPredictor->MJL_removeFromPredictMshrQueue(mshr, MJL_targetHasPC, pkt->isUpgrade());
         }
         /* MJL_End */

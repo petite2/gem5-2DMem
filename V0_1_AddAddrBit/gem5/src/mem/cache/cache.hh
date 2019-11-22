@@ -544,6 +544,7 @@ class Cache : public BaseCache
         const bool MJL_Debug_Out;
 
         const unsigned MJL_rowWidth;
+        const bool MJL_utilPredictDir;
         const bool MJL_mshrPredictDir;
         const bool MJL_pfBasedPredictDir;
         const bool MJL_combinePredictDir;
@@ -801,7 +802,7 @@ class Cache : public BaseCache
                 }
             }
             
-            if (selfStrideStep != 0 && stride_match) {
+            if (selfStrideStep != 0 && stride_match && !MJL_utilPredictDir) {
                 if (selfStrideDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
                     for (int i = entry->lastRowOff + selfStrideStep; i >= 0 && i < (int) (blkSize/sizeof(uint64_t)); i += selfStrideStep) {
                         if (entry->lastPredDir == MemCmd::MJL_DirAttribute::MJL_IsRow) {
@@ -986,7 +987,8 @@ class Cache : public BaseCache
 
             // Only generation if above confidence threshold
             if (entry->confidence >= threshConf) {
-                if (new_stride % (MJL_rowWidth * blkSize) == 0) {
+                if (new_stride % ((MJL_rowWidth * blkSize) / (1 + floorLog2(entry->confidence))) == 0) {
+                // if (new_stride % (MJL_rowWidth * blkSize) == 0) {
                     predictedDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
                     /* MJL_Test  
                     if (MJL_Debug_Out) {
@@ -1002,8 +1004,8 @@ class Cache : public BaseCache
         }
 
       public:
-        MJL_DirPredictor(Cache * _cache, unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir, bool _MJL_combinePredictDir, bool _MJL_linkMshr)
-            : cache(_cache), blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), MJL_combinePredictDir(_MJL_combinePredictDir), MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
+        MJL_DirPredictor(Cache * _cache, unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_utilPredictDir, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir, bool _MJL_combinePredictDir, bool _MJL_linkMshr)
+            : cache(_cache), blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_utilPredictDir(_MJL_utilPredictDir), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), MJL_combinePredictDir(_MJL_combinePredictDir), MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
               threshConf(2), minConf(0), startConf(2), startPredLevel(7), maxPredLevel(15), maxResetLevel(7), pcTableAssoc(4), 
               pcTableSets(16), MJL_predMshrSize(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
             {}
@@ -1011,7 +1013,7 @@ class Cache : public BaseCache
 
         // Update counters on access
         void MJL_updatePredictMshrQueue(const PacketPtr pkt) {
-            assert(MJL_mshrPredictDir || MJL_combinePredictDir);
+            assert(MJL_utilPredictDir || MJL_mshrPredictDir || MJL_combinePredictDir);
             Addr pkt_blkAddr = pkt->getBlockAddr(blkSize);
             Addr pkt_crossBlkAddr = pkt->MJL_getCrossBlockAddr(blkSize);
             bool pkt_isSecure = pkt->isSecure();
@@ -1063,7 +1065,7 @@ class Cache : public BaseCache
         }
         // Add entry to both predict queue
         void MJL_addToPredictMshrQueue(const PacketPtr pkt, const MSHR* mshr) {
-            assert(MJL_mshrPredictDir || MJL_combinePredictDir);
+            assert(MJL_utilPredictDir || MJL_mshrPredictDir || MJL_combinePredictDir);
             if (pkt->req->hasPC()) {
                 copyPredictMshrQueue.emplace_back(pkt, mshr, blkSize);
                 /* MJL_Test */ 
@@ -1194,7 +1196,7 @@ class Cache : public BaseCache
         }
         // Remove entry from both predict queues and get predict direction
         void MJL_removeFromPredictMshrQueue(const MSHR* mshr, bool targetHasPC, bool isUpgrade) {
-            assert(MJL_mshrPredictDir || MJL_combinePredictDir);
+            assert(MJL_utilPredictDir || MJL_mshrPredictDir || MJL_combinePredictDir);
             // software prefetch actually happened and does not have a pc... need to bypass this case since prediction cannot be made without a pc
             if (!targetHasPC) {
                 return;
@@ -1376,7 +1378,7 @@ class Cache : public BaseCache
 
                 if (pcTableHit(pc, is_secure, master_id, entry)) {
                     // Hit in table
-                    if (MJL_mshrPredictDir) {
+                    if (MJL_utilPredictDir || MJL_mshrPredictDir) {
                         /* MJL_Test */
                         if (MJL_Debug_Out) {
                             std::clog << "MJL_predDebug: MJL_mshrPredictDir " << pkt->print() << ", lastPredDir " << entry->lastPredDir << ", predictLevel " << entry->predictLevel;
@@ -1402,7 +1404,7 @@ class Cache : public BaseCache
                             is_secure ? "s" : "ns");
                      */
 
-                    if (!MJL_mshrPredictDir && !MJL_pfBasedPredictDir && !MJL_combinePredictDir) {
+                    if (!MJL_utilPredictDir && !MJL_mshrPredictDir && !MJL_pfBasedPredictDir && !MJL_combinePredictDir) {
                         StrideEntry* entry = pcTableVictim(pc, master_id);
                         entry->instAddr = pc;
                         entry->lastAddr = pkt_addr;
@@ -1421,6 +1423,7 @@ class Cache : public BaseCache
 
     MJL_DirPredictor * MJL_dirPredictor;
     bool MJL_predictDir;
+    bool MJL_utilPredictDir;
     bool MJL_mshrPredictDir;
     bool MJL_pfBasedPredictDir;
     bool MJL_combinePredictDir;
