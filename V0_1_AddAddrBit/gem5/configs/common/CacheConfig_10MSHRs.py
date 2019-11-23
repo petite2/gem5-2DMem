@@ -321,6 +321,7 @@ def config_cache(options, system):
                                   , MJL_timeStep=options.MJL_timeStep\
                                   , MJL_has2DLLC=options.MJL_2DL2Cache\
                                   , MJL_predictDir=options.MJL_predictDir\
+                                  , MJL_1streamPredictDir=options.MJL_1streamPredictDir\
                                   , MJL_utilPredictDir=options.MJL_utilPredictDir\
                                   , MJL_mshrPredictDir=options.MJL_mshrPredictDir\
                                   , MJL_pfBasedPredictDir=(options.MJL_pfBasedPredictDir or options.MJL_L1DpfBasedPredictDir)\

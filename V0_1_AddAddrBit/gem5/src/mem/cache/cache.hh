@@ -544,6 +544,7 @@ class Cache : public BaseCache
         const bool MJL_Debug_Out;
 
         const unsigned MJL_rowWidth;
+        const bool MJL_1streamPredictDir;
         const bool MJL_utilPredictDir;
         const bool MJL_mshrPredictDir;
         const bool MJL_pfBasedPredictDir;
@@ -1004,8 +1005,8 @@ class Cache : public BaseCache
         }
 
       public:
-        MJL_DirPredictor(Cache * _cache, unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_utilPredictDir, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir, bool _MJL_combinePredictDir, bool _MJL_linkMshr)
-            : cache(_cache), blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_utilPredictDir(_MJL_utilPredictDir), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), MJL_combinePredictDir(_MJL_combinePredictDir), MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
+        MJL_DirPredictor(Cache * _cache, unsigned _blkSize, bool _MJL_Debug_Out, unsigned _MJL_rowWidth, bool _MJL_1streamPredictDir, bool _MJL_utilPredictDir, bool _MJL_mshrPredictDir, bool _MJL_pfBasedPredictDir, bool _MJL_combinePredictDir, bool _MJL_linkMshr)
+            : cache(_cache), blkSize(_blkSize), MJL_Debug_Out(_MJL_Debug_Out), MJL_rowWidth(_MJL_rowWidth), MJL_1streamPredictDir(_MJL_1streamPredictDir), MJL_utilPredictDir(_MJL_utilPredictDir), MJL_mshrPredictDir(_MJL_mshrPredictDir), MJL_pfBasedPredictDir(_MJL_pfBasedPredictDir), MJL_combinePredictDir(_MJL_combinePredictDir), MJL_linkMshr(_MJL_linkMshr), maxConf(3), 
               threshConf(2), minConf(0), startConf(2), startPredLevel(7), maxPredLevel(15), maxResetLevel(7), pcTableAssoc(4), 
               pcTableSets(16), MJL_predMshrSize(16), useMasterId(true), pcTable(pcTableAssoc, pcTableSets)
             {}
@@ -1376,6 +1377,10 @@ class Cache : public BaseCache
                 // Lookup pc-based information
                 StrideEntry *entry;
 
+                if (MJL_1streamPredictDir) {
+                    pc = 0;
+                }
+
                 if (pcTableHit(pc, is_secure, master_id, entry)) {
                     // Hit in table
                     if (MJL_utilPredictDir || MJL_mshrPredictDir) {
@@ -1423,6 +1428,7 @@ class Cache : public BaseCache
 
     MJL_DirPredictor * MJL_dirPredictor;
     bool MJL_predictDir;
+    bool MJL_1streamPredictDir;
     bool MJL_utilPredictDir;
     bool MJL_mshrPredictDir;
     bool MJL_pfBasedPredictDir;

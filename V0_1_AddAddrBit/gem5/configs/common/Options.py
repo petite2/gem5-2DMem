@@ -129,6 +129,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_2DL2TransferType", action="store", type="int", default=0, help="Set the type of transfer method from memory to L2 cache in physically 2D cache, 0 for per line on demand, 1 for whole tile")
     parser.add_option("--MJL_extra2DWrite_latency", action="store", type="int", default=0, help="Set the additional cycles needed for a physically 2D write access")
     parser.add_option("--MJL_predictDir", action="store_true", help="Let direction predictor decide whether to generate miss in column or row (in L1Dcache)")
+    parser.add_option("--MJL_1streamPredictDir", action="store_true", help="Use the 1 stream stride scheme for direction predictor (in L1Dcache)")
     parser.add_option("--MJL_utilPredictDir", action="store_true", help="Use the utilization scheme for direction predictor (in L1Dcache)")
     parser.add_option("--MJL_mshrPredictDir", action="store_true", help="Use the mshr scheme for direction predictor (in L1Dcache)")
     parser.add_option("--MJL_pfBasedPredictDir", action="store_true", help="Use the prefetch scheme for direction predictor (in L1Dcache)")
