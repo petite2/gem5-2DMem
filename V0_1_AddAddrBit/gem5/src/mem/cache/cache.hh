@@ -1000,8 +1000,18 @@ class Cache : public BaseCache
                     predictedDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
                 }
             }
-            entry->lastPredDir = predictedDir;
-            return predictedDir;
+            if (entry->confidence >= threshConf && predictedDir == MemCmd::MJL_DirAttribute::MJL_IsColumn && entry->pfPredictLevel < maxPredLevel) {
+                entry->pfPredictLevel++;
+            } else if ((entry->confidence < threshConf || predictedDir == MemCmd::MJL_DirAttribute::MJL_IsRow) && entry->pfPredictLevel > 0) {
+                entry->pfPredictLevel--;
+            }
+            if (entry->pfPredictLevel == 0) {
+                entry->lastPredDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+            } else if (entry->pfPredictLevel == maxPredLevel) {
+                entry->lastPredDir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+            }
+
+            return entry->lastPredDir;
         }
 
       public:
@@ -1419,6 +1429,7 @@ class Cache : public BaseCache
                         entry->predictLevel = startPredLevel;
                         entry->resetLevel = 0;
                         entry->lastPredDir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+                        entry->pfPredictLevel = startPredLevel;
                     }
                 }
             }
