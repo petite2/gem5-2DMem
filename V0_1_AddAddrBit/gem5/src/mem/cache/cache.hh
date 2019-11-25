@@ -1375,6 +1375,36 @@ class Cache : public BaseCache
             }
         }
 
+        void MJL_updateStride(const PacketPtr &pkt) {
+            if (observeAccess(pkt) && pkt->req->hasPC()) {
+                // Get required packet info
+                Addr pkt_addr = pkt->getAddr();
+                Addr pc = pkt->req->getPC();
+                bool is_secure = pkt->isSecure();
+                MasterID master_id = useMasterId ? pkt->req->masterId() : 0;
+                StrideEntry* entry;
+                if (MJL_1streamPredictDir) {
+                    pc = 0;
+                }
+                if (pcTableHit(pc, is_secure, master_id, entry)) {
+                    int new_stride = pkt_addr - entry->lastAddr;
+                    bool stride_match = (new_stride == entry->stride);
+
+                    // Adjust confidence for stride entry
+                    if (stride_match && new_stride != 0) {
+                        if (entry->confidence < maxConf)
+                            entry->confidence++;
+                    } else {
+                        if (entry->confidence > minConf)
+                            entry->confidence--;
+                        // If confidence has dropped below the threshold, train new stride
+                        if (entry->confidence < threshConf)
+                            entry->stride = new_stride;
+                    }
+                }
+            }
+        }
+
         MemCmd::MJL_DirAttribute MJL_predictDir(const PacketPtr &pkt) {
             MemCmd::MJL_DirAttribute predictedDir = pkt->MJL_getCmdDir();
             if (observeAccess(pkt) && pkt->req->hasPC()) {

@@ -1537,6 +1537,11 @@ Cache::recvTimingReq(PacketPtr pkt)
             if (!pkt->cmd.isSWPrefetch())
                 next_pf_time = prefetcher->notify(pkt);
         }
+        /* MJL_Begin */
+        if (true && MJL_predictDir && !(MJL_utilPredictDir || MJL_mshrPredictDir || MJL_pfBasedPredictDir || MJL_combinePredictDir)) {
+            MJL_dirPredictor->MJL_updateStride(pkt);
+        }
+        /* MJL_End */
 
         if (needsResponse) {
             pkt->makeTimingResponse();
