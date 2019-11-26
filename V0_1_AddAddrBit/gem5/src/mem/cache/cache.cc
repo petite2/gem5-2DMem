@@ -1538,7 +1538,7 @@ Cache::recvTimingReq(PacketPtr pkt)
                 next_pf_time = prefetcher->notify(pkt);
         }
         /* MJL_Begin */
-        if (true && MJL_predictDir && !(MJL_utilPredictDir || MJL_mshrPredictDir || MJL_pfBasedPredictDir || MJL_combinePredictDir)) {
+        if (false && MJL_predictDir && !(MJL_utilPredictDir || MJL_mshrPredictDir || MJL_pfBasedPredictDir || MJL_combinePredictDir)) {
             MJL_dirPredictor->MJL_updateStride(pkt);
         }
         /* MJL_End */
