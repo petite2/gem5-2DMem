@@ -121,6 +121,7 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_default_column", action="store_true", help="Set default preference of all data accesses to column")
     parser.add_option("--MJL_Prefetcher", action="store_true", help="Set Prefetcher")
     parser.add_option("--MJL_L1DPrefetcher", action="store_true", help="Set L1D$ Prefetcher")
+    parser.add_option("--MJL_L2Prefetcher", action="store_true", help="Set L2 Prefetcher")
     parser.add_option("--MJL_BingoPrefetcher", action="store_true", help="Set Prefetcher")
     parser.add_option("--MJL_BOPrefetcher", action="store_true", help="Set Prefetcher")
     parser.add_option("--MJL_VLDPrefetcher", action="store_true", help="Set Prefetcher")
@@ -149,6 +150,8 @@ def addNoISAOptions(parser):
     parser.add_option("--MJL_l1d_bloomFilterHashFuncId", type="int", default=0, help="Specify the hash function used for the bloom filter for l1 dcache")
     parser.add_option("--MJL_l2_bloomFilterHashFuncId", type="int", default=0, help="Specify the hash function used for the bloom filter for l2 cache")
     parser.add_option("--MJL_l3_bloomFilterHashFuncId", type="int", default=0, help="Specify the hash function used for the bloom filter for l3 cache")
+    parser.add_option("--MJL_fastConfig", action="store_true", help="Use the faster cache config")
+    parser.add_option("--MJL_fastConfigL2pf", action="store_true", help="Use the faster cache config with L2 instead of L3 prefetcher")
     # MJL_End
 
     # Enable Ruby
