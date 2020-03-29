@@ -120,6 +120,7 @@ class CacheBlk
     bool MJL_wordDirty[8];
     bool MJL_crossValid[8];
     bool MJL_wasDirty; // to mark the blocks that are clean but has data that's different from the next levels (dirty passed back to the upper level caches)
+    bool MJL_untouchedPrefetch;
     // For oracle proxy mode stats gathering
     std::list< Addr > * MJL_accessPCList;
     std::list< Addr > * MJL_accessAddrList;
@@ -279,6 +280,7 @@ class CacheBlk
           MJL_wordDirty{false, false, false, false, false, false, false, false},
           MJL_crossValid{false, false, false, false, false, false, false, false},
           MJL_wasDirty(false),
+          MJL_untouchedPrefetch(false),
           MJL_accessPCList(nullptr),
           MJL_accessAddrList(nullptr),
           /* MJL_End */
@@ -332,6 +334,7 @@ class CacheBlk
         lockList.clear();
         /* MJL_Begin */
         MJL_wasDirty = false; // Reset the wasDirty bit
+        MJL_untouchedPrefetch = false;
         MJL_clearAllDirty(); // Reset word dirty bits
         /* MJL_End */
     }

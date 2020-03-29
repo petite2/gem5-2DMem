@@ -1139,6 +1139,12 @@ BaseCache::regStats()
     MJL_pfDropped.subname(8, "1DCoherence");
     MJL_pfDropped.subname(9, "MDACoherence");
     MJL_pfDropped.subname(10, "hasCrossWritableRevoked");
+
+    MJL_untouchedPrefetches
+        .name(name() + ".MJL_untouchedPrefetches")
+        .desc("number of prefetched cache lines that were never touched by demand requests")
+        .flags(nozero)
+        ;
     /* MJL_End */
 
 }

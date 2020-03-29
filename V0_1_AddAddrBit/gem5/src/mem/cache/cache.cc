@@ -1532,6 +1532,13 @@ Cache::recvTimingReq(PacketPtr pkt)
                            (blk && blk->wasPrefetched()))) {
             if (blk)
                 blk->status &= ~BlkHWPrefetched;
+            /* MJL_Begin */
+            // if was untouched prefetch, it is now untouched
+            if (blk && blk->MJL_untouchedPrefetch) {
+                MJL_untouchedPrefetches--;
+                blk->MJL_untouchedPrefetch = false;
+            }
+            /* MJL_End */
 
             // Don't notify on SWPrefetch
             if (!pkt->cmd.isSWPrefetch())
@@ -2520,6 +2527,11 @@ Cache::recvTimingResp(PacketPtr pkt)
     if (this->name().find("dcache") != std::string::npos && MJL_predictDir && (MJL_pfBasedPredictDir || MJL_combinePredictDir) && initial_tgt->pkt->MJL_getPfPredDir() != MemCmd::MJL_DirAttribute::MJL_IsInvalid) {
         MJL_dirPredictor->MJL_updatePfPredictEntry(pkt, initial_tgt->pkt->MJL_getPfPredDir());
     }
+    // If hardware prefetched and has no mshr hit demand requests, it is untouched prefetch
+    bool untouchedPrefetch = false;
+    if (initial_tgt->source == MSHR::Target::FromPrefetcher && blk && mshr->getNumTargets() == 1) {
+        untouchedPrefetch = true;
+    }
     /* MJL_End */
     MSHR::TargetList targets = mshr->extractServiceableTargets(pkt);
     for (auto &target: targets) {
@@ -2688,6 +2700,12 @@ Cache::recvTimingResp(PacketPtr pkt)
             assert(tgt_pkt->cmd == MemCmd::HardPFReq);
             if (blk)
                 blk->status |= BlkHWPrefetched;
+            /* MJL_Begin */
+            if (blk && untouchedPrefetch) {
+                MJL_untouchedPrefetches++;
+                blk->MJL_untouchedPrefetch = true;
+            }
+            /* MJL_End */
             delete tgt_pkt->req;
             delete tgt_pkt;
             break;
