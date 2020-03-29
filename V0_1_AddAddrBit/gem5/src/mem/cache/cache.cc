@@ -1125,6 +1125,32 @@ Cache::access(PacketPtr pkt, CacheBlk *&blk, Cycles &lat,
             }
              */
         }
+        /* MJL_Test */ 
+        // Try to fix the wrong cross check when pkt has cross mshr hit (the actural access is in cross direction)
+        Addr mshr_check_blk_addr = MJL_blockAlign(pkt->getAddr(), pkt->MJL_getCmdDir());
+        MSHR *mshr_check_mshr = pkt->req->isUncacheable() ? nullptr :
+            mshrQueue.MJL_findMatch(mshr_check_blk_addr, pkt->MJL_getCmdDir(), pkt->isSecure());
+
+        if ( (!mshr_check_mshr) && (pkt->getSize() <= sizeof(uint64_t))) {
+            MemCmd::MJL_DirAttribute mshr_check_cross_dir;
+            if (pkt->MJL_cmdIsRow()) {
+                mshr_check_cross_dir = MemCmd::MJL_DirAttribute::MJL_IsColumn;
+            } else if (pkt->MJL_cmdIsColumn()) {
+                mshr_check_cross_dir = MemCmd::MJL_DirAttribute::MJL_IsRow;
+            } else {
+                assert( pkt->MJL_cmdIsRow() || pkt->MJL_cmdIsColumn() );
+            }
+            
+            mshr_check_blk_addr = MJL_blockAlign(pkt->getAddr(), mshr_check_cross_dir);
+            mshr_check_mshr = pkt->req->isUncacheable() ? nullptr :
+                    mshrQueue.MJL_findMatch(mshr_check_blk_addr, mshr_check_cross_dir, pkt->isSecure());
+            
+            if (mshr_check_mshr) {
+                pkt->cmd.MJL_setCmdDir(mshr_check_cross_dir);
+                pkt->MJL_setDataDir(mshr_check_cross_dir);
+            }
+        }
+        /* */
         bool MJL_crossFullHit = true;
         bool MJL_crossHit = false;
         bool MJL_hasCrossBlk = false;
@@ -5204,6 +5230,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
     //     MJL_debugOutFlag = true;
     // }
     if ( cache->MJL_Debug_Out && (this->name().find("dcache") != std::string::npos
+    // if ( (this->name().find("dcache") != std::string::npos
              || this->name().find("l2") != std::string::npos
              || this->name().find("l3") != std::string::npos)
             //  && (pkt->req->hasPC() && pkt->req->getPC() >= 0x407360 && pkt->req->getPC() <=0x4074ab )
@@ -5215,7 +5242,7 @@ Cache::CpuSidePort::recvTimingReq(PacketPtr pkt)
             // && (pkt->getAddr() >= 0x16d4000 && pkt->getAddr() < 0x16d8000 )
             // && (pkt->req->hasPC() && pkt->req->getPC() >= 0x44eb30 && pkt->req->getPC() <=0x44f00b )
         ) {
-        std::clog << this->name() << "::MJL_Debug: recvTimingReq " << pkt->print() << std::endl;
+        std::clog << cache->curCycle() << ":" << this->name() << "::MJL_Debug: recvTimingReq " << pkt->print() << std::endl;
     }
     /* */
     /* MJL_TODO 
@@ -5443,11 +5470,11 @@ Cache::CpuSidePort::recvAtomic(PacketPtr pkt)
         std::cout << "MJL_traceOut: " << std::hex << pkt->req->getPC() << " " << pkt->getAddr() << std::dec << " " << pkt->getSize() << std::endl;
     }
     
-    /* Test output for indirection alignment 
+    /* Test output for indirection-unrolled and qDyn-sweep-unrolled alignment  
     if ((pkt->req->hasPC())
-        && (this->name().find("dcache") != std::string::npos) && (pkt->req->getPC() >= 0x400732 && pkt->req->getPC() <= 0x400744)) {
+        && (this->name().find("dcache") != std::string::npos) && (pkt->req->getPC() == 0x40075c || pkt->req->getPC() == 0x400aae)) {
         std::cout << "MJL_align: " << std::hex << pkt->req->getPC() << " " << pkt->getAddr() << std::dec << std::endl;
-    } */
+    }  */
 
     /* MJL_Test: Request packet information output  
     if (this->name().find("dcache") != std::string::npos || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos) {
@@ -5870,13 +5897,14 @@ CacheParams::create()
 bool
 Cache::MemSidePort::recvTimingResp(PacketPtr pkt)
 {
-    /* MJL_Test */ 
-    if ( cache->MJL_Debug_Out && ( this->name().find("dcache") != std::string::npos
+    /* MJL_Test  
+    // if ( cache->MJL_Debug_Out && ( this->name().find("dcache") != std::string::npos
+    if ( ( this->name().find("dcache") != std::string::npos
          || this->name().find("l2") != std::string::npos || this->name().find("l3") != std::string::npos 
        )) {
-        std::clog << this->name() << "MJL_predDebug: recvTimingResp " << pkt->print() << std::endl;
+        std::clog << cache->curCycle() << ":" << this->name() << "MJL_predDebug: recvTimingResp " << pkt->print() << std::endl;
     }
-    /* */
+     */
     cache->recvTimingResp(pkt);
     return true;
 }

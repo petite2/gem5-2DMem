@@ -147,16 +147,27 @@ def config_cache(options, system):
         else:
             MJL_l2_ignore_extra_tag_check_latecy = options.MJL_noLatOverhead
 
+        if options.MJL_fastConfig or options.MJL_fastConfigL2pf:
+            MJL_l2_tag_latency = 11
+            MJL_l2_data_latency = 11
+            MJL_l2_response_latency = 11
+            MJL_l2_sequential_access = False
+        else:
+            MJL_l2_tag_latency = 6
+            MJL_l2_data_latency = 9
+            MJL_l2_response_latency = 15
+            MJL_l2_sequential_access = True
+
         system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
                                    size=options.l2_size,
                                    assoc=options.l2_assoc\
                                    # MJL_Begin
-                                   , tag_latency=6\
-                                   , data_latency=9\
-                                   , response_latency=15\
+                                   , tag_latency=MJL_l2_tag_latency\
+                                   , data_latency=MJL_l2_data_latency\
+                                   , response_latency=MJL_l2_response_latency\
                                    , MJL_timeStep=options.MJL_timeStep\
                                    , MJL_has2DLLC=options.MJL_2DL2Cache\
-                                   , sequential_access=True\
+                                   , sequential_access=MJL_l2_sequential_access\
                                    , MJL_sameSetMapping=options.MJL_L2sameSetMapping\
                                    , MJL_oracleProxy=options.MJL_oracleProxy\
                                    , MJL_oracleProxyReplay=options.MJL_oracleProxyReplay\
@@ -166,6 +177,9 @@ def config_cache(options, system):
                                    # MJL_End
                                    )
 
+        if options.MJL_L2Prefetcher:
+            system.l2.prefetcher = BestOffsetPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = False) 
+        
         if options.MJL_L3sameSetMapping:
             MJL_l3_ignore_extra_tag_check_latecy = options.MJL_L3sameSetMapping
         else:
@@ -182,9 +196,14 @@ def config_cache(options, system):
                 l3_tag_lat = 8
                 l3_resp_lat = 22
         if options.l3_size in ["8MB"]:
-            l3_tag_lat = 10
-            l3_data_lat = 20
-            l3_resp_lat = 30
+            if options.MJL_fastConfig or options.MJL_fastConfigL2pf:
+                l3_tag_lat = 11
+                l3_data_lat = 23
+                l3_resp_lat = 34
+            else:
+                l3_tag_lat = 10
+                l3_data_lat = 20
+                l3_resp_lat = 30
         system.l3 = l2_cache_class(clk_domain=system.cpu_clk_domain,
                                    size=options.l3_size,
                                    assoc=options.l3_assoc\
@@ -227,7 +246,10 @@ def config_cache(options, system):
         if options.MJL_Prefetcher:
             system.l3.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = options.MJL_pfBasedPredictDir) 
         if options.MJL_BOPrefetcher:
-            system.l3.prefetcher = BestOffsetPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = ( options.MJL_combinePredictDir or options.MJL_pfBasedPredictDir)) 
+            if options.MJL_fastConfigL2pf:
+                system.l2.prefetcher = BestOffsetPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = ( options.MJL_combinePredictDir or options.MJL_pfBasedPredictDir)) 
+            else:
+                system.l3.prefetcher = BestOffsetPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = ( options.MJL_combinePredictDir or options.MJL_pfBasedPredictDir)) 
         if options.MJL_BingoPrefetcher:
             system.l3.prefetcher = BingoPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = options.MJL_pfBasedPredictDir)
         if options.MJL_VLDPrefetcher:
@@ -288,7 +310,10 @@ def config_cache(options, system):
         if options.MJL_Prefetcher:
             system.l3.prefetcher = L2StridePrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = options.MJL_pfBasedPredictDir) 
         if options.MJL_BOPrefetcher:
-            system.l3.prefetcher = BestOffsetPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = ( options.MJL_combinePredictDir or options.MJL_pfBasedPredictDir)) 
+            if options.MJL_fastConfigL2pf:
+                system.l2.prefetcher = BestOffsetPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = ( options.MJL_combinePredictDir or options.MJL_pfBasedPredictDir)) 
+            else:
+                system.l3.prefetcher = BestOffsetPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = ( options.MJL_combinePredictDir or options.MJL_pfBasedPredictDir)) 
         if options.MJL_BingoPrefetcher:
             system.l3.prefetcher = BingoPrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = options.MJL_pfBasedPredictDir)
         if options.MJL_VLDPrefetcher:
@@ -336,7 +361,7 @@ def config_cache(options, system):
                                   )
             # MJL_Begin
             if options.MJL_L1DPrefetcher:
-                dcache.prefetcher = L1StridePrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = (options.MJL_L1DpfBasedPredictDir or options.MJL_L1DcombinePredictDir))
+                dcache.prefetcher = L1StridePrefetcher(MJL_colPf = options.MJL_colPf, MJL_pfBasedPredictDir = False)
             if options.MJL_utilPredictDir and not options.MJL_predictDir:
                 fatal("Cannot use utilization scheme for prediction when prediction is not enabled")
             if options.MJL_mshrPredictDir and not options.MJL_predictDir:
